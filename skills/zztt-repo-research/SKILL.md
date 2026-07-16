@@ -13,10 +13,11 @@ description: ZZTT 仓库与代码调研阶段。仅当用户明确指定 $zztt-r
 
 ## 开始前
 
-1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md` 和 `evidence-rules.md`。
-2. 读取 `meta.json` 与 `00-requirement.md`。
-3. 运行 `prepare-stage --stage repo_research`，让 CLI 重新校验需求产物。
-4. 如果 P0、文件缺失或结构校验失败，停止调研并报告上游修复点。
+1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md`、`evidence-rules.md`、`capability-fallback.md` 和 `document-authority-and-corrections.md`。
+2. 完整读取本阶段 `references/advanced-playbook.md`，按可用工具选择增强或标准降级路径。
+3. 读取 `meta.json` 与 `00-requirement.md`。
+4. 运行 `prepare-stage --stage repo_research`，让 CLI 重新校验需求产物。
+5. 如果 P0、文件缺失或结构校验失败，停止调研并报告上游修复点。
 
 ## 调研顺序
 
@@ -28,6 +29,8 @@ description: ZZTT 仓库与代码调研阶段。仅当用户明确指定 $zztt-r
 6. 明确区分 Guard 条件与真实业务依赖。字段只出现在非空检查中，不代表它参与结果计算。
 7. 检查旧链路副作用、调用方和反向影响，给出可直接复用、需扩展、仅参考、禁止复用或必须新增的结论。
 8. 按仓库列出 API/DTO、服务逻辑、SQL、配置、消息、任务、测试和发布依赖。
+
+开始源码分析前先确认仓库边界、主项目和依赖仓库，并探测远程仓库、CodeGraph 与本地 checkout 能力。增强工具不可用时执行标准降级，记录索引新鲜度、pending 文件、未覆盖范围和证据置信度。
 
 ## 数据源一致性
 
@@ -44,7 +47,7 @@ description: ZZTT 仓库与代码调研阶段。仅当用户明确指定 $zztt-r
 
 每个重要结论标注证据等级：Proven、Framework inferred、Requirement claim、Runtime dependent 或 Unknown。
 
-Proven 结论记录仓库、文件、行号或符号。源码不能证明配置、运行 Bean、消息状态或远程服务时，记录运行时验证缺口，不把推断写成事实。
+Proven 结论记录仓库、文件、行号或符号。重要判断进入 Claim Ledger，并记录反证、证据覆盖度和待验证动作。源码不能证明配置、运行 Bean、消息状态或远程服务时，记录运行时验证缺口，不把推断写成事实。
 
 ## 完成
 

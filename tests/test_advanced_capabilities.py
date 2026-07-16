@@ -101,5 +101,59 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
                 self.assertIn("工具与降级记录", text)
 
 
+class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
+    def test_research_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-repo-research")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_research_playbook_covers_repository_archaeology(self) -> None:
+        text = read_reference("zztt-repo-research", "advanced-playbook.md")
+        for token in (
+            "仓库边界",
+            "主项目",
+            "远程仓库",
+            "本地 checkout",
+            "CodeGraph",
+            "索引新鲜度",
+            "跨仓库",
+            "旧链路副作用",
+            "Claim Ledger",
+            "反证",
+            "证据覆盖度",
+            "运行时验证",
+        ):
+            self.assertIn(token, text)
+
+    def test_research_playbook_defines_tool_fallbacks(self) -> None:
+        text = read_reference("zztt-repo-research", "advanced-playbook.md")
+        for token in (
+            "远程优先",
+            "CodeGraph 不可用",
+            "rg",
+            "逐层源码",
+            "pending",
+        ):
+            self.assertIn(token, text)
+
+    def test_research_template_has_traceable_claim_ledger(self) -> None:
+        text = (
+            SKILLS
+            / "zztt-workflow-shared"
+            / "assets"
+            / "templates"
+            / "full"
+            / "01-research.md"
+        ).read_text(encoding="utf-8")
+        for token in (
+            "结论 ID",
+            "证据 ID",
+            "反证",
+            "覆盖度",
+            "工具与降级记录",
+            "待验证动作",
+        ):
+            self.assertIn(token, text)
+
+
 if __name__ == "__main__":
     unittest.main()
