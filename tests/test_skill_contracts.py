@@ -131,7 +131,6 @@ class ExecutionSkillContractTest(unittest.TestCase):
             "03-tasks.md",
         ):
             self.assertIn(token, text)
-
     def test_implementation_enforces_backend_guardrails(self) -> None:
         text = read_skill("zztt-implementation")
         for token in (
@@ -143,6 +142,50 @@ class ExecutionSkillContractTest(unittest.TestCase):
             "04-implementation.md",
         ):
             self.assertIn(token, text)
+
+
+class SupportingSkillContractTest(unittest.TestCase):
+    def test_java_standard_covers_team_guardrails(self) -> None:
+        text = read_skill("zztt-java-backend-standard")
+        self.assertEqual(
+            "zztt-java-backend-standard",
+            frontmatter_value(text, "name"),
+        )
+        for token in (
+            "项目约束",
+            "局部一致性",
+            "保留既有注释",
+            "@JsonProperty",
+            "@JsonAlias",
+            "ObjectMapper",
+            "N+1",
+            "循环远程调用",
+            "单一关系源",
+            "-Dsmart-doc.phase=verify",
+            "java-backend-guidelines.md",
+        ):
+            self.assertIn(token, text)
+
+    def test_code_simplification_is_optional_and_phase_neutral(self) -> None:
+        text = read_skill("zztt-code-simplification")
+        self.assertEqual("zztt-code-simplification", frontmatter_value(text, "name"))
+        for token in (
+            "仅当用户明确指定",
+            "不属于固定流程",
+            "不推进",
+            "行为保持",
+            "当前 diff",
+            "指定提交",
+            "文件",
+            "符号",
+            "auxiliary",
+        ):
+            self.assertIn(token, text)
+
+    def test_supporting_skills_stay_under_500_lines(self) -> None:
+        for name in ("zztt-java-backend-standard", "zztt-code-simplification"):
+            with self.subTest(name=name):
+                self.assertLess(len(read_skill(name).splitlines()), 500)
 
     def test_code_review_is_read_only_and_evidence_first(self) -> None:
         text = read_skill("zztt-code-review")
