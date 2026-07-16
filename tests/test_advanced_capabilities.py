@@ -155,5 +155,53 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
 
+class TechnicalDesignAdvancedCapabilityTest(unittest.TestCase):
+    def test_design_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-technical-design")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_design_playbook_covers_reviewable_backend_design(self) -> None:
+        text = read_reference("zztt-technical-design", "advanced-playbook.md")
+        for token in (
+            "设计输入清单",
+            "高影响歧义",
+            "当前代码基线",
+            "候选方案",
+            "未采用理由",
+            "Mermaid",
+            "时序图",
+            "接口明细",
+            "错误码",
+            "幂等",
+            "索引",
+            "事务",
+            "缓存",
+            "数据迁移",
+            "灰度",
+            "监控",
+            "回滚",
+        ):
+            self.assertIn(token, text)
+
+    def test_design_template_exposes_advanced_review_sections(self) -> None:
+        text = (
+            SKILLS
+            / "zztt-workflow-shared"
+            / "assets"
+            / "templates"
+            / "full"
+            / "02-design.md"
+        ).read_text(encoding="utf-8")
+        for token in (
+            "设计取舍与未采用方案",
+            "图表与实现映射",
+            "数据迁移",
+            "附件索引",
+            "扩展性与维护性",
+            "性能、安全与质量",
+        ):
+            self.assertIn(token, text)
+
+
 if __name__ == "__main__":
     unittest.main()

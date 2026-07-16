@@ -13,9 +13,10 @@ description: ZZTT 后端技术方案阶段。仅当用户明确指定 $zztt-tech
 
 ## 开始前
 
-1. 读取共享 `workflow-protocol.md`、`evidence-rules.md`。
-2. 运行 `prepare-stage --stage technical_design`，重新校验 `00-requirement.md` 和 `01-research.md`。
-3. 读取项目约束和与设计落点相关的真实代码。调研结论无法支持关键设计时，先回到上游补证据。
+1. 读取共享 `workflow-protocol.md`、`evidence-rules.md`、`capability-fallback.md` 和 `document-authority-and-corrections.md`。
+2. 完整读取本阶段 `references/advanced-playbook.md`。
+3. 运行 `prepare-stage --stage technical_design`，重新校验 `00-requirement.md` 和 `01-research.md`。
+4. 读取项目约束和与设计落点相关的真实代码。调研结论无法支持关键设计时，先回到上游补证据。
 
 ## 设计顺序
 
@@ -28,6 +29,8 @@ description: ZZTT 后端技术方案阶段。仅当用户明确指定 $zztt-tech
 7. 设计存储、查询、索引、事务、缓存、MQ、异步和历史数据处理。
 8. 写清发布顺序、灰度、监控、发布与回滚策略。
 9. 给出主链路、边界、异常、兼容、性能和异步测试策略。
+
+重要设计决策使用 `Dxx`，引用调研 Claim Ledger 中的 `Cxx`。真实取舍要列候选方案、未采用理由、边界和验证方式；接口或 SQL 详细附件可以写入 `auxiliary/`，但主方案必须保留最终契约和附件索引。
 
 ## 方案原则
 
@@ -42,7 +45,7 @@ description: ZZTT 后端技术方案阶段。仅当用户明确指定 $zztt-tech
 
 `02-design.md` 必须覆盖：输入与代码基线、需求差距、设计决策、身份/状态/职责、主流程、接口契约、存储查询、代码落点、发布与回滚、可观测性、测试策略、风险与任务交接。
 
-接口和 SQL 是本阶段主文档的组成部分，不生成与 `02-design.md` 竞争权威性的平行方案。
+接口和 SQL 是本阶段主文档的组成部分。详细接口、DDL 或图表可作为 `auxiliary/` 附件，但不生成与 `02-design.md` 竞争权威性的平行方案。
 
 ## 完成
 
