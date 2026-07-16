@@ -1,0 +1,41 @@
+{
+  "skill_name": "zztt-backend-workflow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "$zztt-requirement-clarification 我们要新增学习报告导出，需求材料里有 PRD、页面截图和一张状态流转图，请按 full 处理。",
+      "expected_output": "只执行需求澄清，创建 full 的 00-requirement.md，区分事实、推断、冲突和 P0/P1/P2；不得生成 research、design 或代码，最后仅推荐 zztt-repo-research。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "$zztt-repo-research 继续调研 .zztt/features/20260716-learning-report，重点确认导出数据最终来自哪个查询、跨了哪些仓库。",
+      "expected_output": "重新校验 00-requirement.md，只生成 01-research.md；追到真实入口、调用链、最终数据源和关键参数，按仓库给证据等级与运行时缺口，不写技术方案。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "$zztt-technical-design 根据已完成的需求和调研，设计新增 zValue 字段及批量查询改造。",
+      "expected_output": "只生成 02-design.md；包含 Jackson @JsonProperty 与绑定测试、批量查询和数据源一致性、发布回滚及测试策略，不引入未经证明的 fallback。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "$zztt-implementation 这是 quick 文案修正，按 .zztt/quick/20260716-copy-fix 的边界实现，Review 暂时不做。",
+      "expected_output": "重新校验 quick 需求，先在 01-implementation.md 写简短执行计划，再做最小代码改动和局部验证；不得自动调用 Review 或测试。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "$zztt-code-review 检查本次实现是否和需求、方案、任务一致，只做评审不要修改代码。",
+      "expected_output": "默认只读，基于 Git diff 和完整调用链生成代码评审主产物，问题包含优先级、代码位置、失败条件和证据；不得自动修复。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "$zztt-code-simplification 简化最近一次提交，但不要改业务行为，也不要推进当前 ZZTT 需求状态。",
+      "expected_output": "只做行为保持型简化，检查复用、复杂度、效率和抽象；不修改 meta.json，不占固定阶段编号，关联需求时仅写 auxiliary 记录。",
+      "files": []
+    }
+  ]
+}
