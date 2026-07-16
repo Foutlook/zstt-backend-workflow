@@ -244,5 +244,56 @@ class TaskBreakdownAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
 
+class ImplementationAdvancedCapabilityTest(unittest.TestCase):
+    def test_implementation_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-implementation")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_implementation_playbook_covers_safe_execution(self) -> None:
+        text = read_reference("zztt-implementation", "advanced-playbook.md")
+        for token in (
+            "范围冻结",
+            "失败信号",
+            "最小实现顺序",
+            "任务状态",
+            "并行安全评估",
+            "Codex 子任务",
+            "冲突文件",
+            "主上下文复核",
+            "分组验证",
+            "上游回写",
+        ):
+            self.assertIn(token, text)
+
+    def test_implementation_parallelism_stays_inside_current_stage(self) -> None:
+        text = read_reference("zztt-implementation", "advanced-playbook.md")
+        for token in (
+            "用户明确要求",
+            "当前实现阶段",
+            "prepare-stage",
+            "complete-stage",
+            "不得自动执行下一阶段",
+        ):
+            self.assertIn(token, text)
+
+    def test_implementation_templates_capture_execution_evidence(self) -> None:
+        for mode, artifact in (
+            ("full", "04-implementation.md"),
+            ("quick", "01-implementation.md"),
+        ):
+            with self.subTest(mode=mode):
+                text = (
+                    SKILLS
+                    / "zztt-workflow-shared"
+                    / "assets"
+                    / "templates"
+                    / mode
+                    / artifact
+                ).read_text(encoding="utf-8")
+                self.assertIn("范围冻结", text)
+                self.assertIn("失败信号", text)
+                self.assertIn("工具与降级记录", text)
+
+
 if __name__ == "__main__":
     unittest.main()

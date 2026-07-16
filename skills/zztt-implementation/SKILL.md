@@ -13,11 +13,12 @@ description: ZZTT Java 后端编码实现阶段。仅当用户明确指定 $zztt
 
 ## 开始前
 
-1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md`。
+1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md`、`capability-fallback.md` 和 `document-authority-and-corrections.md`。
 2. 完整读取 `../zztt-java-backend-standard/SKILL.md` 及其要求的参考章节。
-3. 运行 `prepare-stage --stage implementation`，让 CLI 重新校验上游。
-4. full 读取 `00`–`03` 主产物；quick 读取 `00-requirement.md`，并先在实现产物写简短执行计划。
-5. 检查 Git 状态，保留用户已有改动，不使用破坏性命令回滚。
+3. 完整读取本阶段 `references/advanced-playbook.md`。
+4. 运行 `prepare-stage --stage implementation`，让 CLI 重新校验上游。
+5. full 读取 `00`–`03` 主产物；quick 读取 `00-requirement.md`，并先在实现产物写简短执行计划。
+6. 检查 Git 状态，保留用户已有改动，不使用破坏性命令回滚。
 
 ## 实现顺序
 
@@ -26,6 +27,8 @@ description: ZZTT Java 后端编码实现阶段。仅当用户明确指定 $zztt
 3. 写最小实现，运行局部验证，再继续下一项。
 4. 同步记录实际文件、任务状态、命令和结果。
 5. 发现实现需要偏离需求、调研、方案、接口或 SQL 时停止；先让用户确认并回写权威产物。
+
+full 按任务状态、依赖、关键路径和 L0/L1/L2 执行。只有用户明确要求或批准、任务写集独立且工具可用时，才在当前实现阶段启用可选 Codex 子任务；主上下文必须建立文件锁并复核全部结果。
 
 ## Java 后端硬门禁
 
