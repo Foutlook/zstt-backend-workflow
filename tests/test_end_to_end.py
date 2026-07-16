@@ -134,10 +134,12 @@ class WorkflowEndToEndTest(unittest.TestCase):
         eval_path = ROOT / "evals" / "evals.json"
         data = json.loads(eval_path.read_text(encoding="utf-8"))
         self.assertEqual("zztt-backend-workflow", data["skill_name"])
-        self.assertGreaterEqual(len(data["evals"]), 4)
+        self.assertGreaterEqual(len(data["evals"]), 12)
         for item in data["evals"]:
             self.assertIn("prompt", item)
             self.assertIn("expected_output", item)
+            self.assertIn("forbidden_output", item)
+            self.assertTrue(item["forbidden_output"])
 
 
 if __name__ == "__main__":

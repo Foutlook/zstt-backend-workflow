@@ -102,6 +102,23 @@
 | 个人风格命名和个人偏好规则 | 明确排除 | 只保留可解释、可验证的团队 Java 后端规范 |
 | 用辅助文档替代阶段主产物 | 明确排除 | `auxiliary/` 只承载细节和历史，不能形成第二权威结论 |
 
+## 验证测试索引
+
+| 能力域 | 主要验证测试 |
+|---|---|
+| 共享能力探测、证据和产物权威 | `SharedAdvancedCapabilityContractTest` |
+| 混合材料需求澄清 | `RequirementAdvancedCapabilityTest` |
+| 跨仓库与 CodeGraph 降级调研 | `RepositoryResearchAdvancedCapabilityTest` |
+| 完整 Java 后端技术方案 | `TechnicalDesignAdvancedCapabilityTest` |
+| 任务覆盖和并行安全 | `TaskBreakdownAdvancedCapabilityTest` |
+| 实现编排和主上下文复核 | `ImplementationAdvancedCapabilityTest` |
+| 幻觉审计与 Review 轮次 | `CodeReviewAdvancedCapabilityTest` |
+| 环境化测试和六类差异归因 | `TestVerifyAdvancedCapabilityTest` |
+| 行为保持型代码简化 | `CodeSimplificationAdvancedCapabilityTest` |
+| README、能力矩阵和高级评测 | `DocumentationAndEvalContractTest` |
+| 阶段门禁和 full/quick 兼容性 | `WorkflowCliGateTest`、`WorkflowEndToEndTest` |
+| UTF-8 无 BOM 和 Skill 长度 | `ProjectStructureTest`、`test_skill_contracts` |
+
 ## 回归要求
 
 任何高级能力调整都必须同时更新 Skill 正文或 playbook、对应模板（如有）、本矩阵和 `evals/evals.json`。契约测试负责检查能力关键词、显式边界、UTF-8 无 BOM、评测数量和禁止行为字段，避免能力静默丢失。
