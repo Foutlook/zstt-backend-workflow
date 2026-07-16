@@ -13,10 +13,11 @@ description: ZZTT 正式需求任务拆分阶段。仅当用户明确指定 $zzt
 
 ## 开始前
 
-1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md`。
-2. 运行 `prepare-stage --stage task_breakdown`，重新校验需求、调研和方案。
-3. 读取 `00-requirement.md`、`01-research.md`、`02-design.md`，建立覆盖矩阵。
-4. 发现方案缺少代码落点、接口契约、数据设计或验证策略时，停止拆分并回到方案阶段修正。
+1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md` 和 `document-authority-and-corrections.md`。
+2. 完整读取本阶段 `references/advanced-playbook.md`。
+3. 运行 `prepare-stage --stage task_breakdown`，重新校验需求、调研和方案。
+4. 读取 `00-requirement.md`、`01-research.md`、`02-design.md` 和被主方案索引的辅助附件，建立覆盖矩阵。
+5. 发现方案缺少代码落点、接口契约、数据设计或验证策略时，停止拆分并回到方案阶段修正。
 
 ## 拆分规则
 
@@ -42,7 +43,7 @@ description: ZZTT 正式需求任务拆分阶段。仅当用户明确指定 $zzt
 
 ## 并行判断
 
-首版不自动启动多 Agent。仍需判断并行安全，避免把会修改同一 Java 文件、Mapper XML、配置、SQL 或接口契约的任务标为可并行。
+先判断 L0/L1/L2 并行等级。首版不自动启动 Codex 子任务；L2 只在用户明确要求或批准当前阶段可选并行时准备执行者分配，且必须保证 Java 文件、Mapper XML、配置、SQL 和接口契约写集不重叠。
 
 ## 完成
 

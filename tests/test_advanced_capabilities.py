@@ -203,5 +203,46 @@ class TechnicalDesignAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
 
+class TaskBreakdownAdvancedCapabilityTest(unittest.TestCase):
+    def test_task_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-task-breakdown")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_task_playbook_covers_execution_orchestration(self) -> None:
+        text = read_reference("zztt-task-breakdown", "advanced-playbook.md")
+        for token in (
+            "覆盖矩阵",
+            "关键路径",
+            "阻塞点",
+            "并行等级",
+            "冲突文件",
+            "接口",
+            "SQL",
+            "测试映射",
+            "精确验证命令",
+            "预期信号",
+        ):
+            self.assertIn(token, text)
+
+    def test_task_template_exposes_parallel_safety_fields(self) -> None:
+        text = (
+            SKILLS
+            / "zztt-workflow-shared"
+            / "assets"
+            / "templates"
+            / "full"
+            / "03-tasks.md"
+        ).read_text(encoding="utf-8")
+        for token in (
+            "L0/L1/L2",
+            "关键路径",
+            "冲突文件",
+            "允许修改",
+            "禁止修改",
+            "预期信号",
+        ):
+            self.assertIn(token, text)
+
+
 if __name__ == "__main__":
     unittest.main()
