@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
@@ -430,6 +431,61 @@ class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
             "不得自动触发固定流程",
         ):
             self.assertIn(token, text)
+
+
+class DocumentationAndEvalContractTest(unittest.TestCase):
+    def test_capability_matrix_maps_sources_status_and_boundaries(self) -> None:
+        text = (ROOT / "docs" / "advanced-capability-matrix.md").read_text(
+            encoding="utf-8"
+        )
+        for token in (
+            "agent-skills",
+            "ggg-backend-skills",
+            "已融合",
+            "适配后融合",
+            "明确排除",
+            "自动串行阶段",
+            "自动推进",
+            "自动 commit/push/merge/deploy",
+            "无边界并行",
+            "个人风格命名",
+            "zztt-code-simplification",
+        ):
+            self.assertIn(token, text)
+
+    def test_readme_explains_advanced_capability_contract(self) -> None:
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        for token in (
+            "高级能力",
+            "能力探测",
+            "增强路径",
+            "标准降级",
+            "唯一权威主产物",
+            "auxiliary/",
+            "不会自动执行",
+        ):
+            self.assertIn(token, text)
+
+    def test_evals_cover_advanced_and_forbidden_behaviors(self) -> None:
+        data = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(data["evals"]), 12)
+        corpus = json.dumps(data, ensure_ascii=False)
+        for token in (
+            "混合材料",
+            "CodeGraph 不可用",
+            "跨仓库",
+            "候选方案",
+            "冲突文件",
+            "实现偏差",
+            "幻觉审计",
+            "缺少 token",
+            "Jackson 绑定",
+            "代码简化",
+        ):
+            self.assertIn(token, corpus)
+        for item in data["evals"]:
+            self.assertIn("forbidden_output", item)
+            self.assertTrue(item["forbidden_output"])
 
 
 if __name__ == "__main__":
