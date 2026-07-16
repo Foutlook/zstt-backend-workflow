@@ -102,5 +102,73 @@ class AnalysisSkillContractTest(unittest.TestCase):
                 self.assertLess(len(read_skill(name).splitlines()), 500)
 
 
+class ExecutionSkillContractTest(unittest.TestCase):
+    SKILL_NAMES = (
+        "zztt-task-breakdown",
+        "zztt-implementation",
+        "zztt-code-review",
+        "zztt-test-verify",
+    )
+
+    def test_skill_frontmatter_and_explicit_selection(self) -> None:
+        for name in self.SKILL_NAMES:
+            with self.subTest(name=name):
+                text = read_skill(name)
+                self.assertEqual(name, frontmatter_value(text, "name"))
+                self.assertIn("仅当用户明确指定", text)
+                self.assertIn("不得自动执行推荐的下一阶段", text)
+                self.assertIn("workflow-protocol.md", text)
+                self.assertLess(len(text.splitlines()), 500)
+
+    def test_task_breakdown_is_traceable_and_executable(self) -> None:
+        text = read_skill("zztt-task-breakdown")
+        for token in (
+            "来源依据",
+            "预期文件",
+            "依赖",
+            "完成标准",
+            "验证命令",
+            "03-tasks.md",
+        ):
+            self.assertIn(token, text)
+
+    def test_implementation_enforces_backend_guardrails(self) -> None:
+        text = read_skill("zztt-implementation")
+        for token in (
+            "N+1",
+            "循环远程调用",
+            "无关重构",
+            "保留既有注释",
+            "zztt-java-backend-standard",
+            "04-implementation.md",
+        ):
+            self.assertIn(token, text)
+
+    def test_code_review_is_read_only_and_evidence_first(self) -> None:
+        text = read_skill("zztt-code-review")
+        for token in (
+            "默认只读",
+            "需求、方案、任务与实现",
+            "最终数据源",
+            "P0/P1/P2/P3",
+            "05-code-review.md",
+        ):
+            self.assertIn(token, text)
+
+    def test_test_verify_classifies_differences(self) -> None:
+        text = read_skill("zztt-test-verify")
+        for token in (
+            "需求歧义",
+            "方案遗漏",
+            "实现偏差",
+            "测试用例偏差",
+            "环境/数据问题",
+            "覆盖不足",
+            "证据链",
+            "06-test-report.md",
+        ):
+            self.assertIn(token, text)
+
+
 if __name__ == "__main__":
     unittest.main()
