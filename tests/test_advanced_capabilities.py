@@ -62,5 +62,44 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
             self.assertIn(token, text)
 
 
+class RequirementAdvancedCapabilityTest(unittest.TestCase):
+    def test_requirement_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-requirement-clarification")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_requirement_playbook_covers_advanced_clarification(self) -> None:
+        text = read_reference(
+            "zztt-requirement-clarification",
+            "advanced-playbook.md",
+        )
+        for token in (
+            "混合材料",
+            "PDF",
+            "截图",
+            "流程图",
+            "输入盘点",
+            "冲突扫描",
+            "多轮澄清",
+            "确认日志",
+            "不可读范围",
+            "quick/full",
+        ):
+            self.assertIn(token, text)
+
+    def test_requirement_templates_record_material_and_tool_boundaries(self) -> None:
+        for mode in ("full", "quick"):
+            with self.subTest(mode=mode):
+                text = (
+                    SKILLS
+                    / "zztt-workflow-shared"
+                    / "assets"
+                    / "templates"
+                    / mode
+                    / "00-requirement.md"
+                ).read_text(encoding="utf-8")
+                self.assertIn("材料可读性与冲突", text)
+                self.assertIn("工具与降级记录", text)
+
+
 if __name__ == "__main__":
     unittest.main()

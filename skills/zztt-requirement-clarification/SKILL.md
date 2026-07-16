@@ -14,9 +14,10 @@ description: ZZTT 需求澄清阶段。仅当用户明确指定 $zztt-requiremen
 ## 开始前
 
 1. 以 UTF-8 读取项目 `AGENTS.md` 和用户提供的全部材料。
-2. 完整读取 `../zztt-workflow-shared/references/workflow-protocol.md`。
-3. 确认业务仓库根目录、需求名和 quick/full 模式。用户未指定模式时只问这一项，不替用户选择。
-4. 使用共享 CLI 初始化目录；已有目录时读取 `meta.json` 和现有 `00-requirement.md`，继续回写而不覆盖。
+2. 完整读取 `../zztt-workflow-shared/references/workflow-protocol.md`、`capability-fallback.md` 和 `document-authority-and-corrections.md`。
+3. 完整读取本阶段 `references/advanced-playbook.md`，按实际输入类型执行相关检查。
+4. 确认业务仓库根目录、需求名和 quick/full 模式。用户未指定模式时只问这一项，不替用户选择。
+5. 使用共享 CLI 初始化目录；已有目录时读取 `meta.json` 和现有 `00-requirement.md`，继续回写而不覆盖。
 
 ## 澄清范围
 
@@ -28,6 +29,8 @@ description: ZZTT 需求澄清阶段。仅当用户明确指定 $zztt-requiremen
 - 状态流转、重复操作、并发、空数据和历史数据；
 - 旧链路复用边界、必须保留或禁止触发的副作用；
 - 主路径、边界、异常和权限相关验收标准。
+
+先做输入盘点和材料可读性检查。PDF、截图、表格、流程图等关键材料必须实际读取或记录不可读范围、影响和补充动作；随后执行跨材料冲突扫描和风险驱动的多轮澄清。
 
 ## 事实与问题管理
 
