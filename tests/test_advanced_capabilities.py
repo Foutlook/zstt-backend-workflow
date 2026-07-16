@@ -399,5 +399,38 @@ class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
                 self.assertIn("测试轮次", text)
 
 
+class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
+    def test_simplification_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-code-simplification")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_simplification_playbook_covers_cleanup_workflow(self) -> None:
+        text = read_reference("zztt-code-simplification", "advanced-playbook.md")
+        for token in (
+            "范围优先级",
+            "Code Reuse",
+            "Simplification",
+            "Efficiency",
+            "Abstraction Level",
+            "可选并行分析",
+            "候选项去重",
+            "统一应用",
+            "行为不变",
+            "修改前后使用同一组验证",
+        ):
+            self.assertIn(token, text)
+
+    def test_simplification_playbook_keeps_phase_and_risk_boundaries(self) -> None:
+        text = read_reference("zztt-code-simplification", "advanced-playbook.md")
+        for token in (
+            "不修改 `.zztt/meta.json`",
+            "报告模式",
+            "跳过",
+            "疑似 Bug",
+            "不得自动触发固定流程",
+        ):
+            self.assertIn(token, text)
+
+
 if __name__ == "__main__":
     unittest.main()
