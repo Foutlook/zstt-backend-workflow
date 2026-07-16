@@ -334,5 +334,70 @@ class CodeReviewAdvancedCapabilityTest(unittest.TestCase):
                 self.assertIn("逐文件变更", text)
 
 
+class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
+    def test_test_verify_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-test-verify")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_test_verify_playbook_covers_environmental_verification(self) -> None:
+        text = read_reference("zztt-test-verify", "advanced-playbook.md")
+        for token in (
+            "测试资产优先级",
+            "环境",
+            "token",
+            "权限",
+            "前置数据",
+            "JSON 入参",
+            "Jackson 绑定",
+            "API",
+            "SQL",
+            "异步验证",
+            "测试轮次",
+            "原始执行记录",
+        ):
+            self.assertIn(token, text)
+
+    def test_test_verify_playbook_preserves_six_difference_categories(self) -> None:
+        text = read_reference("zztt-test-verify", "advanced-playbook.md")
+        for token in (
+            "需求歧义",
+            "方案遗漏",
+            "实现偏差",
+            "测试用例偏差",
+            "环境/数据问题",
+            "覆盖不足",
+        ):
+            self.assertIn(token, text)
+
+    def test_test_verify_missing_capabilities_cannot_fake_success(self) -> None:
+        text = read_reference("zztt-test-verify", "advanced-playbook.md")
+        for token in (
+            "缺少环境",
+            "缺少 token",
+            "标准降级",
+            "不得伪造",
+            "不得给出通过",
+        ):
+            self.assertIn(token, text)
+
+    def test_test_verify_templates_capture_rounds_and_raw_execution(self) -> None:
+        for mode, artifact in (
+            ("full", "06-test-report.md"),
+            ("quick", "03-test-report.md"),
+        ):
+            with self.subTest(mode=mode):
+                text = (
+                    SKILLS
+                    / "zztt-workflow-shared"
+                    / "assets"
+                    / "templates"
+                    / mode
+                    / artifact
+                ).read_text(encoding="utf-8")
+                self.assertIn("环境与能力", text)
+                self.assertIn("原始执行记录", text)
+                self.assertIn("测试轮次", text)
+
+
 if __name__ == "__main__":
     unittest.main()

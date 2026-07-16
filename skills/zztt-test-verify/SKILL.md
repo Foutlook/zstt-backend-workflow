@@ -13,9 +13,10 @@ description: ZZTT Java 后端测试验证阶段。仅当用户明确指定 $zztt
 
 ## 开始前
 
-1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md` 和 `evidence-rules.md`。
-2. 运行 `prepare-stage --stage test_verify`，重新校验必需上游。quick 可以不执行 Review；Review 产物一旦存在就必须通过校验。
-3. 盘点需求、方案、实现、测试用例、缺陷、环境、数据和运行证据。
+1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md`、`evidence-rules.md`、`capability-fallback.md` 和 `document-authority-and-corrections.md`。
+2. 完整读取 `references/advanced-playbook.md`，按其中的模式分流、能力探测、凭证安全、执行证据和差异归因规则工作。
+3. 运行 `prepare-stage --stage test_verify`，重新校验必需上游。quick 可以不执行 Review；Review 产物一旦存在就必须通过校验。
+4. 盘点需求、方案、实现、测试用例、缺陷、环境、数据和运行证据。
 
 ## 验证顺序
 
@@ -25,6 +26,8 @@ description: ZZTT Java 后端测试验证阶段。仅当用户明确指定 $zztt
 4. 对失败或高风险项追到直接失败点、真实调用链、最终数据源/计算点和关键参数。
 5. 执行与风险相称的编译、单测、接口、主链路、SQL、异步和回归验证。
 6. 每个未测场景写明原因；关键场景失败或未测时不得给出“通过”。
+
+测试前先探测实际可用环境、token 角色、权限、前置数据和测试资产。工具或运行条件缺失时执行标准降级，保留未验证边界，不得伪造测试结果。
 
 ## 差异分类
 
@@ -41,7 +44,7 @@ description: ZZTT Java 后端测试验证阶段。仅当用户明确指定 $zztt
 
 ## 主产物
 
-full 写 `06-test-report.md`，quick 写 `03-test-report.md`。必须记录应测场景、映射、执行结果、差异证据链、覆盖缺口和交付结论。
+full 写 `06-test-report.md`，quick 写 `03-test-report.md`。它是当前阶段唯一权威主产物，必须记录应测场景、映射、环境与能力、原始执行记录、测试轮次、差异证据链、覆盖缺口和交付结论。详细轮次可写入 `auxiliary/test-rounds/`，但必须由主产物索引且不得覆盖主结论。
 
 交付结论只能是：建议交付、有条件交付、暂缓交付或无法判断，并写清依据、阻塞项和重新判断条件。
 
@@ -56,4 +59,6 @@ full 写 `06-test-report.md`，quick 写 `03-test-report.md`。必须记录应�
 
 - 不把环境问题改成业务兼容逻辑。
 - 不把“测试通过”直接等同于覆盖充分或可以发布。
+- 不泄露完整 token、Cookie、Authorization、账号或密码。
+- 不把未执行、阻塞或降级验证写成通过。
 - 不执行提交、推送、合并或部署。
