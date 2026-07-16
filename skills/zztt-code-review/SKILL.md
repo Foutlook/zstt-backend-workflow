@@ -13,10 +13,11 @@ description: ZZTT Java 后端代码评审阶段。仅当用户明确指定 $zztt
 
 ## 开始前
 
-1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md` 和 `evidence-rules.md`。
+1. 读取 `../zztt-workflow-shared/references/workflow-protocol.md`、`evidence-rules.md`、`capability-fallback.md` 和 `document-authority-and-corrections.md`。
 2. 读取 `../zztt-java-backend-standard/SKILL.md` 及相关参考。
-3. 运行 `prepare-stage --stage code_review`，重新校验上游。
-4. 读取当前 Git diff、完整被改文件、相关调用方、测试和实现记录。不要只看局部 diff。
+3. 完整读取本阶段 `references/advanced-playbook.md`。
+4. 运行 `prepare-stage --stage code_review`，重新校验上游。
+5. 读取当前 Git diff、完整被改文件、相关调用方、测试和实现记录。不要只看局部 diff。
 
 ## 评审顺序
 
@@ -27,6 +28,7 @@ description: ZZTT Java 后端代码评审阶段。仅当用户明确指定 $zztt
 5. 检查接口、DTO/Jackson、SQL、事务、状态、权限、异常、兼容、并发和安全。
 6. 检查 N+1、循环远程调用、批量性能、无效抽象和过度设计。
 7. 检查注释保留、关键原因注释、日志/Trace 和验证证据是否真实。
+8. 执行幻觉审计；范围足够大且工具可用时可进行只读专项并行审查，但所有候选问题必须由主上下文复核。
 
 ## 问题输出
 
@@ -41,7 +43,7 @@ description: ZZTT Java 后端代码评审阶段。仅当用户明确指定 $zztt
 
 ## 主产物
 
-full 写 `05-code-review.md`，quick 写 `02-code-review.md`。报告包含评审输入、一致性矩阵、真实执行链、问题清单、Java 质量检查、验证复核和结论。
+full 写 `05-code-review.md`，quick 写 `02-code-review.md`。报告包含评审输入、一致性矩阵、真实执行链、幻觉审计、问题清单、Java 质量检查、验证复核和结论；详细 Review 轮次可写入 `auxiliary/review-rounds/`，主产物保持当前权威结论。
 
 ## 完成
 

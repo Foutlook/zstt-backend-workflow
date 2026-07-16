@@ -295,5 +295,44 @@ class ImplementationAdvancedCapabilityTest(unittest.TestCase):
                 self.assertIn("工具与降级记录", text)
 
 
+class CodeReviewAdvancedCapabilityTest(unittest.TestCase):
+    def test_review_skill_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-code-review")
+        self.assertIn("references/advanced-playbook.md", text)
+
+    def test_review_playbook_covers_hallucination_and_rounds(self) -> None:
+        text = read_reference("zztt-code-review", "advanced-playbook.md")
+        for token in (
+            "范围冻结",
+            "未跟踪业务文件",
+            "一致性矩阵",
+            "幻觉审计",
+            "专项并行审查",
+            "问题去重",
+            "位置复核",
+            "Review 轮次",
+            "修复复审",
+        ):
+            self.assertIn(token, text)
+
+    def test_review_templates_capture_audit_and_rounds(self) -> None:
+        for mode, artifact in (
+            ("full", "05-code-review.md"),
+            ("quick", "02-code-review.md"),
+        ):
+            with self.subTest(mode=mode):
+                text = (
+                    SKILLS
+                    / "zztt-workflow-shared"
+                    / "assets"
+                    / "templates"
+                    / mode
+                    / artifact
+                ).read_text(encoding="utf-8")
+                self.assertIn("幻觉审计", text)
+                self.assertIn("Review 轮次", text)
+                self.assertIn("逐文件变更", text)
+
+
 if __name__ == "__main__":
     unittest.main()
