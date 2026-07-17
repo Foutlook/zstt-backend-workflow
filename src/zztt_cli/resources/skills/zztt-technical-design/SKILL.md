@@ -47,11 +47,18 @@ description: ZZTT 后端技术方案阶段。仅当用户明确指定 $zztt-tech
 
 接口和 SQL 是本阶段主文档的组成部分。详细接口、DDL 或图表可作为 `auxiliary/` 附件，但不生成与 `02-design.md` 竞争权威性的平行方案。
 
+## 状态与定稿边界
+
+- 高影响歧义、关键证据缺口或开放 P0 尚未关闭时，只能输出标注为“评审草案”的 `02-design.md`。草案可以记录已确认基线、候选方案、暂定建议、影响范围和一个可直接回答的确认问题，但不得把待确认 `Dxx` 当成最终契约。
+- 只有上游产物仍然有效、P0 为零、必需章节有实质内容且最终 `Dxx` 均可追溯到有效 `Cxx` 时，才允许声明正式方案。用户要求立即交稿不能改变证据或问题状态。
+- 用户只要求补充或修改局部章节时，更新主产物并重新校验整份方案；不得因局部内容完成而沿用旧的 `completed` 状态。
+
 ## 完成
 
 1. 更新 frontmatter 为真实状态和问题数量。
-2. 运行 `complete-stage --stage technical_design`。
-3. 输出核心设计、产物路径和开放风险，推荐 `$zztt-task-breakdown`。
+2. 仍是评审草案时保持 `status: draft`，输出草案结论、产物路径、开放风险和阻塞项，并按缺口推荐 `$zztt-requirement-clarification` 或 `$zztt-repo-research`；不运行完成命令，不推荐任务拆分。
+3. 满足定稿条件后运行 `complete-stage --stage technical_design`。命令失败时恢复 `draft`，记录失败原因和复验动作，不手工修改 `meta.json` 伪造完成。
+4. 只有完成命令成功后，才声明技术方案阶段完成并推荐 `$zztt-task-breakdown`；同时输出核心设计、产物路径和开放风险。
 
 ## 禁止事项
 
