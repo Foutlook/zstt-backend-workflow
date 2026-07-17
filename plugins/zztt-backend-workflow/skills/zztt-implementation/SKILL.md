@@ -50,12 +50,14 @@ full 更新 `04-implementation.md`；quick 更新 `01-implementation.md`。至�
 - 注释、Jackson、数据源、N+1、异常和兼容自检；
 - 测试或验证命令、退出码和关键结果。
 
-## 完成
+## 完成门禁
 
 1. 运行与风险相称的编译、单测或局部验证。Maven 项目若 smart-doc 绑定早期生命周期，业务验证命令传 `-Dsmart-doc.phase=verify`。
-2. 更新 frontmatter 为真实状态与问题数量。
-3. 运行 `complete-stage --stage implementation`。
-4. 输出实际改动、验证结果和产物路径，推荐 `$zztt-code-review`。
+2. 单项任务只有在本轮改动、验证命令和结果均可归因时才记为 `done`；既存失败必须有“改动前已失败且失败链路不受本轮影响”的证据，否则按未闭环处理。
+3. 只要存在任务 `blocked`、待确认的上游偏差、P0、关键验证失败/未执行或失败归因不清，就保持 `status: draft`，更新真实问题数量和解除条件，不运行完成命令，也不把局部完成表述为阶段完成。
+4. 仅当范围内任务全部 `done`、P0 为 0 且风险相称的验证闭环后，才设 `status: completed` 并运行 `complete-stage --stage implementation`。
+5. 完成命令失败时立即停止，将 frontmatter 恢复为 `draft`，保留实现与验证证据并记录失败原因和重试条件；不得手改 `meta.json` 或宣称阶段完成。
+6. 只有完成命令成功后，才输出阶段完成、实际改动、验证结果和产物路径，并推荐 `$zztt-code-review`；不得自动执行。
 
 ## 禁止事项
 
