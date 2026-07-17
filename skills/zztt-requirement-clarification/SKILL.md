@@ -57,11 +57,12 @@ quick 按以下顺序收敛，不复刻 full 的逐项访谈：
 
 ## 完成
 
-1. 重算真实的 P0/P1/P2 数量；仍有 P0 时保持 `status: draft`，交付当前阻塞项并继续澄清，不运行完成命令。
+1. 重算真实的 P0/P1/P2 数量；仍有 P0 时保持 `status: draft`，不运行完成命令。用户暂停时结束当前澄清轮次，交付阻塞状态，等待新证据后再继续。
 2. 仅当 P0 清零且完成检查通过后，才把 frontmatter 更新为 `status: completed`。
 3. 运行 `complete-stage --stage requirement_clarification`。
 4. CLI 失败时继续澄清或修正文档，不手改 `meta.json`。
-5. 交付 `00-requirement.md` 路径、澄清结论、开放风险，并推荐 `$zztt-repo-research`。
+5. 仅在 CLI 成功后交付 `00-requirement.md` 路径、澄清结论、开放风险，并推荐 `$zztt-repo-research`。
+6. P0 阻塞或 CLI 失败时，交付当前文档路径、真实状态、阻塞或失败原因和解锁动作，不推荐执行下游阶段。
 
 ## 禁止事项
 
