@@ -47,7 +47,7 @@ description: ZZTT Java 后端代码评审阶段。仅当用户明确指定 $zztt
 - P2：边界、性能、可维护性或测试缺口；
 - P3：低风险但值得修正的问题。
 
-每条问题必须包含代码位置、失败条件、影响、证据链和最小修复方向。没有可操作问题时明确写“未发现阻塞性问题”，不要为了显得严格而制造建议。
+每条问题必须包含代码位置、失败条件、影响、证据链和最小修复方向。没有任何需要修改的问题时才写“未发现需要修改的问题”；仅 P0 为零但仍有 P1/P2/P3 时必须完整列出，不能写成无问题。不要为了显得严格而制造建议。
 
 ## 主产物
 
@@ -61,10 +61,10 @@ full 写 `05-code-review.md`，quick 写 `02-code-review.md`。报告包含评�
 
 ## 完成
 
-1. 有 P0 时将 `blocking_p0_count` 设为真实数量；P1/P2/P3 在正文完整列出。
-2. 只有不存在 P0 且评审结论可交付时才设置 `status: completed`。
-3. 运行 `complete-stage --stage code_review`。
-4. 有问题时推荐 `$zztt-implementation`；通过时推荐 `$zztt-test-verify`。
+1. 重算 P0/P1/P2/P3；有 P0 时保持 `status: draft`，交付阻塞问题和解锁动作，不运行完成命令。
+2. 仅当 P0 为零且评审结论可交付时才设置 `status: completed`，并运行 `complete-stage --stage code_review`。
+3. CLI 失败时停止推进，报告失败原因和重试动作，不手改 `meta.json`，也不推荐执行下游阶段。
+4. 仅在 CLI 成功后分流：存在未关闭 P1/P2/P3 时推荐 `$zztt-implementation`；确认没有需要修改的问题时推荐 `$zztt-test-verify`。两者都不自动执行。
 
 ## 禁止事项
 
