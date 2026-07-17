@@ -1,0 +1,7 @@
+interface:
+  display_name: "ZZTT Java 后端规范"
+  short_description: "统一 Java 后端实现与评审中的注释、数据访问、Jackson 和验证约束"
+  default_prompt: "使用 $zztt-java-backend-standard 按 ZZTT 团队规范编写或评审当前 Java 后端代码。"
+
+policy:
+  allow_implicit_invocation: false

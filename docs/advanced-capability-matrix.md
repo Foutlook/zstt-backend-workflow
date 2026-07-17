@@ -13,7 +13,7 @@
 | 来源 | 原能力 | ZZTT 落点 | 状态 | 适配说明 |
 |---|---|---|---|---|
 | 两套来源 | 证据优先、事实与推断分离 | `zztt-workflow-shared/references/evidence-rules.md` | 已融合 | 增加 Claim Ledger、反证、置信度、运行时缺口和验证动作 |
-| ggg-backend-skills | 阶段状态、上游门禁、P0 阻断 | `workflow-protocol.md`、`workflow_cli.py` | 适配后融合 | 阶段必须由用户显式调用，不由统一入口串行推进 |
+| ggg-backend-skills | 阶段状态、上游门禁、P0 阻断 | `workflow-protocol.md`、`workflow_cli.py`、`workflow_validation.py` | 适配后融合 | 阶段由用户显式调用；门禁检查实质内容和追溯 ID，并用内容指纹使修改阶段及下游旧结论失效 |
 | 两套来源 | 工具增强和不可用降级 | `capability-fallback.md` | 适配后融合 | 统一为能力探测、增强路径、标准降级和证据置信度 |
 | agent-skills | 用户纠正与证据回写 | `document-authority-and-corrections.md` | 适配后融合 | 当前阶段一个唯一权威主产物，细节只进 `auxiliary/` |
 | ggg-backend-skills | full/quick 两种强度 | 共享模板和 CLI | 已融合 | 路径和固定编号保持稳定，不因跳过可选阶段重排 |

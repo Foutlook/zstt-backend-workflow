@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,31 @@ def replace_frontmatter_value(path: Path, key: str, value: str) -> None:
             path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
             return
     raise AssertionError(f"frontmatter key not found: {key}")
+
+
+def fill_stage_document(path: Path, stage: str) -> None:
+    """Fill generated scaffolding with deterministic, substantive test evidence."""
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(
+        r"^(## .+)$",
+        r"\1\n\n- 测试事实：已根据输入和实际边界核实",
+        text,
+        flags=re.MULTILINE,
+    )
+    text = re.sub(
+        r"^(\s*[-*]\s+[^\n：:]+[：:])\s*$",
+        r"\1 已确认",
+        text,
+        flags=re.MULTILINE,
+    )
+    traceability = {
+        "repo_research": "\n- C01：测试结论，证据为 E01，位置为 src/Test.java:1。\n- E01：源码静态证据。\n",
+        "technical_design": "\n- D01：基于 C01 选择最小改动方案。\n",
+        "task_breakdown": "\n- T01：依据 D01 实现并执行验证。\n",
+    }
+    text += traceability.get(stage, "")
+    path.write_text(text, encoding="utf-8", newline="\n")
+    replace_frontmatter_value(path, "status", "completed")
 
 
 def init_feature(repo_root: Path, mode: str = "full") -> Path:
@@ -167,6 +193,94 @@ class WorkflowCliInitTest(unittest.TestCase):
 
 
 class WorkflowCliGateTest(unittest.TestCase):
+    def test_empty_template_cannot_complete_by_changing_status_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            replace_frontmatter_value(requirement, "status", "completed")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("缺少实质内容", completed.stderr)
+
+    def test_full_research_requires_claim_and_evidence_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            self.assertEqual(
+                0,
+                run_cli(
+                    "complete-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "requirement_clarification",
+                ).returncode,
+            )
+            self.assertEqual(
+                0,
+                run_cli(
+                    "prepare-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "repo_research",
+                ).returncode,
+            )
+            research = feature_dir / "01-research.md"
+            fill_stage_document(research, "implementation")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "repo_research",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("C01", completed.stderr)
+            self.assertIn("E01", completed.stderr)
+
+    def test_status_reports_stale_stage_without_mutating_meta(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            self.assertEqual(
+                0,
+                run_cli(
+                    "complete-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "requirement_clarification",
+                ).returncode,
+            )
+            requirement.write_text(
+                requirement.read_text(encoding="utf-8") + "\n- 用户补充：扩大历史数据范围。\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            status = run_cli("status", "--feature-dir", str(feature_dir))
+
+            self.assertEqual(0, status.returncode, status.stderr)
+            self.assertEqual(
+                ["requirement_clarification"],
+                json.loads(status.stdout)["stale_stages"],
+            )
+            persisted = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(["requirement_clarification"], persisted["completed_stages"])
+
     def test_complete_stage_requires_completed_status_and_required_headings(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             feature_dir = init_feature(Path(tmp))
@@ -214,7 +328,7 @@ class WorkflowCliGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             feature_dir = init_feature(Path(tmp))
             requirement = feature_dir / "00-requirement.md"
-            replace_frontmatter_value(requirement, "status", "completed")
+            fill_stage_document(requirement, "requirement_clarification")
             complete = run_cli(
                 "complete-stage",
                 "--feature-dir",
@@ -237,12 +351,13 @@ class WorkflowCliGateTest(unittest.TestCase):
             self.assertFalse((feature_dir / "02-design.md").exists())
             meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
             self.assertEqual("repo_research", meta["current_stage"])
+            self.assertIn("requirement_clarification", meta["artifact_fingerprints"])
 
     def test_prepare_revalidates_user_modified_upstream(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             feature_dir = init_feature(Path(tmp))
             requirement = feature_dir / "00-requirement.md"
-            replace_frontmatter_value(requirement, "status", "completed")
+            fill_stage_document(requirement, "requirement_clarification")
             self.assertEqual(
                 0,
                 run_cli(
@@ -287,7 +402,7 @@ class WorkflowCliGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             feature_dir = init_feature(Path(tmp), mode="quick")
             requirement = feature_dir / "00-requirement.md"
-            replace_frontmatter_value(requirement, "status", "completed")
+            fill_stage_document(requirement, "requirement_clarification")
             self.assertEqual(
                 0,
                 run_cli(
@@ -309,7 +424,7 @@ class WorkflowCliGateTest(unittest.TestCase):
                 ).returncode,
             )
             implementation = feature_dir / "01-implementation.md"
-            replace_frontmatter_value(implementation, "status", "completed")
+            fill_stage_document(implementation, "implementation")
             self.assertEqual(
                 0,
                 run_cli(

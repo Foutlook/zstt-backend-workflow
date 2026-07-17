@@ -1,0 +1,7 @@
+interface:
+  display_name: "ZZTT 代码评审"
+  short_description: "只读核验需求一致性、真实调用链、代码质量、幻觉风险和已有验证证据"
+  default_prompt: "使用 $zztt-code-review 对当前实现做证据优先的只读评审，并输出唯一评审结论。"
+
+policy:
+  allow_implicit_invocation: false

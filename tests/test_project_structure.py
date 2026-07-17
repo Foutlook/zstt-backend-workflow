@@ -35,6 +35,16 @@ class ProjectStructureTest(unittest.TestCase):
     def test_shared_script_directory_exists(self) -> None:
         self.assertTrue((ROOT / "skills" / "zztt-workflow-shared" / "scripts").is_dir())
 
+    def test_all_skills_have_explicit_only_codex_metadata(self) -> None:
+        for skill in EXPECTED_SKILLS:
+            metadata = ROOT / "skills" / skill / "agents" / "openai.yaml"
+            self.assertTrue(metadata.is_file(), skill)
+            text = metadata.read_text(encoding="utf-8")
+            self.assertIn("display_name:", text, skill)
+            self.assertIn("short_description:", text, skill)
+            self.assertIn(f"${skill}", text, skill)
+            self.assertIn("allow_implicit_invocation: false", text, skill)
+
     def test_text_files_do_not_have_utf8_bom(self) -> None:
         text_suffixes = {".md", ".py", ".json", ".yaml", ".yml", ".txt"}
         paths = [ROOT / ".gitignore"]

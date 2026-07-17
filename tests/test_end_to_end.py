@@ -5,14 +5,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.test_workflow_cli import init_feature, replace_frontmatter_value, run_cli
+from tests.test_workflow_cli import (
+    fill_stage_document,
+    init_feature,
+    replace_frontmatter_value,
+    run_cli,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def complete_document(feature_dir: Path, stage: str, artifact: str) -> None:
-    replace_frontmatter_value(feature_dir / artifact, "status", "completed")
+    fill_stage_document(feature_dir / artifact, stage)
     completed = run_cli(
         "complete-stage",
         "--feature-dir",
@@ -104,9 +109,20 @@ class WorkflowEndToEndTest(unittest.TestCase):
                 "repo_research",
             )
             self.assertNotEqual(0, blocked.returncode)
+            self.assertIn("已修改", blocked.stderr)
             self.assertFalse((feature_dir / "01-research.md").exists())
+            meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual([], meta["completed_stages"])
 
             replace_frontmatter_value(requirement, "blocking_p0_count", "0")
+            recompleted = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+            self.assertEqual(0, recompleted.returncode, recompleted.stderr)
             retried = run_cli(
                 "prepare-stage",
                 "--feature-dir",
@@ -115,6 +131,44 @@ class WorkflowEndToEndTest(unittest.TestCase):
                 "repo_research",
             )
             self.assertEqual(0, retried.returncode, retried.stderr)
+
+    def test_semantic_upstream_edit_invalidates_completed_downstream(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            complete_document(feature_dir, "requirement_clarification", "00-requirement.md")
+            self.assertEqual(
+                0,
+                run_cli(
+                    "prepare-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "repo_research",
+                ).returncode,
+            )
+            complete_document(feature_dir, "repo_research", "01-research.md")
+
+            requirement = feature_dir / "00-requirement.md"
+            requirement.write_text(
+                requirement.read_text(encoding="utf-8")
+                + "\n- 用户修订：统计范围改为全部历史数据。\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            prepared = run_cli(
+                "prepare-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "technical_design",
+            )
+
+            self.assertNotEqual(0, prepared.returncode)
+            self.assertIn("上游已完成产物已修改", prepared.stderr)
+            meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual([], meta["completed_stages"])
+            self.assertEqual("requirement_clarification", meta["current_stage"])
+            self.assertFalse((feature_dir / "02-design.md").exists())
 
     def test_readme_documents_install_and_recovery_workflow(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

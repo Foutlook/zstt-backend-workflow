@@ -78,7 +78,7 @@ Skill 会在业务仓库创建 `00-requirement.md`，完成后只推荐 `$zztt-r
 
 ### 2. 用户决定是否修改
 
-每个阶段完成后，用户可以直接修改 `.zztt` 下的权威主产物。用户调用下一阶段时，Skill 会重新校验所有必需上游文档；修改后出现 P0、缺失章节或状态不完整时，当前阶段不会创建后续产物。
+每个阶段完成后，用户可以直接修改 `.zztt` 下的权威主产物。CLI 会保存已完成产物的内容指纹；任何已完成产物被修改后，从该阶段起的完成状态都会失效。用户需要先重新确认并完成被修改阶段，才能继续下游，不允许沿用旧结论。
 
 ### 3. 显式执行下一阶段
 
@@ -131,15 +131,17 @@ python skills/zztt-workflow-shared/scripts/workflow_cli.py prepare-stage --featu
 python skills/zztt-workflow-shared/scripts/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
 ```
 
-- `prepare-stage` 在创建当前产物前重新校验上游。
-- `complete-stage` 校验当前文档结构、完成状态和 P0 数量。
+- `prepare-stage` 在创建当前产物前重新校验上游，并对照内容指纹检测用户修改。
+- `complete-stage` 校验状态、P0、必需章节实质内容、未填写模板项和阶段追溯 ID，成功后记录新指纹。
+- 已完成产物发生变化时，该阶段及其下游完成状态自动撤销，但原产物文件保留；用户重新执行被修改阶段的 `complete-stage` 后才能继续。
 - `meta.json` 由工具维护，不要手工编辑。
 
 ## 错误恢复
 
 - 缺少上游文件：回到对应阶段 Skill 补齐，不手工创建后续文档。
 - P0 阻塞：在上游权威产物完成确认并清零，再重新调用当前阶段。
-- 用户修改导致校验失败：按 CLI 报出的文件和章节修正，然后重试。
+- 用户修改已完成产物：系统撤销该阶段及下游完成状态；先核对修改影响，再重新完成被修改阶段。
+- 内容门禁失败：补齐空章节、模板项和 Cxx/Exx/Dxx/Txx 追溯信息后重试，不用只改 `status` 绕过。
 - 运行时证据不足：在调研、方案或测试产物中记录缺口和验证动作，不把静态推断写成事实。
 - quick 影响面扩大：建议重新执行需求澄清并升级 full，不自动改变模式。
 
@@ -155,7 +157,7 @@ python skills/zztt-workflow-shared/scripts/workflow_cli.py complete-stage --feat
 python -m unittest discover -s tests -v
 ```
 
-项目测试覆盖阶段顺序、路径安全、UTF-8 无 BOM、初始化、上游重新校验、P0 阻断、quick 可选阶段和 full/quick 端到端流程。
+项目测试覆盖阶段顺序、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。
 
 ## 非目标
 

@@ -10,9 +10,10 @@ from workflow_contracts import (
     get_contract,
     recommended_next_skill,
     required_predecessors,
+    stages_for,
 )
 from workflow_paths import feature_directory
-from workflow_validation import validate_stage_document
+from workflow_validation import artifact_fingerprint, validate_stage_document
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -64,7 +65,7 @@ def init_feature(args: argparse.Namespace) -> int:
         newline="\n",
     )
     meta: dict[str, object] = {
-        "version": 1,
+        "version": 2,
         "workflow": "zztt-backend-workflow",
         "mode": args.mode,
         "feature_name": args.feature_name.strip(),
@@ -73,6 +74,7 @@ def init_feature(args: argparse.Namespace) -> int:
         "current_stage": requirement.key,
         "completed_stages": [],
         "artifacts": {requirement.key: requirement.artifact},
+        "artifact_fingerprints": {},
         "blocking_counts": {"p0": 0, "p1": 0, "p2": 0},
         "last_validation": None,
         "recommended_next_skill": requirement.skill,
@@ -83,8 +85,11 @@ def init_feature(args: argparse.Namespace) -> int:
 
 
 def show_status(args: argparse.Namespace) -> int:
-    meta = read_meta(Path(args.feature_dir).resolve())
-    print(json.dumps(meta, ensure_ascii=False, indent=2))
+    feature_dir = Path(args.feature_dir).resolve()
+    meta = read_meta(feature_dir)
+    status = dict(meta)
+    status["stale_stages"] = changed_completed_stages(feature_dir, meta)
+    print(json.dumps(status, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -108,11 +113,106 @@ def validate_stage(args: argparse.Namespace) -> int:
     return 0
 
 
+def changed_completed_stages(
+    feature_dir: Path,
+    meta: dict[str, object],
+) -> list[str]:
+    completed = list(meta.get("completed_stages", []))
+    artifacts = dict(meta.get("artifacts", {}))
+    fingerprints = dict(meta.get("artifact_fingerprints", {}))
+    mode = str(meta["mode"])
+    changed: list[str] = []
+    for stage in completed:
+        contract = get_contract(mode, stage)
+        artifact_name = str(artifacts.get(stage, contract.artifact))
+        current = artifact_fingerprint(feature_dir / artifact_name)
+        if not current or fingerprints.get(stage) != current:
+            changed.append(stage)
+    return changed
+
+
+def invalidate_changed_stages(
+    feature_dir: Path,
+    meta: dict[str, object],
+) -> tuple[str | None, list[str]]:
+    changed = changed_completed_stages(feature_dir, meta)
+    if not changed:
+        return None, []
+
+    mode = str(meta["mode"])
+    stage_order = [stage.key for stage in stages_for(mode)]
+    earliest = min(changed, key=stage_order.index)
+    earliest_index = stage_order.index(earliest)
+    completed = list(meta.get("completed_stages", []))
+    invalidated = [stage for stage in completed if stage_order.index(stage) >= earliest_index]
+    meta["completed_stages"] = [stage for stage in completed if stage not in invalidated]
+
+    # 已完成产物一旦改变，旧指纹和所有下游完成结论都不再可信。
+    fingerprints = dict(meta.get("artifact_fingerprints", {}))
+    for stage in invalidated:
+        fingerprints.pop(stage, None)
+    meta["artifact_fingerprints"] = fingerprints
+    meta["current_stage"] = earliest
+    meta["recommended_next_skill"] = get_contract(mode, earliest).skill
+    remaining = list(meta["completed_stages"])
+    if remaining:
+        last_contract = get_contract(mode, remaining[-1])
+        _, frontmatter = validate_stage_document(
+            feature_dir / last_contract.artifact,
+            mode,
+            last_contract.key,
+        )
+        meta["blocking_counts"] = {
+            "p0": int(frontmatter["blocking_p0_count"]),
+            "p1": int(frontmatter["open_p1_count"]),
+            "p2": int(frontmatter["open_p2_count"]),
+        }
+    else:
+        # 没有已验证阶段时，计数只表示“无有效门禁快照”，真实问题以当前文档校验为准。
+        meta["blocking_counts"] = {"p0": 0, "p1": 0, "p2": 0}
+    meta["last_validation"] = {
+        "stage": earliest,
+        "valid": False,
+        "kind": "artifact_changed",
+        "changed_stages": changed,
+        "invalidated_stages": invalidated,
+    }
+    write_meta(feature_dir, meta)
+    return earliest, invalidated
+
+
+def changed_stage_error(
+    feature_dir: Path,
+    meta: dict[str, object],
+    earliest: str,
+    invalidated: list[str],
+) -> ValueError:
+    mode = str(meta["mode"])
+    contract = get_contract(mode, earliest)
+    errors, _ = validate_stage_document(
+        feature_dir / contract.artifact,
+        mode,
+        earliest,
+    )
+    detail = "；当前文档校验通过，但仍需用户确认并重新完成该阶段"
+    if errors:
+        detail = "；当前文档还存在问题: " + "；".join(errors)
+    return ValueError(
+        "上游已完成产物已修改，已撤销相关完成状态: "
+        + ", ".join(invalidated)
+        + f"；请重新执行阶段 {earliest} 的 complete-stage"
+        + detail
+    )
+
+
 def complete_stage(args: argparse.Namespace) -> int:
     feature_dir = Path(args.feature_dir).resolve()
     meta = read_meta(feature_dir)
     mode = str(meta["mode"])
     contract = get_contract(mode, args.stage)
+    earliest_changed, invalidated = invalidate_changed_stages(feature_dir, meta)
+    if earliest_changed and earliest_changed != contract.key:
+        raise changed_stage_error(feature_dir, meta, earliest_changed, invalidated)
     completed = list(meta.get("completed_stages", []))
     missing_predecessors = [
         stage
@@ -136,6 +236,9 @@ def complete_stage(args: argparse.Namespace) -> int:
     artifacts = dict(meta.get("artifacts", {}))
     artifacts[contract.key] = contract.artifact
     meta["artifacts"] = artifacts
+    fingerprints = dict(meta.get("artifact_fingerprints", {}))
+    fingerprints[contract.key] = artifact_fingerprint(feature_dir / contract.artifact)
+    meta["artifact_fingerprints"] = fingerprints
     meta["blocking_counts"] = {
         "p0": int(frontmatter["blocking_p0_count"]),
         "p1": int(frontmatter["open_p1_count"]),
@@ -189,6 +292,11 @@ def prepare_stage(args: argparse.Namespace) -> int:
     contract = get_contract(mode, args.stage)
     if contract.key == "requirement_clarification":
         raise ValueError("需求澄清阶段由 init 初始化")
+    earliest_changed, invalidated = invalidate_changed_stages(feature_dir, meta)
+    if earliest_changed:
+        stage_order = [stage.key for stage in stages_for(mode)]
+        if stage_order.index(earliest_changed) <= stage_order.index(contract.key):
+            raise changed_stage_error(feature_dir, meta, earliest_changed, invalidated)
     validate_predecessors(feature_dir, meta, contract.key)
 
     target = feature_dir / contract.artifact

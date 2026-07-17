@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from pathlib import Path
 
 
@@ -120,6 +122,32 @@ REQUIRED_HEADINGS: dict[tuple[str, str], tuple[str, ...]] = {
     ),
 }
 
+PLACEHOLDER_PATTERN = re.compile(r"\{\{[^{}\n]+}}")
+EMPTY_SCAFFOLD_PATTERN = re.compile(
+    r"^\s*[-*]\s+[^\n：:]+[：:]\s*$",
+    re.MULTILINE,
+)
+TRACEABILITY_PATTERNS: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {
+    ("full", "repo_research"): (
+        (r"\bC\d+\b", "调研结论 ID（如 C01）"),
+        (r"\bE\d+\b", "调研证据 ID（如 E01）"),
+    ),
+    ("full", "technical_design"): (
+        (r"\bD\d+\b", "设计决策 ID（如 D01）"),
+        (r"\bC\d+\b", "调研结论引用（如 C01）"),
+    ),
+    ("full", "task_breakdown"): (
+        (r"\bT\d+\b", "任务 ID（如 T01）"),
+        (r"\b[CD]\d+\b", "调研或设计来源引用（如 C01/D01）"),
+    ),
+}
+
+
+def artifact_fingerprint(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
 
 def parse_frontmatter(text: str) -> dict[str, str]:
     lines = text.splitlines()
@@ -151,6 +179,96 @@ def count_value(frontmatter: dict[str, str], key: str, errors: list[str]) -> int
     return value
 
 
+def section_body(text: str, heading: str) -> str:
+    lines = text.splitlines()
+    try:
+        start = lines.index(heading) + 1
+    except ValueError:
+        return ""
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+    return "\n".join(lines[start:end])
+
+
+def table_has_data(lines: list[str]) -> bool:
+    group: list[str] = []
+    groups: list[list[str]] = []
+    for line in lines + [""]:
+        if line.strip().startswith("|") and line.strip().endswith("|"):
+            group.append(line.strip())
+            continue
+        if group:
+            groups.append(group)
+            group = []
+
+    for table in groups:
+        separator_index = next(
+            (
+                index
+                for index, row in enumerate(table)
+                if all(
+                    re.fullmatch(r":?-{3,}:?", cell.strip())
+                    for cell in row.strip("|").split("|")
+                )
+            ),
+            None,
+        )
+        if separator_index is None:
+            continue
+        for row in table[separator_index + 1 :]:
+            if any(cell.strip() for cell in row.strip("|").split("|")):
+                return True
+    return False
+
+
+def section_has_substance(body: str) -> bool:
+    lines = body.splitlines()
+    if table_has_data(lines):
+        return True
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("|"):
+            continue
+        if stripped in {"---", "```"}:
+            continue
+        if re.fullmatch(r"[-*_]{3,}", stripped):
+            continue
+        if EMPTY_SCAFFOLD_PATTERN.fullmatch(line):
+            continue
+        if stripped in {"-", "*", "+"}:
+            continue
+        return True
+    return False
+
+
+def validate_traceability(path: Path, mode: str, stage: str, text: str) -> list[str]:
+    errors: list[str] = []
+    for pattern, label in TRACEABILITY_PATTERNS.get((mode, stage), ()):
+        if not re.search(pattern, text):
+            errors.append(f"缺少可追溯的{label}")
+
+    if mode == "full" and stage == "technical_design":
+        research_path = path.parent / "01-research.md"
+        if research_path.is_file():
+            research_ids = set(re.findall(r"\bC\d+\b", research_path.read_text(encoding="utf-8")))
+            unknown_ids = sorted(set(re.findall(r"\bC\d+\b", text)) - research_ids)
+            if unknown_ids:
+                errors.append("设计引用了调研中不存在的结论 ID: " + ", ".join(unknown_ids))
+
+    if mode == "full" and stage == "task_breakdown":
+        design_path = path.parent / "02-design.md"
+        if design_path.is_file():
+            design_ids = set(re.findall(r"\bD\d+\b", design_path.read_text(encoding="utf-8")))
+            unknown_ids = sorted(set(re.findall(r"\bD\d+\b", text)) - design_ids)
+            if unknown_ids:
+                errors.append("任务引用了方案中不存在的设计 ID: " + ", ".join(unknown_ids))
+    return errors
+
+
 def validate_stage_document(
     path: Path,
     mode: str,
@@ -165,6 +283,15 @@ def validate_stage_document(
         errors.append("阶段产物包含 UTF-8 BOM")
 
     text = raw.decode("utf-8")
+    placeholders = sorted(set(PLACEHOLDER_PATTERN.findall(text)))
+    if placeholders:
+        errors.append("仍有未替换模板占位符: " + ", ".join(placeholders))
+    empty_scaffolds = sorted(
+        {match.group(0).strip() for match in EMPTY_SCAFFOLD_PATTERN.finditer(text)}
+    )
+    if require_completed and empty_scaffolds:
+        errors.append("仍有未填写模板项: " + ", ".join(empty_scaffolds))
+
     frontmatter = parse_frontmatter(text)
     missing_keys = sorted(COMMON_FRONTMATTER_KEYS - frontmatter.keys())
     if missing_keys:
@@ -191,4 +318,13 @@ def validate_stage_document(
     ]
     if missing_headings:
         errors.append("缺少必需章节: " + ", ".join(missing_headings))
+    if require_completed:
+        empty_sections = [
+            heading
+            for heading in REQUIRED_HEADINGS.get((mode, stage), ())
+            if heading in text and not section_has_substance(section_body(text, heading))
+        ]
+        if empty_sections:
+            errors.append("必需章节缺少实质内容: " + ", ".join(empty_sections))
+        errors.extend(validate_traceability(path, mode, stage, text))
     return errors, frontmatter
