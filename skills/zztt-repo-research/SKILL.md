@@ -60,9 +60,10 @@ Proven 结论记录仓库、文件、行号或符号。重要判断进入 Claim 
 ## 完成
 
 1. 将调研写入 `01-research.md`，包含需改仓库清单、真实调用链、最终数据源、关键参数、结论账本和证据索引。
-2. 更新 frontmatter 为真实状态与问题数量。
-3. 运行 `complete-stage --stage repo_research`。
-4. 输出调研结论、产物路径和未验证风险，推荐 `$zztt-technical-design`。
+2. 重算完成检查和 P0/P1/P2；聚焦调研未覆盖完整变更面、仍有 P0 或完成检查未通过时保持 `status: draft`，交付已证结论、缺口和继续动作，不运行完成命令。
+3. 仅当完整完成检查通过且 P0 清零后，才更新 frontmatter 为 `status: completed` 和真实问题数量。
+4. 运行 `complete-stage --stage repo_research`；CLI 失败时停止推进，保留产物并报告失败原因，不手改 `meta.json`。
+5. 仅在 CLI 成功后输出阶段完成结论、产物路径和未验证风险，并推荐 `$zztt-technical-design`；草稿或失败状态不推荐执行下游阶段。
 
 ## 禁止事项
 
