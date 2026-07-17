@@ -149,6 +149,8 @@ python skills/zztt-workflow-shared/scripts/workflow_cli.py complete-stage --feat
 
 `$zztt-code-simplification` 可在任何时间对当前 diff、指定提交、文件或符号做行为保持型简化。它不属于固定流程，不修改阶段状态；关联需求时可在 `auxiliary/` 下记录结果。
 
+`$zztt-module-refactor` 用于多文件职责拆分、模块化、DDD 边界和有证据的性能、并发、锁、内存/GC、资源生命周期治理。它不属于固定流程，不修改阶段状态；重大重构先生成 `.zztt/refactors/` 或需求 `auxiliary/refactors/` 下的计划并等待用户审批，可能改变业务行为的部分必须单独审批。
+
 `zztt-java-backend-standard` 是实现和 Review 共用的团队规范，不保留个人风格命名。
 
 ## 验证

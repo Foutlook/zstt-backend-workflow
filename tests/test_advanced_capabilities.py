@@ -433,6 +433,54 @@ class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
 
+class ModuleRefactorAdvancedCapabilityTest(unittest.TestCase):
+    def test_module_refactor_loads_advanced_playbook(self) -> None:
+        text = read_skill("zztt-module-refactor")
+        self.assertIn("references/advanced-playbook.md", text)
+        self.assertIn("assets/refactor-record-template.md", text)
+
+    def test_module_refactor_covers_behavior_and_runtime_boundaries(self) -> None:
+        text = read_reference("zztt-module-refactor", "advanced-playbook.md")
+        for token in (
+            "真实调用链",
+            "Guard 与真实依赖",
+            "行为基线",
+            "Fast path",
+            "Plan review",
+            "Behavior change",
+            "characterization test",
+            "锁等待",
+            "线程安全",
+            "内存、GC",
+            "资源",
+            "重试",
+            "超时",
+            "设计模式与 DDD",
+            "修改前后使用同一组命令",
+        ):
+            self.assertIn(token, text)
+
+    def test_module_refactor_template_keeps_one_reviewable_record(self) -> None:
+        text = (
+            SKILLS
+            / "zztt-module-refactor"
+            / "assets"
+            / "refactor-record-template.md"
+        ).read_text(encoding="utf-8")
+        for token in (
+            "status: planning",
+            "review_path: plan_review",
+            "behavior_change: none",
+            "范围冻结",
+            "当前证据链",
+            "行为基线",
+            "业务逻辑变更提案",
+            "修改前后验证",
+            "最终 Diff 审计",
+        ):
+            self.assertIn(token, text)
+
+
 class DocumentationAndEvalContractTest(unittest.TestCase):
     def test_capability_matrix_maps_sources_status_and_boundaries(self) -> None:
         text = (ROOT / "docs" / "advanced-capability-matrix.md").read_text(
@@ -481,6 +529,8 @@ class DocumentationAndEvalContractTest(unittest.TestCase):
             "缺少 token",
             "Jackson 绑定",
             "代码简化",
+            "模块重构",
+            "业务逻辑变更提案",
         ):
             self.assertIn(token, corpus)
         for item in data["evals"]:

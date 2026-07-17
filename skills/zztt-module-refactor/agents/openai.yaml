@@ -1,0 +1,7 @@
+interface:
+  display_name: "ZZTT 模块重构"
+  short_description: "基于真实调用链安全重构模块，锁定行为基线后小步实施并验证"
+  default_prompt: "使用 $zztt-module-refactor 分析并安全重构指定模块，先输出行为基线、重构计划和审批边界。"
+
+policy:
+  allow_implicit_invocation: false

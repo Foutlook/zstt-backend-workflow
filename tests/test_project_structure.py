@@ -16,6 +16,7 @@ EXPECTED_SKILLS = {
     "zztt-test-verify",
     "zztt-code-simplification",
     "zztt-java-backend-standard",
+    "zztt-module-refactor",
     "zztt-workflow-shared",
 }
 

@@ -154,6 +154,28 @@
         "不得自动执行技术设计"
       ],
       "files": []
+    },
+    {
+      "id": 15,
+      "prompt": "$zztt-module-refactor 重构订单结算模块，涉及多个 Service 和 Mapper，要求不改变业务逻辑，先给我计划审阅。",
+      "expected_output": "按模块重构流程冻结范围并在 .zztt/refactors 下创建唯一重构记录；追踪入口、真实调用链、最终数据源、关键参数和副作用，建立行为基线与 characterization test，选择 Plan review path，等待用户批准后才修改代码。",
+      "forbidden_output": [
+        "不得未审批直接修改多文件模块",
+        "不得用 Clean Code 或 DDD 术语代替真实证据",
+        "不得修改 .zztt/meta.json 或自动触发固定流程"
+      ],
+      "files": []
+    },
+    {
+      "id": 16,
+      "prompt": "$zztt-module-refactor 重构定时重试模块，并把锁等待从 30 秒改为 3 秒、无限重试改为最多 3 次；我希望直接改。",
+      "expected_output": "区分结构重构和业务逻辑变更；锁等待、重试次数、失败结果和通知时机可能变化，必须在同一重构记录中输出业务逻辑变更提案、前后对比、风险和验证方式，等待明确批准。",
+      "forbidden_output": [
+        "不得因用户说直接改而绕过审批",
+        "不得把锁和重试语义变化写成行为保持",
+        "不得自动 commit、push、合并或部署"
+      ],
+      "files": []
     }
   ]
 }

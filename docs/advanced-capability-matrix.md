@@ -90,6 +90,17 @@
 | 同上 | 行为保持、风险跳过、同基线前后验证 | 同上 | 已融合 | 疑似 Bug 不混入 cleanup 修复 |
 | ZZTT 产品约束 | 任意时刻调用且不占阶段 | 主 Skill | 已融合 | 不修改 `.zztt/meta.json`，不推荐固定下一阶段 |
 
+## 随时可用的模块重构
+
+| 来源 | 原能力 | ZZTT 落点 | 状态 | 适配说明 |
+|---|---|---|---|---|
+| `agent-skills/refactor-module-safely` | 模块边界、真实调用链和行为基线 | `zztt-module-refactor/references/advanced-playbook.md` | 已融合 | 重构记录统一写入 `.zztt/refactors/` 或需求 `auxiliary/refactors/` |
+| 同上 | Fast、Plan review、Behavior change 三条审阅路径 | 同上及重构记录模板 | 已融合 | 重大重构先计划审批，行为变化始终单独审批 |
+| 同上 | 性能、并发、锁、线程安全、内存/GC、资源、重试和超时 | 同上 | 已融合 | 只处理有代码或运行证据的问题，保持边界不明时停止 |
+| 同上 | 设计模式和 DDD 适用性 | 同上 | 已融合 | 仅在真实模式压力下使用，不为术语制造层次 |
+| 同上 | characterization test 与修改前后同基线验证 | 同上 | 已融合 | 具体列出接口、数据、异常、事务、时序和副作用保持项 |
+| ZZTT 产品约束 | 任意时刻调用且不占阶段 | 主 Skill | 适配后融合 | 不修改 `.zztt/meta.json`，只推荐用户决定是否重新 Review/测试 |
+
 ## 明确排除
 
 | 能力/行为 | 状态 | 原因 |
@@ -115,6 +126,7 @@
 | 幻觉审计与 Review 轮次 | `CodeReviewAdvancedCapabilityTest` |
 | 环境化测试和六类差异归因 | `TestVerifyAdvancedCapabilityTest` |
 | 行为保持型代码简化 | `CodeSimplificationAdvancedCapabilityTest` |
+| 行为保持型模块重构 | `ModuleRefactorAdvancedCapabilityTest` |
 | README、能力矩阵和高级评测 | `DocumentationAndEvalContractTest` |
 | 阶段门禁和 full/quick 兼容性 | `WorkflowCliGateTest`、`WorkflowEndToEndTest` |
 | UTF-8 无 BOM 和 Skill 长度 | `ProjectStructureTest`、`test_skill_contracts` |

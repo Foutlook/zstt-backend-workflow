@@ -183,9 +183,29 @@ class SupportingSkillContractTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_supporting_skills_stay_under_500_lines(self) -> None:
-        for name in ("zztt-java-backend-standard", "zztt-code-simplification"):
+        for name in (
+            "zztt-java-backend-standard",
+            "zztt-code-simplification",
+            "zztt-module-refactor",
+        ):
             with self.subTest(name=name):
                 self.assertLess(len(read_skill(name).splitlines()), 500)
+
+    def test_module_refactor_is_optional_and_approval_gated(self) -> None:
+        text = read_skill("zztt-module-refactor")
+        self.assertEqual("zztt-module-refactor", frontmatter_value(text, "name"))
+        for token in (
+            "仅当用户明确指定",
+            "不属于固定流程",
+            "不修改 `.zztt/meta.json`",
+            "Fast path",
+            "Plan review path",
+            "Behavior-change path",
+            "characterization test",
+            ".zztt/refactors",
+            "等待用户明确批准",
+        ):
+            self.assertIn(token, text)
 
     def test_code_review_is_read_only_and_evidence_first(self) -> None:
         text = read_skill("zztt-code-review")

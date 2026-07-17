@@ -65,6 +65,10 @@ class WorkflowContractsTest(unittest.TestCase):
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
         self.assertNotIn("zztt-code-simplification", fixed_skills)
 
+    def test_module_refactor_is_not_a_fixed_stage(self) -> None:
+        fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
+        self.assertNotIn("zztt-module-refactor", fixed_skills)
+
     def test_unknown_stage_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "未知阶段"):
             get_contract("full", "unknown")
