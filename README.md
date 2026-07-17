@@ -53,57 +53,72 @@ quick 小需求写入：
 .zztt/quick/YYYYMMDD-quick-name/
 ```
 
-## 插件安装
+## 安装
 
-本仓库本身是名为 `zztt-team` 的团队 Codex Marketplace，插件包位于 `plugins/zztt-backend-workflow/`。不要再把单个 Skill 手工复制到 `~/.codex/skills`，避免团队成员使用不同版本。
+ZZTT 使用与 Spec Kit 类似的项目初始化方式，不依赖 Codex 插件或 Marketplace。项目管理员安装 `zztt-cli`，把 Codex 项目级 Skills 写入业务仓库并随代码提交；普通成员拉取仓库后即可使用。
 
-### 团队成员首次安装
-
-从团队 Git 仓库安装 Marketplace；将占位符替换为真实仓库地址和发布分支：
+运行环境要求 Python 3.11+，推荐使用 `uv` 管理命令行工具。将占位符替换为真实团队 Git 地址和发布版本：
 
 ```powershell
-codex.cmd plugin marketplace add <团队Git仓库地址> --ref <发布分支>
-codex.cmd plugin add zztt-backend-workflow@zztt-team
+uv tool install zztt-cli --from "git+<团队Git仓库地址>@v0.1.0"
+zztt version
 ```
 
-私有仓库使用团队已有的 HTTPS 凭证或 SSH Key，不要把 token 写入命令或脚本。安装完成后新建 Codex 任务，确保新 Skills 被加载。
+私有仓库使用团队已有的 HTTPS 凭证或 SSH Key，不要把 token 写入命令或脚本。
 
-当前仓库也可作为本地 Marketplace 验证：
+### 项目管理员首次初始化
+
+进入业务仓库执行：
 
 ```powershell
-$marketplaceRoot = (Resolve-Path .).Path
-codex.cmd plugin marketplace add $marketplaceRoot
-codex.cmd plugin add zztt-backend-workflow@zztt-team
+cd C:\projects\learning-service
+zztt init --here
 ```
 
-### 团队成员升级
+初始化只写入两类工具文件：
 
-维护者发布新版本后执行：
+```text
+.agents/skills/zztt-*/
+.zztt-kit/manifest.json
+```
+
+`.zztt-kit/manifest.json` 记录 CLI 版本和受管文件 SHA-256。CLI 不覆盖其他项目级 Skill、业务源码或 `.zztt/features`、`.zztt/quick` 下的需求产物。初始化完成后新建 Codex 任务，让 Codex 加载 `$zztt-*` Skills。
+
+确认生成内容后，把 `.agents/skills/zztt-*` 和 `.zztt-kit/manifest.json` 提交到业务仓库。普通团队成员只需拉取代码并新建 Codex 任务，不需要重复执行 `zztt init`；只有新项目初始化和工作流升级需要安装 `zztt-cli`。
+
+### 项目工作流升级
+
+先升级全局 CLI，再在每个业务仓库刷新受管文件：
 
 ```powershell
-codex.cmd plugin marketplace upgrade zztt-team
-codex.cmd plugin add zztt-backend-workflow@zztt-team
+uv tool install zztt-cli --force --from "git+<团队Git仓库地址>@v0.2.0"
+cd C:\projects\learning-service
+zztt check --here
+zztt update --here
 ```
 
-升级后同样需要新建 Codex 任务。`marketplace upgrade` 刷新远程快照，`plugin add` 将新版本重新安装到 Codex。
+如果受管 Skill 被人工修改，`zztt update` 会在写文件前报告全部冲突并停止。人工合并后重试；只有明确接受覆盖时才使用 `zztt update --here --force`。`--force` 的作用域仍被限制在 `.agents/skills/zztt-*`，不能扩张到 `.zztt` 或其他 Skill。
+
+升级完成后新建 Codex 任务。
+
+升级者应评审生成文件的 Git diff 并提交。其他成员拉取该提交后自动获得同一版本的项目级 Skills。CI 也可以安装清单记录的 CLI 版本后执行 `zztt check --here`，检测受管文件缺失、人工修改或版本未同步。
 
 ### 维护者本地开发
 
-维护者在仓库中修改插件源码后执行：
+在本仓库安装当前工作区版本：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-install.ps1
+uv tool install zztt-cli --force .
+zztt version
 ```
 
-脚本会先运行全部测试和插件校验，再把源码同步到个人 `~/plugins/zztt-backend-workflow`，使用 cachebuster 刷新版本并安装为 `zztt-backend-workflow@personal`。源码中的正式版本号不会被本地调试污染。
-
-发布前执行只读检查：
+再进入一个测试业务仓库执行 `zztt init --here` 或 `zztt update --here`。正式发布前运行：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\release-check.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-发布时按语义化版本维护 `plugins/zztt-backend-workflow/.codex-plugin/plugin.json`：兼容修正升级 patch，新增能力升级 minor，不兼容的阶段或 `.zztt` 协议变化升级 major。脚本不会自动 commit、push、合并或发布。
+验证脚本运行全部测试、编译 Python 源码、构建 Wheel，并检查 Wheel 包含完整 Skill、模板和工作流脚本且不包含 Codex 插件元数据。脚本不会自动 commit、push、合并或发布。
 
 ## 使用方式
 
@@ -167,10 +182,10 @@ quick 必须先做轻量需求澄清。Review 和测试由用户决定是否调�
 正常使用时由阶段 Skill 调用共享 CLI。维护或排查时可以直接运行：
 
 ```text
-python plugins/zztt-backend-workflow/skills/zztt-workflow-shared/scripts/workflow_cli.py init --repo-root <repo> --mode full --feature-name <name>
-python plugins/zztt-backend-workflow/skills/zztt-workflow-shared/scripts/workflow_cli.py status --feature-dir <feature-dir>
-python plugins/zztt-backend-workflow/skills/zztt-workflow-shared/scripts/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
-python plugins/zztt-backend-workflow/skills/zztt-workflow-shared/scripts/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
+python .agents/skills/zztt-workflow-shared/scripts/workflow_cli.py init --repo-root <repo> --mode full --feature-name <name>
+python .agents/skills/zztt-workflow-shared/scripts/workflow_cli.py status --feature-dir <feature-dir>
+python .agents/skills/zztt-workflow-shared/scripts/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
+python .agents/skills/zztt-workflow-shared/scripts/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
 ```
 
 - `prepare-stage` 在创建当前产物前重新校验上游，并对照内容指纹检测用户修改。
@@ -201,7 +216,7 @@ python plugins/zztt-backend-workflow/skills/zztt-workflow-shared/scripts/workflo
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-验证脚本会运行仓库测试和 Codex 插件结构校验。项目测试覆盖插件目录、阶段顺序、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。
+验证脚本会运行仓库测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill 安装、安全更新、冲突保护、阶段顺序、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。
 
 ## 非目标
 

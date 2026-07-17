@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import json
+import tomllib
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_ROOT = ROOT / "plugins" / "zztt-backend-workflow"
-SKILLS = PLUGIN_ROOT / "skills"
+PACKAGE_ROOT = ROOT / "src" / "zztt_cli"
+SKILLS = PACKAGE_ROOT / "resources" / "skills"
 
 EXPECTED_SKILLS = {
     "zztt-requirement-clarification",
@@ -28,34 +28,25 @@ class ProjectStructureTest(unittest.TestCase):
     def test_readme_exists(self) -> None:
         self.assertTrue((ROOT / "README.md").is_file())
 
-    def test_plugin_and_team_marketplace_manifests_exist(self) -> None:
-        self.assertTrue((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").is_file())
-        self.assertTrue((ROOT / ".agents" / "plugins" / "marketplace.json").is_file())
-
-    def test_plugin_and_team_marketplace_names_and_paths_match(self) -> None:
-        plugin_manifest = json.loads(
-            (PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
-        )
-        marketplace = json.loads(
-            (ROOT / ".agents" / "plugins" / "marketplace.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        entry = next(
-            item
-            for item in marketplace["plugins"]
-            if item["name"] == "zztt-backend-workflow"
+    def test_cli_package_and_entry_point_exist(self) -> None:
+        self.assertTrue((PACKAGE_ROOT / "__init__.py").is_file())
+        self.assertTrue((PACKAGE_ROOT / "cli.py").is_file())
+        self.assertTrue((PACKAGE_ROOT / "installer.py").is_file())
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertEqual("zztt-cli", project["project"]["name"])
+        self.assertEqual("zztt_cli.cli:main", project["project"]["scripts"]["zztt"])
+        package_init = (PACKAGE_ROOT / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn(
+            f'__version__ = "{project["project"]["version"]}"',
+            package_init,
         )
 
-        self.assertEqual("zztt-backend-workflow", plugin_manifest["name"])
-        self.assertEqual("zztt-team", marketplace["name"])
-        self.assertEqual("./plugins/zztt-backend-workflow", entry["source"]["path"])
-        self.assertEqual("AVAILABLE", entry["policy"]["installation"])
-        self.assertEqual("ON_INSTALL", entry["policy"]["authentication"])
+    def test_codex_plugin_manifests_are_removed(self) -> None:
+        self.assertFalse((ROOT / ".agents" / "plugins" / "marketplace.json").exists())
+        self.assertFalse((ROOT / "plugins").exists())
 
     def test_maintenance_scripts_exist(self) -> None:
-        for name in ("validate.ps1", "dev-install.ps1", "release-check.ps1"):
-            self.assertTrue((ROOT / "scripts" / name).is_file(), name)
+        self.assertTrue((ROOT / "scripts" / "validate.ps1").is_file())
 
     def test_all_skill_directories_exist(self) -> None:
         actual = {
