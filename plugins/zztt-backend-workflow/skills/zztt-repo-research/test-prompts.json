@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "$zztt-repo-research 调研学习报告导出最终来自哪个查询、跨仓库调用了什么；远程仓库和 CodeGraph 当前不可用。",
+    "expected": "重新校验需求，使用本地 checkout、rg 和逐层源码阅读降级取证，追到入口、最终数据源和关键参数，不伪造增强工具证据。"
+  },
+  {
+    "id": 2,
+    "prompt": "$zztt-repo-research 排查统计接口 chapterId 偶发为空；代码里先判了 courseId 非空，但实体集合和 chapter 映射来自两个 Facade。",
+    "expected": "定位最终赋值点和两套数据范围，区分 Guard 与真实依赖，用 Claim Ledger 记录来源分裂证据、反证和运行时缺口。"
+  }
+]

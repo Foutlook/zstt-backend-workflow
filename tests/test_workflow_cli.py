@@ -10,7 +10,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "skills" / "zztt-workflow-shared" / "scripts" / "workflow_cli.py"
+PLUGIN_ROOT = ROOT / "plugins" / "zztt-backend-workflow"
+CLI = PLUGIN_ROOT / "skills" / "zztt-workflow-shared" / "scripts" / "workflow_cli.py"
 
 
 def run_cli(*args: str) -> subprocess.CompletedProcess[str]:

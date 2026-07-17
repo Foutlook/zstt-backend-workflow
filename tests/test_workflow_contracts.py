@@ -7,7 +7,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "skills" / "zztt-workflow-shared" / "scripts"
+PLUGIN_ROOT = ROOT / "plugins" / "zztt-backend-workflow"
+SCRIPTS = PLUGIN_ROOT / "skills" / "zztt-workflow-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from workflow_contracts import (  # noqa: E402

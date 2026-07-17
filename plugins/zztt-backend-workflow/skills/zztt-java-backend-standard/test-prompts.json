@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "$zztt-java-backend-standard 新增一个包含 zValue 和 pType 的 Jackson Request DTO，并说明需要哪些绑定测试。",
+    "expected": "显式声明规范 @JsonProperty，仅在有历史兼容证据时使用 @JsonAlias，并验证序列化与反序列化名称。"
+  },
+  {
+    "id": 2,
+    "prompt": "$zztt-java-backend-standard 评审一个列表接口：循环调用 Mapper 和 RPC，实体集合与状态映射来自不同来源，改动时还删除了旧注释。",
+    "expected": "指出 N+1/循环远程调用、数据源范围不一致和注释回归，建议批量闭环和最小范围修正。"
+  }
+]

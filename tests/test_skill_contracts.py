@@ -5,7 +5,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ROOT / "skills"
+PLUGIN_ROOT = ROOT / "plugins" / "zztt-backend-workflow"
+SKILLS = PLUGIN_ROOT / "skills"
 
 
 def read_skill(name: str) -> str:
