@@ -41,7 +41,7 @@ Expected: PASS。
 
 ```powershell
 git add README.md .gitignore tests skills
-git commit -m "初始化知识跳跳工作流项目骨架"
+git commit -m "初始化 ZSTT 后端工作流项目骨架"
 ```
 
 ### Task 2: 以测试定义阶段契约和路径规则
@@ -364,7 +364,7 @@ Expected: 无输出，退出码 0。
 
 ```powershell
 git add README.md tests/test_end_to_end.py
-git commit -m "完成知识跳跳工作流端到端验收"
+git commit -m "完成 ZSTT 后端工作流端到端验收"
 ```
 
 ### Task 9: 最终人工审阅边界

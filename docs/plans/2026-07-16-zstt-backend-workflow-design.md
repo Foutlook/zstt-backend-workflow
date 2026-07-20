@@ -6,7 +6,7 @@
 
 `agent-skills` 已沉淀需求澄清、依赖仓库调研、后端技术方案、行为保持型简化和实现后验收等高质量单点能力；`ggg-backend-skills` 已沉淀 quick/full 双轨、显式阶段 Skill、阶段文档、状态记录、模板和自动校验。
 
-本项目将两者统一为一套面向小组使用的 Codex Java 后端开发工作流，名称为 `ZSTT Backend Workflow（知识跳跳）`，项目目录为 `zstt-backend-workflow`。
+本项目将两者统一为一套面向小组使用的 Codex Java 后端开发工作流，名称为 `ZSTT Backend Workflow`，项目目录为 `zstt-backend-workflow`。
 
 目标：
 
@@ -24,7 +24,7 @@
 - 项目：`zstt-backend-workflow`
 - Skill 前缀：`zstt-`
 - 业务仓库产物目录：`.zstt/`
-- 工作流名称：`ZSTT Backend Workflow（知识跳跳）`
+- 工作流名称：`ZSTT Backend Workflow`
 
 ### 2.2 使用方式
 

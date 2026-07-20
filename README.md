@@ -1,6 +1,8 @@
-# ZSTT Backend Workflow（知识跳跳）
+# ZSTT Backend Workflow
 
 面向小组的 Codex Java 后端开发工作流。它统一了需求澄清、代码调研、技术方案、任务拆分、编码实现、代码评审和测试验证，同时保留 quick/full 两种处理强度。
+
+**快速导航：** [工作流总览](#工作流总览) · [安装](#安装) · [工作流使用](#工作流使用) · [阶段产物](#full-产物) · [辅助 Skill](#辅助-skill)
 
 ## 核心原则
 
@@ -11,19 +13,73 @@
 - 首版仅支持 Codex 和 Java 后端项目。
 - 流程止于测试验证完成，不自动 commit、push、合并或部署。
 
-## 固定阶段
+## 工作流总览
 
-```text
-$zstt-requirement-clarification
-  -> $zstt-repo-research
-  -> $zstt-technical-design
-  -> $zstt-task-breakdown
-  -> $zstt-implementation
-  -> $zstt-code-review
-  -> $zstt-test-verify
+ZSTT 没有自动串行总入口。用户先选择处理模式，再显式调用当前阶段 Skill；图中的箭头表示推荐顺序，不表示系统会自动执行下一阶段。
+
+| 模式 | 适用场景 | 固定主产物 | 阶段要求 |
+| --- | --- | --- | --- |
+| **Full** | 正式需求、跨模块改动、接口或数据结构变化、高风险业务逻辑 | 7 份 | 依次完成需求、调研、方案、任务、实现、评审和测试 |
+| **Quick** | 范围明确、影响面小、风险较低且不需要独立方案评审的小改动 | 最多 4 份 | 需求澄清和实现必需；代码评审、测试验证按需调用 |
+
+### Full 固定阶段
+
+```mermaid
+flowchart TB
+    subgraph ANALYSIS["需求与方案"]
+        direction LR
+        RQ["01 需求澄清<br/>$zstt-requirement-clarification<br/>00-requirement.md"] --> RS["02 仓库调研<br/>$zstt-repo-research<br/>01-research.md"]
+        RS --> DS["03 技术方案<br/>$zstt-technical-design<br/>02-design.md"] --> TB["04 任务拆分<br/>$zstt-task-breakdown<br/>03-tasks.md"]
+    end
+
+    subgraph DELIVERY["实现与验证"]
+        direction LR
+        IM["05 编码实现<br/>$zstt-implementation<br/>04-implementation.md"] --> CR["06 代码评审<br/>$zstt-code-review<br/>05-code-review.md"] --> TV["07 测试验证<br/>$zstt-test-verify<br/>06-test-report.md"]
+    end
+
+    TB --> IM
+
+    classDef discovery fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
+    classDef design fill:#ecfeff,stroke:#0891b2,color:#164e63
+    classDef delivery fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    class RQ,RS discovery
+    class DS,TB design
+    class IM,CR,TV delivery
+    style ANALYSIS fill:#fafafa,stroke:#cbd5e1
+    style DELIVERY fill:#fafafa,stroke:#cbd5e1
 ```
 
-`$zstt-code-simplification` 是可随时使用的行为保持型辅助 Skill，不属于固定流程，也不推进阶段状态。
+| 阶段 | 主要回答 | 唯一权威主产物 | 完成后 |
+| --- | --- | --- | --- |
+| 01 需求澄清 | 要做什么、边界和验收标准是什么 | `00-requirement.md` | 推荐仓库调研 |
+| 02 仓库调研 | 真实入口、调用链、数据源和影响范围是什么 | `01-research.md` | 推荐技术方案 |
+| 03 技术方案 | 怎么改、为什么这样改、如何发布和回滚 | `02-design.md` | 推荐任务拆分 |
+| 04 任务拆分 | 改哪些文件、按什么顺序、如何验证 | `03-tasks.md` | 推荐编码实现 |
+| 05 编码实现 | 实际改了什么、是否偏离方案、验证结果如何 | `04-implementation.md` | 推荐代码评审 |
+| 06 代码评审 | 实现是否正确、安全、可维护且与上游一致 | `05-code-review.md` | 推荐测试验证 |
+| 07 测试验证 | 需求是否闭环、差异来自哪里、能否交付 | `06-test-report.md` | 固定流程结束 |
+
+### Quick 轻量路径
+
+```mermaid
+flowchart LR
+    QR["01 轻量需求澄清<br/>$zstt-requirement-clarification<br/>00-requirement.md"]
+    QI["02 编码实现<br/>$zstt-implementation<br/>01-implementation.md"]
+    QC["03 代码评审（可选）<br/>$zstt-code-review<br/>02-code-review.md"]
+    QT["04 测试验证（可选）<br/>$zstt-test-verify<br/>03-test-report.md"]
+
+    QR --> QI
+    QI -.-> QC
+    QI -.-> QT
+    QC -.-> QT
+
+    classDef required fill:#fff7ed,stroke:#ea580c,color:#7c2d12
+    classDef optional fill:#f8fafc,stroke:#64748b,color:#1e293b,stroke-dasharray:5 5
+    class QR,QI required
+    class QC,QT optional
+```
+
+`$zstt-code-simplification` 和 `$zstt-module-refactor` 是可随时显式调用的辅助 Skill，不属于固定流程，也不推进阶段状态。
 
 ## Skill 与 Rules 分工
 
@@ -68,10 +124,10 @@ quick 小需求写入：
 
 ZSTT 使用与 Spec Kit 类似的项目初始化方式，不依赖 Codex 插件或 Marketplace。项目管理员安装 `zstt-cli`，把 Codex 项目级 Skills 写入业务仓库并随代码提交；普通成员拉取仓库后即可使用。
 
-运行环境要求 Python 3.11+，推荐使用 `uv` 管理命令行工具。将占位符替换为真实团队 Git 地址和发布版本：
+运行环境要求 Python 3.11+，推荐使用 `uv` 管理命令行工具。直接执行以下命令，默认从 GitHub `main` 分支安装最新版本：
 
 ```powershell
-uv tool install zstt-cli --from "git+<团队Git仓库地址>@v0.2.0"
+uv tool install zstt-cli --force --from "git+https://github.com/Foutlook/zstt-backend-workflow.git"
 zstt version
 ```
 
@@ -105,7 +161,7 @@ zstt init --here
 先升级全局 CLI，再在每个业务仓库刷新受管文件：
 
 ```powershell
-uv tool install zstt-cli --force --from "git+<团队Git仓库地址>@v0.2.0"
+uv tool install zstt-cli --force --from "git+https://github.com/Foutlook/zstt-backend-workflow.git"
 cd C:\projects\learning-service
 zstt check --here
 zstt update --here
@@ -136,31 +192,64 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 
 验证脚本运行全部测试、编译 Python 源码、构建 Wheel，并检查 Wheel 包含完整 Skill、Rules、Runtime 和 Templates，且不包含 Codex 插件元数据。脚本不会自动 commit、push、合并或发布。
 
-## 使用方式
+## 工作流使用
 
-### 1. 从需求澄清开始
+### 1. 进入业务仓库并新建 Codex 任务
 
-用户显式调用：
+项目管理员完成 `zstt init --here` 并提交生成文件后，团队成员只需拉取业务仓库，在仓库根目录新建 Codex 任务。不要在工作流项目目录中执行业务需求，也不需要普通成员重复初始化。
+
+### 2. 显式发起需求澄清
+
+Full 正式需求：
 
 ```text
 $zstt-requirement-clarification
-请按 full 澄清这份需求：<PRD 或需求材料>
+请按 full 模式澄清这份需求：<PRD、截图、流程图或口头说明>
 ```
 
-Skill 会在业务仓库创建 `00-requirement.md`，完成后只推荐 `$zstt-repo-research`，不会自动执行。
+Quick 小改动：
 
-### 2. 用户决定是否修改
+```text
+$zstt-requirement-clarification
+请按 quick 模式澄清这个小改动：<问题描述与验收标准>
+```
 
-每个阶段完成后，用户可以直接修改 `.zstt` 下的权威主产物。CLI 会保存已完成产物的内容指纹；任何已完成产物被修改后，从该阶段起的完成状态都会失效。用户需要先重新确认并完成被修改阶段，才能继续下游，不允许沿用旧结论。
+需求澄清会创建对应目录、`meta.json` 和 `00-requirement.md`。系统完成当前阶段后只推荐下一步，不会自动执行推荐的 Skill。
 
-### 3. 显式执行下一阶段
+### 3. 审阅当前阶段产物
+
+每个阶段结束时，Codex 应交付当前主产物路径、校验结论、开放问题和推荐 Skill。用户可以自由选择：
+
+1. **继续**：显式调用推荐 Skill；
+2. **修改**：直接编辑当前 `.zstt/` 主产物，再重新确认该阶段；
+3. **暂停**：保留现有产物，之后从同一需求目录继续。
+
+> [!IMPORTANT]
+> `meta.json` 由 Runtime 维护，不要手工编辑。用户修改已完成主产物后，该阶段及其下游完成状态会失效；继续前必须重新校验修改后的权威内容，不能沿用旧结论。
+
+### 4. 显式调用下一阶段
+
+Full 示例：
 
 ```text
 $zstt-repo-research
 继续处理 .zstt/features/20260716-learning-report
 ```
 
-后续阶段同理。固定流程没有统一自动入口。
+后续阶段使用同一需求目录，并依次显式调用 `$zstt-technical-design`、`$zstt-task-breakdown`、`$zstt-implementation`、`$zstt-code-review` 和 `$zstt-test-verify`。
+
+Quick 完成需求澄清后，直接显式调用实现阶段：
+
+```text
+$zstt-implementation
+继续处理 .zstt/quick/20260716-fix-learning-report
+```
+
+Quick 的代码评审和测试验证由用户根据风险决定是否调用。即使跳过代码评审，测试报告仍固定使用 `03-test-report.md`。
+
+### 5. 识别阶段是否真正完成
+
+文档已经生成不等于阶段已经完成。只有内容门禁通过、P0 阻塞清零，并由 Runtime 成功记录产物指纹后，才可以继续下游。固定流程没有统一自动入口，也不会自动 commit、push、合并或部署。
 
 ## Full 产物
 
