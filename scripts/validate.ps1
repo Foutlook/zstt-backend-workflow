@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $python = (Get-Command python -ErrorAction Stop).Source
 $uv = (Get-Command uv -ErrorAction Stop).Source
-$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("zztt-cli-build-" + [guid]::NewGuid().ToString("N"))
+$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("zstt-cli-build-" + [guid]::NewGuid().ToString("N"))
 $buildSource = Join-Path $temporaryRoot "source"
 $wheelRoot = Join-Path $temporaryRoot "wheel"
 
@@ -65,22 +65,29 @@ try {
         throw "Validation virtual environment creation failed with exit code $LASTEXITCODE"
     }
     $venvPython = Join-Path $venvRoot "Scripts\python.exe"
-    $zztt = Join-Path $venvRoot "Scripts\zztt.exe"
+    $zstt = Join-Path $venvRoot "Scripts\zstt.exe"
     & $venvPython -m pip install --no-deps $wheels[0].FullName
     if ($LASTEXITCODE -ne 0) {
         throw "Wheel installation failed with exit code $LASTEXITCODE"
     }
-    & $zztt version
+    & $zstt version
     if ($LASTEXITCODE -ne 0) {
-        throw "Installed zztt entry point failed with exit code $LASTEXITCODE"
+        throw "Installed zstt entry point failed with exit code $LASTEXITCODE"
     }
     New-Item -ItemType Directory -Path $smokeProject | Out-Null
-    & $zztt init $smokeProject
+    & $zstt init $smokeProject
     if ($LASTEXITCODE -ne 0) {
-        throw "Installed zztt init smoke test failed with exit code $LASTEXITCODE"
+        throw "Installed zstt init smoke test failed with exit code $LASTEXITCODE"
     }
-    if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".agents\skills\zztt-workflow-shared\SKILL.md"))) {
-        throw "Installed wheel did not initialize project-level ZZTT Skills"
+    if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".agents\skills\zstt-requirement-clarification\SKILL.md"))) {
+        throw "Installed wheel did not initialize project-level ZSTT Skills"
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py"))) {
+        throw "Installed wheel did not initialize ZSTT rules runtime"
+    }
+    & $venvPython (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py") check
+    if ($LASTEXITCODE -ne 0) {
+        throw "Installed ZSTT rule resolver failed catalog validation with exit code $LASTEXITCODE"
     }
 }
 finally {
@@ -90,4 +97,4 @@ finally {
     }
 }
 
-Write-Host "ZZTT CLI validation passed: $repoRoot"
+Write-Host "ZSTT CLI validation passed: $repoRoot"

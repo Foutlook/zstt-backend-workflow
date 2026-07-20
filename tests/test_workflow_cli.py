@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ROOT / "src" / "zztt_cli" / "resources" / "skills"
-CLI = SKILLS / "zztt-workflow-shared" / "scripts" / "workflow_cli.py"
+RUNTIME = ROOT / "src" / "zstt_cli" / "resources" / "runtime"
+CLI = RUNTIME / "workflow_cli.py"
 
 
 def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -77,7 +77,7 @@ def init_feature(repo_root: Path, mode: str = "full") -> Path:
     if completed.returncode != 0:
         raise AssertionError(completed.stderr)
     category = "features" if mode == "full" else "quick"
-    return repo_root / ".zztt" / category / f"20260716-{name}"
+    return repo_root / ".zstt" / category / f"20260716-{name}"
 
 
 class WorkflowCliInitTest(unittest.TestCase):
@@ -98,7 +98,7 @@ class WorkflowCliInitTest(unittest.TestCase):
             )
 
             self.assertEqual(0, completed.returncode, completed.stderr)
-            feature_dir = repo_root / ".zztt" / "features" / "20260716-学习报告"
+            feature_dir = repo_root / ".zstt" / "features" / "20260716-学习报告"
             self.assertEqual(
                 {"meta.json", "00-requirement.md"},
                 {path.name for path in feature_dir.iterdir()},
@@ -108,7 +108,7 @@ class WorkflowCliInitTest(unittest.TestCase):
             self.assertEqual("requirement_clarification", meta["current_stage"])
             self.assertEqual([], meta["completed_stages"])
             self.assertEqual(
-                "zztt-requirement-clarification",
+                "zstt-requirement-clarification",
                 meta["recommended_next_skill"],
             )
 
@@ -129,7 +129,7 @@ class WorkflowCliInitTest(unittest.TestCase):
             )
 
             self.assertEqual(0, completed.returncode, completed.stderr)
-            feature_dir = repo_root / ".zztt" / "quick" / "20260716-修正文案"
+            feature_dir = repo_root / ".zstt" / "quick" / "20260716-修正文案"
             requirement = (feature_dir / "00-requirement.md").read_text(encoding="utf-8")
             self.assertIn("mode: quick", requirement)
 
@@ -166,7 +166,7 @@ class WorkflowCliInitTest(unittest.TestCase):
                 "--date",
                 "20260716",
             )
-            feature_dir = Path(tmp) / ".zztt" / "features" / "20260716-学习报告"
+            feature_dir = Path(tmp) / ".zstt" / "features" / "20260716-学习报告"
 
             completed = run_cli("status", "--feature-dir", str(feature_dir))
 
@@ -188,7 +188,7 @@ class WorkflowCliInitTest(unittest.TestCase):
                 "--date",
                 "20260716",
             )
-            feature_dir = Path(tmp) / ".zztt" / "features" / "20260716-学习报告"
+            feature_dir = Path(tmp) / ".zstt" / "features" / "20260716-学习报告"
             for path in feature_dir.iterdir():
                 self.assertFalse(path.read_bytes().startswith(b"\xef\xbb\xbf"), path.name)
 

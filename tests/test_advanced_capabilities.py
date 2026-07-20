@@ -6,7 +6,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ROOT / "src" / "zztt_cli" / "resources" / "skills"
+SKILLS = ROOT / "src" / "zstt_cli" / "resources" / "skills"
+RULES = ROOT / "src" / "zstt_cli" / "resources" / "rules"
+TEMPLATES = ROOT / "src" / "zstt_cli" / "resources" / "templates"
 
 
 def read_skill(name: str) -> str:
@@ -19,9 +21,13 @@ def read_reference(skill_name: str, reference_name: str) -> str:
     ).read_text(encoding="utf-8")
 
 
+def read_rule(group: str, rule_name: str) -> str:
+    return (RULES / group / rule_name).read_text(encoding="utf-8")
+
+
 class SharedAdvancedCapabilityContractTest(unittest.TestCase):
     def test_shared_capability_and_fallback_contract_exists(self) -> None:
-        text = read_reference("zztt-workflow-shared", "capability-fallback.md")
+        text = read_rule("workflow", "capability-fallback.md")
         for token in (
             "能力探测",
             "增强路径",
@@ -32,10 +38,7 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_shared_document_authority_and_correction_contract_exists(self) -> None:
-        text = read_reference(
-            "zztt-workflow-shared",
-            "document-authority-and-corrections.md",
-        )
+        text = read_rule("workflow", "document-authority.md")
         for token in (
             "权威主产物",
             "auxiliary",
@@ -45,13 +48,25 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
-    def test_shared_skill_loads_advanced_contracts(self) -> None:
-        text = read_skill("zztt-workflow-shared")
-        self.assertIn("capability-fallback.md", text)
-        self.assertIn("document-authority-and-corrections.md", text)
+    def test_public_skills_load_dynamic_rules(self) -> None:
+        for skill in (
+            "zstt-requirement-clarification",
+            "zstt-repo-research",
+            "zstt-technical-design",
+            "zstt-task-breakdown",
+            "zstt-implementation",
+            "zstt-code-review",
+            "zstt-test-verify",
+            "zstt-code-simplification",
+            "zstt-module-refactor",
+        ):
+            with self.subTest(skill=skill):
+                text = read_skill(skill)
+                self.assertIn("rule_resolver.py", text)
+                self.assertIn("规则", text)
 
     def test_evidence_rules_define_claim_ledger(self) -> None:
-        text = read_reference("zztt-workflow-shared", "evidence-rules.md")
+        text = read_rule("workflow", "evidence.md")
         for token in (
             "Claim Ledger",
             "结论 ID",
@@ -62,15 +77,24 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
+    def test_all_stage_templates_record_resolved_rules(self) -> None:
+        for template in TEMPLATES.rglob("*.md"):
+            with self.subTest(template=template.relative_to(TEMPLATES)):
+                text = template.read_text(encoding="utf-8")
+                self.assertIn("规则加载记录", text)
+                self.assertIn("rulesetVersion", text)
+                self.assertIn("rulesetFingerprint", text)
+                self.assertIn("选择原因", text)
+
 
 class RequirementAdvancedCapabilityTest(unittest.TestCase):
     def test_requirement_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-requirement-clarification")
+        text = read_skill("zstt-requirement-clarification")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_requirement_playbook_covers_advanced_clarification(self) -> None:
         text = read_reference(
-            "zztt-requirement-clarification",
+            "zstt-requirement-clarification",
             "advanced-playbook.md",
         )
         for token in (
@@ -91,10 +115,7 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
         for mode in ("full", "quick"):
             with self.subTest(mode=mode):
                 text = (
-                    SKILLS
-                    / "zztt-workflow-shared"
-                    / "assets"
-                    / "templates"
+                    TEMPLATES
                     / mode
                     / "00-requirement.md"
                 ).read_text(encoding="utf-8")
@@ -104,11 +125,11 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
 
 class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
     def test_research_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-repo-research")
+        text = read_skill("zstt-repo-research")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_research_playbook_covers_repository_archaeology(self) -> None:
-        text = read_reference("zztt-repo-research", "advanced-playbook.md")
+        text = read_reference("zstt-repo-research", "advanced-playbook.md")
         for token in (
             "仓库边界",
             "主项目",
@@ -126,7 +147,7 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_research_playbook_defines_tool_fallbacks(self) -> None:
-        text = read_reference("zztt-repo-research", "advanced-playbook.md")
+        text = read_reference("zstt-repo-research", "advanced-playbook.md")
         for token in (
             "远程优先",
             "CodeGraph 不可用",
@@ -138,10 +159,7 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
 
     def test_research_template_has_traceable_claim_ledger(self) -> None:
         text = (
-            SKILLS
-            / "zztt-workflow-shared"
-            / "assets"
-            / "templates"
+            TEMPLATES
             / "full"
             / "01-research.md"
         ).read_text(encoding="utf-8")
@@ -158,11 +176,11 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
 
 class TechnicalDesignAdvancedCapabilityTest(unittest.TestCase):
     def test_design_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-technical-design")
+        text = read_skill("zstt-technical-design")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_design_playbook_covers_reviewable_backend_design(self) -> None:
-        text = read_reference("zztt-technical-design", "advanced-playbook.md")
+        text = read_reference("zstt-technical-design", "advanced-playbook.md")
         for token in (
             "设计输入清单",
             "高影响歧义",
@@ -186,10 +204,7 @@ class TechnicalDesignAdvancedCapabilityTest(unittest.TestCase):
 
     def test_design_template_exposes_advanced_review_sections(self) -> None:
         text = (
-            SKILLS
-            / "zztt-workflow-shared"
-            / "assets"
-            / "templates"
+            TEMPLATES
             / "full"
             / "02-design.md"
         ).read_text(encoding="utf-8")
@@ -206,11 +221,11 @@ class TechnicalDesignAdvancedCapabilityTest(unittest.TestCase):
 
 class TaskBreakdownAdvancedCapabilityTest(unittest.TestCase):
     def test_task_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-task-breakdown")
+        text = read_skill("zstt-task-breakdown")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_task_playbook_covers_execution_orchestration(self) -> None:
-        text = read_reference("zztt-task-breakdown", "advanced-playbook.md")
+        text = read_reference("zstt-task-breakdown", "advanced-playbook.md")
         for token in (
             "覆盖矩阵",
             "关键路径",
@@ -227,10 +242,7 @@ class TaskBreakdownAdvancedCapabilityTest(unittest.TestCase):
 
     def test_task_template_exposes_parallel_safety_fields(self) -> None:
         text = (
-            SKILLS
-            / "zztt-workflow-shared"
-            / "assets"
-            / "templates"
+            TEMPLATES
             / "full"
             / "03-tasks.md"
         ).read_text(encoding="utf-8")
@@ -247,11 +259,11 @@ class TaskBreakdownAdvancedCapabilityTest(unittest.TestCase):
 
 class ImplementationAdvancedCapabilityTest(unittest.TestCase):
     def test_implementation_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-implementation")
+        text = read_skill("zstt-implementation")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_implementation_playbook_covers_safe_execution(self) -> None:
-        text = read_reference("zztt-implementation", "advanced-playbook.md")
+        text = read_reference("zstt-implementation", "advanced-playbook.md")
         for token in (
             "范围冻结",
             "失败信号",
@@ -267,7 +279,7 @@ class ImplementationAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_implementation_parallelism_stays_inside_current_stage(self) -> None:
-        text = read_reference("zztt-implementation", "advanced-playbook.md")
+        text = read_reference("zstt-implementation", "advanced-playbook.md")
         for token in (
             "用户明确要求",
             "当前实现阶段",
@@ -284,10 +296,7 @@ class ImplementationAdvancedCapabilityTest(unittest.TestCase):
         ):
             with self.subTest(mode=mode):
                 text = (
-                    SKILLS
-                    / "zztt-workflow-shared"
-                    / "assets"
-                    / "templates"
+                    TEMPLATES
                     / mode
                     / artifact
                 ).read_text(encoding="utf-8")
@@ -298,11 +307,11 @@ class ImplementationAdvancedCapabilityTest(unittest.TestCase):
 
 class CodeReviewAdvancedCapabilityTest(unittest.TestCase):
     def test_review_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-code-review")
+        text = read_skill("zstt-code-review")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_review_playbook_covers_hallucination_and_rounds(self) -> None:
-        text = read_reference("zztt-code-review", "advanced-playbook.md")
+        text = read_reference("zstt-code-review", "advanced-playbook.md")
         for token in (
             "范围冻结",
             "未跟踪业务文件",
@@ -323,10 +332,7 @@ class CodeReviewAdvancedCapabilityTest(unittest.TestCase):
         ):
             with self.subTest(mode=mode):
                 text = (
-                    SKILLS
-                    / "zztt-workflow-shared"
-                    / "assets"
-                    / "templates"
+                    TEMPLATES
                     / mode
                     / artifact
                 ).read_text(encoding="utf-8")
@@ -337,11 +343,11 @@ class CodeReviewAdvancedCapabilityTest(unittest.TestCase):
 
 class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
     def test_test_verify_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-test-verify")
+        text = read_skill("zstt-test-verify")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_test_verify_playbook_covers_environmental_verification(self) -> None:
-        text = read_reference("zztt-test-verify", "advanced-playbook.md")
+        text = read_reference("zstt-test-verify", "advanced-playbook.md")
         for token in (
             "测试资产优先级",
             "环境",
@@ -359,7 +365,7 @@ class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_test_verify_playbook_preserves_six_difference_categories(self) -> None:
-        text = read_reference("zztt-test-verify", "advanced-playbook.md")
+        text = read_reference("zstt-test-verify", "advanced-playbook.md")
         for token in (
             "需求歧义",
             "方案遗漏",
@@ -371,7 +377,7 @@ class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_test_verify_missing_capabilities_cannot_fake_success(self) -> None:
-        text = read_reference("zztt-test-verify", "advanced-playbook.md")
+        text = read_reference("zstt-test-verify", "advanced-playbook.md")
         for token in (
             "缺少环境",
             "缺少 token",
@@ -388,10 +394,7 @@ class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
         ):
             with self.subTest(mode=mode):
                 text = (
-                    SKILLS
-                    / "zztt-workflow-shared"
-                    / "assets"
-                    / "templates"
+                    TEMPLATES
                     / mode
                     / artifact
                 ).read_text(encoding="utf-8")
@@ -402,11 +405,11 @@ class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
 
 class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
     def test_simplification_skill_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-code-simplification")
+        text = read_skill("zstt-code-simplification")
         self.assertIn("references/advanced-playbook.md", text)
 
     def test_simplification_playbook_covers_cleanup_workflow(self) -> None:
-        text = read_reference("zztt-code-simplification", "advanced-playbook.md")
+        text = read_reference("zstt-code-simplification", "advanced-playbook.md")
         for token in (
             "范围优先级",
             "Code Reuse",
@@ -422,9 +425,9 @@ class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_simplification_playbook_keeps_phase_and_risk_boundaries(self) -> None:
-        text = read_reference("zztt-code-simplification", "advanced-playbook.md")
+        text = read_reference("zstt-code-simplification", "advanced-playbook.md")
         for token in (
-            "不修改 `.zztt/meta.json`",
+            "不修改 `.zstt/meta.json`",
             "报告模式",
             "跳过",
             "疑似 Bug",
@@ -435,12 +438,12 @@ class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
 
 class ModuleRefactorAdvancedCapabilityTest(unittest.TestCase):
     def test_module_refactor_loads_advanced_playbook(self) -> None:
-        text = read_skill("zztt-module-refactor")
+        text = read_skill("zstt-module-refactor")
         self.assertIn("references/advanced-playbook.md", text)
         self.assertIn("assets/refactor-record-template.md", text)
 
     def test_module_refactor_covers_behavior_and_runtime_boundaries(self) -> None:
-        text = read_reference("zztt-module-refactor", "advanced-playbook.md")
+        text = read_reference("zstt-module-refactor", "advanced-playbook.md")
         for token in (
             "真实调用链",
             "Guard 与真实依赖",
@@ -463,7 +466,7 @@ class ModuleRefactorAdvancedCapabilityTest(unittest.TestCase):
     def test_module_refactor_template_keeps_one_reviewable_record(self) -> None:
         text = (
             SKILLS
-            / "zztt-module-refactor"
+            / "zstt-module-refactor"
             / "assets"
             / "refactor-record-template.md"
         ).read_text(encoding="utf-8")
@@ -472,6 +475,7 @@ class ModuleRefactorAdvancedCapabilityTest(unittest.TestCase):
             "review_path: plan_review",
             "behavior_change: none",
             "范围冻结",
+            "rulesetFingerprint",
             "当前证据链",
             "行为基线",
             "业务逻辑变更提案",
@@ -497,7 +501,7 @@ class DocumentationAndEvalContractTest(unittest.TestCase):
             "自动 commit/push/merge/deploy",
             "无边界并行",
             "个人风格命名",
-            "zztt-code-simplification",
+            "zstt-code-simplification",
         ):
             self.assertIn(token, text)
 

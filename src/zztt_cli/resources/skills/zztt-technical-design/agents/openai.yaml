@@ -1,7 +1,0 @@
-interface:
-  display_name: "ZZTT 后端技术方案"
-  short_description: "基于需求与代码证据产出可评审、可实施、可验证并可安全回滚的后端技术方案"
-  default_prompt: "使用 $zztt-technical-design 基于需求与调研证据编写可评审的后端技术方案。"
-
-policy:
-  allow_implicit_invocation: false

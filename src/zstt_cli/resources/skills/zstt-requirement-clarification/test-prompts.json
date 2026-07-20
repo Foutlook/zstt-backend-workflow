@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "$zstt-requirement-clarification 我们要新增学习报告导出，按 full 处理；材料包含 PRD、PDF、页面截图和状态流转图，部分角色、状态和验收口径互相冲突。",
+    "expected": "盘点并实际读取材料，区分事实、推断与冲突，逐个澄清 P0，只维护 00-requirement.md，不进入代码调研。"
+  },
+  {
+    "id": 2,
+    "prompt": "$zstt-requirement-clarification 按 quick 澄清一个口头需求：管理员可以批量关闭任务，但权限范围、重复操作、历史任务和验收口径都没说清楚。",
+    "expected": "保留 quick 的必要风险扫描，聚焦高影响缺口，不静默补全权限、状态、历史数据或验收规则。"
+  }
+]

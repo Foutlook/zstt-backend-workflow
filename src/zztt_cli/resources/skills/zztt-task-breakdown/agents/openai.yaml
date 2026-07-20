@@ -1,7 +1,0 @@
-interface:
-  display_name: "ZZTT 任务拆分"
-  short_description: "把确认方案拆成可追溯、可执行、可分工并具备明确验证信号的后端开发任务"
-  default_prompt: "使用 $zztt-task-breakdown 将已确认方案拆成带来源、文件范围和验证信号的任务。"
-
-policy:
-  allow_implicit_invocation: false

@@ -6,21 +6,22 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_ROOT = ROOT / "src" / "zztt_cli"
+PACKAGE_ROOT = ROOT / "src" / "zstt_cli"
 SKILLS = PACKAGE_ROOT / "resources" / "skills"
+RULES = PACKAGE_ROOT / "resources" / "rules"
+RUNTIME = PACKAGE_ROOT / "resources" / "runtime"
+TEMPLATES = PACKAGE_ROOT / "resources" / "templates"
 
 EXPECTED_SKILLS = {
-    "zztt-requirement-clarification",
-    "zztt-repo-research",
-    "zztt-technical-design",
-    "zztt-task-breakdown",
-    "zztt-implementation",
-    "zztt-code-review",
-    "zztt-test-verify",
-    "zztt-code-simplification",
-    "zztt-java-backend-standard",
-    "zztt-module-refactor",
-    "zztt-workflow-shared",
+    "zstt-requirement-clarification",
+    "zstt-repo-research",
+    "zstt-technical-design",
+    "zstt-task-breakdown",
+    "zstt-implementation",
+    "zstt-code-review",
+    "zstt-test-verify",
+    "zstt-code-simplification",
+    "zstt-module-refactor",
 }
 
 
@@ -33,8 +34,8 @@ class ProjectStructureTest(unittest.TestCase):
         self.assertTrue((PACKAGE_ROOT / "cli.py").is_file())
         self.assertTrue((PACKAGE_ROOT / "installer.py").is_file())
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-        self.assertEqual("zztt-cli", project["project"]["name"])
-        self.assertEqual("zztt_cli.cli:main", project["project"]["scripts"]["zztt"])
+        self.assertEqual("zstt-cli", project["project"]["name"])
+        self.assertEqual("zstt_cli.cli:main", project["project"]["scripts"]["zstt"])
         package_init = (PACKAGE_ROOT / "__init__.py").read_text(encoding="utf-8")
         self.assertIn(
             f'__version__ = "{project["project"]["version"]}"',
@@ -56,8 +57,13 @@ class ProjectStructureTest(unittest.TestCase):
         }
         self.assertEqual(EXPECTED_SKILLS, actual)
 
-    def test_shared_script_directory_exists(self) -> None:
-        self.assertTrue((SKILLS / "zztt-workflow-shared" / "scripts").is_dir())
+    def test_internal_resources_are_not_exposed_as_skills(self) -> None:
+        self.assertFalse((SKILLS / "zstt-workflow-shared").exists())
+        self.assertFalse((SKILLS / "zstt-java-backend-standard").exists())
+        self.assertTrue((RULES / "catalog.json").is_file())
+        self.assertTrue((RUNTIME / "rule_resolver.py").is_file())
+        self.assertTrue((RUNTIME / "workflow_cli.py").is_file())
+        self.assertTrue((TEMPLATES / "full" / "00-requirement.md").is_file())
 
     def test_all_skills_have_explicit_only_codex_metadata(self) -> None:
         for skill in EXPECTED_SKILLS:

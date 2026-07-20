@@ -1,7 +1,0 @@
-interface:
-  display_name: "ZZTT 工作流共享底座"
-  short_description: "为各阶段 Skill 提供模板、权威产物协议、内容指纹和确定性门禁工具"
-  default_prompt: "使用 $zztt-workflow-shared 检查 ZZTT 工作流协议、模板或确定性门禁实现。"
-
-policy:
-  allow_implicit_invocation: false

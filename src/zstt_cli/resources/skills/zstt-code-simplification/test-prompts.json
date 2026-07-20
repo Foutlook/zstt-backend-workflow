@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "$zstt-code-simplification 检查当前 diff，安全项直接改；一个候选会改变异常语义，另一个疑似业务 Bug。",
+    "expected": "从四个独立视角检查并只应用已证明行为保持的简化，跳过异常语义变化，疑似 Bug 只报告。"
+  },
+  {
+    "id": 2,
+    "prompt": "$zstt-code-simplification 只评审 MarketDataService，不要修改；这个类只有部分代码出现在 diff 中。",
+    "expected": "进入报告模式并读取完整文件、必要调用方与测试，输出候选、等价证据、跳过原因和验证建议。"
+  }
+]

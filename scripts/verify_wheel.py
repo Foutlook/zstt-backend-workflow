@@ -6,11 +6,19 @@ from pathlib import Path
 
 
 REQUIRED_SUFFIXES = (
-    "zztt_cli/cli.py",
-    "zztt_cli/installer.py",
-    "zztt_cli/resources/skills/zztt-requirement-clarification/SKILL.md",
-    "zztt_cli/resources/skills/zztt-workflow-shared/scripts/workflow_cli.py",
-    "zztt_cli/resources/skills/zztt-workflow-shared/assets/templates/full/00-requirement.md",
+    "zstt_cli/cli.py",
+    "zstt_cli/installer.py",
+    "zstt_cli/resources/skills/zstt-requirement-clarification/SKILL.md",
+    "zstt_cli/resources/rules/catalog.json",
+    "zstt_cli/resources/rules/java/design-patterns.md",
+    "zstt_cli/resources/runtime/rule_resolver.py",
+    "zstt_cli/resources/runtime/workflow_cli.py",
+    "zstt_cli/resources/templates/full/00-requirement.md",
+)
+
+FORBIDDEN_SUFFIXES = (
+    "zstt_cli/resources/skills/zstt-workflow-shared/SKILL.md",
+    "zstt_cli/resources/skills/zstt-java-backend-standard/SKILL.md",
 )
 
 
@@ -27,7 +35,8 @@ def main() -> int:
     forbidden = [
         name
         for name in names
-        if name.endswith(".codex-plugin/plugin.json")
+        if name in FORBIDDEN_SUFFIXES
+        or name.endswith(".codex-plugin/plugin.json")
         or name.endswith(".agents/plugins/marketplace.json")
         or "/__pycache__/" in name
         or name.endswith((".pyc", ".pyo"))

@@ -1,0 +1,7 @@
+interface:
+  display_name: "ZSTT 编码实现"
+  short_description: "按任务边界实施后端改动，记录失败信号、范围偏差、代码质量和真实验证证据"
+  default_prompt: "使用 $zstt-implementation 按已确认任务实施最小代码改动并记录真实验证结果。"
+
+policy:
+  allow_implicit_invocation: false

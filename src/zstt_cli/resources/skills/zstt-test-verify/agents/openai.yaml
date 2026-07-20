@@ -1,0 +1,7 @@
+interface:
+  display_name: "ZSTT 测试验证"
+  short_description: "按需求与风险执行环境化验证，保留原始证据并准确归类各类实现差异"
+  default_prompt: "使用 $zstt-test-verify 根据需求、方案和实现执行测试验证并记录原始证据。"
+
+policy:
+  allow_implicit_invocation: false

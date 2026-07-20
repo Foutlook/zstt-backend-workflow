@@ -1,7 +1,0 @@
-interface:
-  display_name: "ZZTT 代码简化"
-  short_description: "在任意阶段执行行为保持的安全代码清理，不修改或推进固定工作流状态"
-  default_prompt: "使用 $zztt-code-simplification 简化当前代码改动，保持行为不变且不推进固定流程。"
-
-policy:
-  allow_implicit_invocation: false

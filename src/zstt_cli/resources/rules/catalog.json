@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "rulesetVersion": "1.0.0",
+  "ruleTypes": {
+    "constraint": "必须遵守的硬约束；违反时应停止、修正或形成阻塞。",
+    "decision": "只有实际证据满足适用条件时才采用的工程决策。",
+    "checklist": "完成实现、评审或验证时逐项核对的检查表。",
+    "reference": "仅在需要示例或补充说明时读取的参考资料。"
+  },
+  "profiles": {
+    "zstt-requirement-clarification": [
+      "workflow.protocol",
+      "workflow.capability-fallback",
+      "workflow.document-authority"
+    ],
+    "zstt-repo-research": [
+      "workflow.protocol",
+      "workflow.evidence",
+      "workflow.capability-fallback",
+      "workflow.document-authority"
+    ],
+    "zstt-technical-design": [
+      "workflow.protocol",
+      "workflow.evidence",
+      "workflow.capability-fallback",
+      "workflow.document-authority",
+      "java.core",
+      "java.verification"
+    ],
+    "zstt-task-breakdown": [
+      "workflow.protocol",
+      "workflow.document-authority",
+      "java.verification"
+    ],
+    "zstt-implementation": [
+      "workflow.protocol",
+      "workflow.capability-fallback",
+      "workflow.document-authority",
+      "java.core",
+      "java.comments",
+      "java.verification"
+    ],
+    "zstt-code-review": [
+      "workflow.protocol",
+      "workflow.evidence",
+      "workflow.capability-fallback",
+      "workflow.document-authority",
+      "java.core",
+      "java.comments",
+      "java.verification"
+    ],
+    "zstt-test-verify": [
+      "workflow.protocol",
+      "workflow.evidence",
+      "workflow.capability-fallback",
+      "workflow.document-authority",
+      "java.verification"
+    ],
+    "zstt-code-simplification": [
+      "workflow.capability-fallback",
+      "workflow.document-authority",
+      "java.core",
+      "java.comments",
+      "java.verification"
+    ],
+    "zstt-module-refactor": [
+      "workflow.evidence",
+      "workflow.capability-fallback",
+      "workflow.document-authority",
+      "java.core",
+      "java.comments",
+      "java.verification"
+    ]
+  },
+  "rules": [
+    {
+      "id": "workflow.protocol",
+      "type": "constraint",
+      "path": "workflow/protocol.md",
+      "description": "显式阶段调用、状态门禁、产物路径和工作流命令协议。",
+      "selectors": ["workflow"]
+    },
+    {
+      "id": "workflow.evidence",
+      "type": "checklist",
+      "path": "workflow/evidence.md",
+      "description": "事实、推断、运行时缺口和结论账本的证据规则。",
+      "selectors": ["evidence", "call-chain", "data-source"]
+    },
+    {
+      "id": "workflow.capability-fallback",
+      "type": "decision",
+      "path": "workflow/capability-fallback.md",
+      "description": "工具能力探测、增强路径、标准降级和停止条件。",
+      "selectors": ["capability", "tool-fallback"]
+    },
+    {
+      "id": "workflow.document-authority",
+      "type": "constraint",
+      "path": "workflow/document-authority.md",
+      "description": "唯一权威主产物、附件、用户纠正和上游回写规则。",
+      "selectors": ["artifact", "upstream-correction"]
+    },
+    {
+      "id": "java.core",
+      "type": "constraint",
+      "path": "java/core.md",
+      "description": "Java 修改范围、真实依赖、局部一致性和主链路可读性。",
+      "selectors": ["java", "business-logic", "api-contract"]
+    },
+    {
+      "id": "java.comments",
+      "type": "constraint",
+      "path": "java/comments.md",
+      "description": "既有注释保留和非平凡逻辑的原因注释。",
+      "selectors": ["comments", "code-move"]
+    },
+    {
+      "id": "java.jackson",
+      "type": "constraint",
+      "path": "java/jackson.md",
+      "description": "JavaBean/Jackson 高风险命名、兼容和绑定测试。",
+      "selectors": ["jackson", "dto", "json"]
+    },
+    {
+      "id": "java.data-access",
+      "type": "constraint",
+      "path": "java/data-access.md",
+      "description": "N+1、批量查询、远程调用和聚合数据源一致性。",
+      "selectors": ["data-access", "database", "rpc", "aggregation", "batch"]
+    },
+    {
+      "id": "java.transaction-exception",
+      "type": "constraint",
+      "path": "java/transaction-exception.md",
+      "description": "接口兼容、异常语义、事务边界和外部副作用。",
+      "selectors": ["transaction", "exception", "remote-side-effect"]
+    },
+    {
+      "id": "java.concurrency-resource",
+      "type": "checklist",
+      "path": "java/concurrency-resource.md",
+      "description": "并发、锁、线程安全、内存和资源生命周期检查。",
+      "selectors": ["concurrency", "lock", "thread-safety", "resource-lifecycle", "memory", "gc"]
+    },
+    {
+      "id": "java.abstraction",
+      "type": "decision",
+      "path": "java/abstraction.md",
+      "description": "基于变化轴、重复压力和职责边界判断是否引入抽象。",
+      "selectors": ["abstraction", "module-boundary", "responsibility-split"]
+    },
+    {
+      "id": "java.design-patterns",
+      "type": "decision",
+      "path": "java/design-patterns.md",
+      "description": "按实际问题选择或拒绝策略、工厂、适配器等设计模式。",
+      "selectors": ["design-patterns", "strategy", "factory", "adapter", "template-method", "specification", "state-machine"]
+    },
+    {
+      "id": "java.ddd",
+      "type": "decision",
+      "path": "java/ddd.md",
+      "description": "基于业务语言、聚合一致性和边界证据判断 DDD 构件。",
+      "selectors": ["ddd", "domain-boundary", "aggregate", "domain-service"]
+    },
+    {
+      "id": "java.verification",
+      "type": "checklist",
+      "path": "java/verification.md",
+      "description": "聚焦测试、Maven smart-doc 和未验证边界记录。",
+      "selectors": ["verification", "test", "maven", "smart-doc"]
+    },
+    {
+      "id": "java.examples",
+      "type": "reference",
+      "path": "java/examples.md",
+      "description": "Jackson、批量查询、聚合数据源和 Maven 命令示例。",
+      "selectors": ["examples"]
+    }
+  ]
+}

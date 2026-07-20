@@ -179,15 +179,15 @@ class WorkflowEndToEndTest(unittest.TestCase):
             "complete-stage",
             "用户修改",
             "重新校验",
-            ".zztt/features",
-            ".zztt/quick",
+            ".zstt/features",
+            ".zstt/quick",
         ):
             self.assertIn(token, readme)
 
     def test_workflow_eval_prompts_are_present(self) -> None:
         eval_path = ROOT / "evals" / "evals.json"
         data = json.loads(eval_path.read_text(encoding="utf-8"))
-        self.assertEqual("zztt-backend-workflow", data["skill_name"])
+        self.assertEqual("zstt-backend-workflow", data["skill_name"])
         self.assertGreaterEqual(len(data["evals"]), 12)
         for item in data["evals"]:
             self.assertIn("prompt", item)

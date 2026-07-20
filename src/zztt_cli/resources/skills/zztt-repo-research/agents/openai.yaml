@@ -1,7 +1,0 @@
-interface:
-  display_name: "ZZTT 仓库调研"
-  short_description: "沿真实调用链核实仓库边界、最终数据源、关键参数、跨仓库依赖和代码证据"
-  default_prompt: "使用 $zztt-repo-research 基于已确认需求调研真实仓库和调用链，只输出当前调研产物。"
-
-policy:
-  allow_implicit_invocation: false

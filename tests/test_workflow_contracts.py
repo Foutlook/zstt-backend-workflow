@@ -7,9 +7,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ROOT / "src" / "zztt_cli" / "resources" / "skills"
-SCRIPTS = SKILLS / "zztt-workflow-shared" / "scripts"
-sys.path.insert(0, str(SCRIPTS))
+RUNTIME = ROOT / "src" / "zstt_cli" / "resources" / "runtime"
+sys.path.insert(0, str(RUNTIME))
 
 from workflow_contracts import (  # noqa: E402
     FULL_STAGES,
@@ -64,11 +63,11 @@ class WorkflowContractsTest(unittest.TestCase):
 
     def test_code_simplification_is_not_a_fixed_stage(self) -> None:
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
-        self.assertNotIn("zztt-code-simplification", fixed_skills)
+        self.assertNotIn("zstt-code-simplification", fixed_skills)
 
     def test_module_refactor_is_not_a_fixed_stage(self) -> None:
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
-        self.assertNotIn("zztt-module-refactor", fixed_skills)
+        self.assertNotIn("zstt-module-refactor", fixed_skills)
 
     def test_unknown_stage_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "未知阶段"):
@@ -81,12 +80,12 @@ class WorkflowContractsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "需求名称不能为空"):
             sanitize_feature_name("../")
 
-    def test_feature_directory_stays_under_zztt_root(self) -> None:
+    def test_feature_directory_stays_under_zstt_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             target = feature_directory(repo_root, "full", "../学习报告", "20260716")
 
-            expected_root = (repo_root / ".zztt" / "features").resolve()
+            expected_root = (repo_root / ".zstt" / "features").resolve()
             self.assertTrue(target.is_relative_to(expected_root))
             self.assertEqual("20260716-学习报告", target.name)
 

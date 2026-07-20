@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "$zstt-module-refactor 重构订单结算模块，涉及多个 Service 和 Mapper，要求不改变业务逻辑，先给我计划审阅。",
+    "expected": "创建唯一重构记录，追踪真实链路和行为基线，选择 Plan review path，等待明确批准后才修改代码。"
+  },
+  {
+    "id": 2,
+    "prompt": "$zstt-module-refactor 重构定时重试模块，把锁等待从 30 秒改为 3 秒、无限重试改为最多 3 次；请直接改。",
+    "expected": "识别可观察行为变化，分离业务逻辑变更提案并进入 Behavior-change path，不能因用户要求直接改而绕过审批。"
+  }
+]

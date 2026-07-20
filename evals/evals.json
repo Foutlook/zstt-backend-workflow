@@ -1,10 +1,10 @@
 {
-  "skill_name": "zztt-backend-workflow",
+  "skill_name": "zstt-backend-workflow",
   "evals": [
     {
       "id": 1,
-      "prompt": "$zztt-requirement-clarification 我们要新增学习报告导出，需求材料里有 PRD、PDF、页面截图和一张状态流转图，部分口径互相冲突，请按 full 处理这些混合材料。",
-      "expected_output": "只执行需求澄清；先做输入盘点、可读性边界和冲突扫描，再在 full 的 00-requirement.md 区分事实、推断、P0/P1/P2 和确认日志，最后仅推荐 zztt-repo-research。",
+      "prompt": "$zstt-requirement-clarification 我们要新增学习报告导出，需求材料里有 PRD、PDF、页面截图和一张状态流转图，部分口径互相冲突，请按 full 处理这些混合材料。",
+      "expected_output": "只执行需求澄清；先做输入盘点、可读性边界和冲突扫描，再在 full 的 00-requirement.md 区分事实、推断、P0/P1/P2 和确认日志，最后仅推荐 zstt-repo-research。",
       "forbidden_output": [
         "不得跳过不可读范围",
         "不得生成 research、design 或业务代码",
@@ -14,7 +14,7 @@
     },
     {
       "id": 2,
-      "prompt": "$zztt-repo-research 继续调研 .zztt/features/20260716-learning-report，重点确认导出数据最终来自哪个查询、跨仓库调用了什么；远程仓库和 CodeGraph 不可用。",
+      "prompt": "$zstt-repo-research 继续调研 .zstt/features/20260716-learning-report，重点确认导出数据最终来自哪个查询、跨仓库调用了什么；远程仓库和 CodeGraph 不可用。",
       "expected_output": "重新校验 00-requirement.md，只生成 01-research.md；采用标准降级，通过本地 checkout、rg 和逐层源码追到真实入口、最终数据源、关键参数和跨仓库边界，并把图谱结论标记为 pending。",
       "forbidden_output": [
         "不得伪造远程仓库或 CodeGraph 证据",
@@ -25,7 +25,7 @@
     },
     {
       "id": 3,
-      "prompt": "$zztt-technical-design 根据已完成的需求和调研，设计新增 zValue 字段、批量查询、缓存和历史数据迁移；给出候选方案及未采用理由。",
+      "prompt": "$zstt-technical-design 根据已完成的需求和调研，设计新增 zValue 字段、批量查询、缓存和历史数据迁移；给出候选方案及未采用理由。",
       "expected_output": "只生成 02-design.md；包含当前代码基线、Dxx/Cxx 决策、候选方案、Mermaid 时序图、Jackson @JsonProperty 与绑定测试、批量数据源一致性、事务缓存、数据迁移、灰度监控和回滚。",
       "forbidden_output": [
         "不得引入未经证据支持的 fallback",
@@ -36,7 +36,7 @@
     },
     {
       "id": 4,
-      "prompt": "$zztt-task-breakdown 把方案拆成可执行任务。两个任务都会改 LearningService.java，请评估并行等级和冲突文件。",
+      "prompt": "$zstt-task-breakdown 把方案拆成可执行任务。两个任务都会改 LearningService.java，请评估并行等级和冲突文件。",
       "expected_output": "只生成 03-tasks.md；建立需求/设计覆盖矩阵、关键路径、阻塞点、允许/禁止修改范围、L0/L1/L2 并行等级、冲突文件、精确验证命令和预期信号。",
       "forbidden_output": [
         "不得把修改同一文件的任务标为可无条件并行",
@@ -47,7 +47,7 @@
     },
     {
       "id": 5,
-      "prompt": "$zztt-implementation 按 .zztt/features/20260716-learning-report 实现。任务计划有两个 L2 子任务，我明确同意在当前实现阶段并行。",
+      "prompt": "$zstt-implementation 按 .zstt/features/20260716-learning-report 实现。任务计划有两个 L2 子任务，我明确同意在当前实现阶段并行。",
       "expected_output": "重新校验上游，在 04-implementation.md 记录范围冻结、失败信号和计划；只对无冲突 L2 任务使用 Codex 子任务，主上下文复核全部 diff、处理偏差、分组验证并回写权威上游。",
       "forbidden_output": [
         "不得让子任务自动推进 Review 或测试",
@@ -58,7 +58,7 @@
     },
     {
       "id": 6,
-      "prompt": "$zztt-implementation 这是 quick 文案修正，按 .zztt/quick/20260716-copy-fix 的边界实现，Review 暂时不做。",
+      "prompt": "$zstt-implementation 这是 quick 文案修正，按 .zstt/quick/20260716-copy-fix 的边界实现，Review 暂时不做。",
       "expected_output": "重新校验 quick 需求，先在 01-implementation.md 写简短计划，再做最小代码改动和局部验证，记录真实命令和结果。",
       "forbidden_output": [
         "不得扩大 quick 范围",
@@ -69,7 +69,7 @@
     },
     {
       "id": 7,
-      "prompt": "$zztt-code-review 检查本次并行实现是否和需求、方案、任务一致，只做评审不要修改代码；实现记录宣称调用了一个仓库里不存在的方法。",
+      "prompt": "$zstt-code-review 检查本次并行实现是否和需求、方案、任务一致，只做评审不要修改代码；实现记录宣称调用了一个仓库里不存在的方法。",
       "expected_output": "冻结 Git diff、暂存区和未跟踪业务文件，逐文件核验完整调用链，执行一致性矩阵、并行合并审计和幻觉审计；报告不存在符号、准确位置、失败条件、优先级和证据。",
       "forbidden_output": [
         "不得相信实现记录而跳过源码验证",
@@ -80,7 +80,7 @@
     },
     {
       "id": 8,
-      "prompt": "$zztt-code-review 修复后再审一轮，保留上一轮问题和关闭依据。可以按安全、性能两个专项做只读并行审查。",
+      "prompt": "$zstt-code-review 修复后再审一轮，保留上一轮问题和关闭依据。可以按安全、性能两个专项做只读并行审查。",
       "expected_output": "用户已批准后可执行当前阶段的只读专项并行审查；主上下文完成问题去重、位置复核和修复复审，在 05-code-review.md 更新当前结论并索引新增 Review 轮次。",
       "forbidden_output": [
         "不得让辅助轮次覆盖权威主报告",
@@ -91,7 +91,7 @@
     },
     {
       "id": 9,
-      "prompt": "$zztt-test-verify 测试环境能访问，但缺少 token 和管理员权限；先验证所有当前能验证的内容。",
+      "prompt": "$zstt-test-verify 测试环境能访问，但缺少 token 和管理员权限；先验证所有当前能验证的内容。",
       "expected_output": "探测环境和测试资产，执行无需登录的编译、单测与静态契约核对；对缺少 token、权限导致的 API 或主链路标记阻塞/未验证，记录原始执行结果和重新判断条件。",
       "forbidden_output": [
         "不得复用历史脚本中的完整 token",
@@ -102,7 +102,7 @@
     },
     {
       "id": 10,
-      "prompt": "$zztt-test-verify 接口用例传了 zValue 但 DTO 收不到，请验证请求 JSON、Content-Type 和 Jackson 绑定，再判断是不是实现偏差。",
+      "prompt": "$zstt-test-verify 接口用例传了 zValue 但 DTO 收不到，请验证请求 JSON、Content-Type 和 Jackson 绑定，再判断是不是实现偏差。",
       "expected_output": "记录实际发送 JSON 和 Content-Type，核对 DTO 字段类型与高风险 JavaBean 命名，通过 ObjectMapper 或 MVC 测试验证 Jackson 绑定，区分请求未发送、框架未绑定和真实实现偏差。",
       "forbidden_output": [
         "不得把字段为空直接判业务代码错误",
@@ -113,7 +113,7 @@
     },
     {
       "id": 11,
-      "prompt": "$zztt-test-verify 12 条用例中统计接口失败，SQL 正常但测试期望找不到需求依据；请同时验证 API、SQL 和异步通知并归因。",
+      "prompt": "$zstt-test-verify 12 条用例中统计接口失败，SQL 正常但测试期望找不到需求依据；请同时验证 API、SQL 和异步通知并归因。",
       "expected_output": "建立需求、方案、实现、用例与实际结果映射；按 API、SQL、异步验证记录原始证据，把每个差异归入需求歧义、方案遗漏、实现偏差、测试用例偏差、环境/数据问题或覆盖不足中的一个主类。",
       "forbidden_output": [
         "不得把测试用例自动当成需求真相",
@@ -124,18 +124,18 @@
     },
     {
       "id": 12,
-      "prompt": "$zztt-code-simplification 做一次代码简化：检查当前暂存和未暂存改动，安全项直接改；一个建议会改变异常语义，另一个疑似业务 Bug。",
+      "prompt": "$zstt-code-simplification 做一次代码简化：检查当前暂存和未暂存改动，安全项直接改；一个建议会改变异常语义，另一个疑似业务 Bug。",
       "expected_output": "按范围优先级冻结当前改动，从 Code Reuse、Simplification、Efficiency、Abstraction Level 四视角检查，候选去重后统一应用行为不变项，跳过异常语义风险，疑似 Bug 只记录并推荐 Review/调试。",
       "forbidden_output": [
         "不得把疑似 Bug 混入 cleanup 修复",
         "不得删除无关注释",
-        "不得修改 .zztt/meta.json 或推进阶段"
+        "不得修改 .zstt/meta.json 或推进阶段"
       ],
       "files": []
     },
     {
       "id": 13,
-      "prompt": "$zztt-code-simplification 只评审 MarketDataService，不要修改。这个类只有部分代码在 diff 中。",
+      "prompt": "$zstt-code-simplification 只评审 MarketDataService，不要修改。这个类只有部分代码在 diff 中。",
       "expected_output": "进入报告模式，读取类的完整文件及必要调用方、测试和候选复用实现，四视角汇总安全清理、风险跳过和行为保持验证建议。",
       "forbidden_output": [
         "不得只审查 diff 片段",
@@ -146,7 +146,7 @@
     },
     {
       "id": 14,
-      "prompt": "$zztt-repo-research 用户刚修正了 00-requirement.md 的统计范围；继续当前调研并说明旧结论如何处理。",
+      "prompt": "$zstt-repo-research 用户刚修正了 00-requirement.md 的统计范围；继续当前调研并说明旧结论如何处理。",
       "expected_output": "先重新校验用户修改后的唯一权威主产物，废止与新范围冲突的旧推断，更新 Claim Ledger 的反证、置信度和待验证动作，只写当前 01-research.md；必要细节放 auxiliary 并由主产物索引。",
       "forbidden_output": [
         "不得用旧对话记忆覆盖用户纠正",
@@ -157,18 +157,18 @@
     },
     {
       "id": 15,
-      "prompt": "$zztt-module-refactor 重构订单结算模块，涉及多个 Service 和 Mapper，要求不改变业务逻辑，先给我计划审阅。",
-      "expected_output": "按模块重构流程冻结范围并在 .zztt/refactors 下创建唯一重构记录；追踪入口、真实调用链、最终数据源、关键参数和副作用，建立行为基线与 characterization test，选择 Plan review path，等待用户批准后才修改代码。",
+      "prompt": "$zstt-module-refactor 重构订单结算模块，涉及多个 Service 和 Mapper，要求不改变业务逻辑，先给我计划审阅。",
+      "expected_output": "按模块重构流程冻结范围并在 .zstt/refactors 下创建唯一重构记录；追踪入口、真实调用链、最终数据源、关键参数和副作用，建立行为基线与 characterization test，选择 Plan review path，等待用户批准后才修改代码。",
       "forbidden_output": [
         "不得未审批直接修改多文件模块",
         "不得用 Clean Code 或 DDD 术语代替真实证据",
-        "不得修改 .zztt/meta.json 或自动触发固定流程"
+        "不得修改 .zstt/meta.json 或自动触发固定流程"
       ],
       "files": []
     },
     {
       "id": 16,
-      "prompt": "$zztt-module-refactor 重构定时重试模块，并把锁等待从 30 秒改为 3 秒、无限重试改为最多 3 次；我希望直接改。",
+      "prompt": "$zstt-module-refactor 重构定时重试模块，并把锁等待从 30 秒改为 3 秒、无限重试改为最多 3 次；我希望直接改。",
       "expected_output": "区分结构重构和业务逻辑变更；锁等待、重试次数、失败结果和通知时机可能变化，必须在同一重构记录中输出业务逻辑变更提案、前后对比、风险和验证方式，等待明确批准。",
       "forbidden_output": [
         "不得因用户说直接改而绕过审批",

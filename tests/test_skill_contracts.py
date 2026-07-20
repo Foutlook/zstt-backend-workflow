@@ -5,7 +5,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ROOT / "src" / "zztt_cli" / "resources" / "skills"
+SKILLS = ROOT / "src" / "zstt_cli" / "resources" / "skills"
+RULES = ROOT / "src" / "zstt_cli" / "resources" / "rules"
 
 
 def read_skill(name: str) -> str:
@@ -26,9 +27,9 @@ def frontmatter_value(text: str, key: str) -> str | None:
 
 class AnalysisSkillContractTest(unittest.TestCase):
     SKILL_NAMES = (
-        "zztt-requirement-clarification",
-        "zztt-repo-research",
-        "zztt-technical-design",
+        "zstt-requirement-clarification",
+        "zstt-repo-research",
+        "zstt-technical-design",
     )
 
     def test_skill_frontmatter_matches_directory(self) -> None:
@@ -44,10 +45,11 @@ class AnalysisSkillContractTest(unittest.TestCase):
                 text = read_skill(name)
                 self.assertIn("仅当用户明确指定", text)
                 self.assertIn("不得自动执行推荐的下一阶段", text)
-                self.assertIn("workflow-protocol.md", text)
+                self.assertIn("rule_resolver.py", text)
+                self.assertIn("rulesetFingerprint", text)
 
     def test_requirement_skill_preserves_clarification_loop(self) -> None:
-        text = read_skill("zztt-requirement-clarification")
+        text = read_skill("zstt-requirement-clarification")
         for token in (
             "P0/P1/P2",
             "原始事实",
@@ -60,7 +62,7 @@ class AnalysisSkillContractTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_research_skill_requires_real_execution_evidence(self) -> None:
-        text = read_skill("zztt-repo-research")
+        text = read_skill("zstt-repo-research")
         for token in (
             "直接失败点",
             "真实调用链",
@@ -74,7 +76,7 @@ class AnalysisSkillContractTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_design_skill_covers_backend_decisions_without_fallback_guessing(self) -> None:
-        text = read_skill("zztt-technical-design")
+        text = read_skill("zstt-technical-design")
         for token in (
             "接口契约",
             "Jackson",
@@ -86,10 +88,10 @@ class AnalysisSkillContractTest(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
-    def test_shared_references_exist(self) -> None:
-        reference_root = SKILLS / "zztt-workflow-shared" / "references"
-        protocol = (reference_root / "workflow-protocol.md").read_text(encoding="utf-8")
-        evidence = (reference_root / "evidence-rules.md").read_text(encoding="utf-8")
+    def test_workflow_rules_exist(self) -> None:
+        rule_root = RULES / "workflow"
+        protocol = (rule_root / "protocol.md").read_text(encoding="utf-8")
+        evidence = (rule_root / "evidence.md").read_text(encoding="utf-8")
         self.assertIn("用户显式调用", protocol)
         self.assertIn("重新校验", protocol)
         self.assertIn("不得自动执行", protocol)
@@ -104,10 +106,10 @@ class AnalysisSkillContractTest(unittest.TestCase):
 
 class ExecutionSkillContractTest(unittest.TestCase):
     SKILL_NAMES = (
-        "zztt-task-breakdown",
-        "zztt-implementation",
-        "zztt-code-review",
-        "zztt-test-verify",
+        "zstt-task-breakdown",
+        "zstt-implementation",
+        "zstt-code-review",
+        "zstt-test-verify",
     )
 
     def test_skill_frontmatter_and_explicit_selection(self) -> None:
@@ -117,11 +119,12 @@ class ExecutionSkillContractTest(unittest.TestCase):
                 self.assertEqual(name, frontmatter_value(text, "name"))
                 self.assertIn("仅当用户明确指定", text)
                 self.assertIn("不得自动执行推荐的下一阶段", text)
-                self.assertIn("workflow-protocol.md", text)
+                self.assertIn("rule_resolver.py", text)
+                self.assertIn("rulesetFingerprint", text)
                 self.assertLess(len(text.splitlines()), 500)
 
     def test_task_breakdown_is_traceable_and_executable(self) -> None:
-        text = read_skill("zztt-task-breakdown")
+        text = read_skill("zstt-task-breakdown")
         for token in (
             "来源依据",
             "预期文件",
@@ -132,24 +135,24 @@ class ExecutionSkillContractTest(unittest.TestCase):
         ):
             self.assertIn(token, text)
     def test_implementation_enforces_backend_guardrails(self) -> None:
-        text = read_skill("zztt-implementation")
+        text = read_skill("zstt-implementation")
         for token in (
             "N+1",
             "循环远程调用",
             "无关重构",
             "保留既有注释",
-            "zztt-java-backend-standard",
+            "java.jackson",
+            "rule_resolver.py",
             "04-implementation.md",
         ):
             self.assertIn(token, text)
 
 
 class SupportingSkillContractTest(unittest.TestCase):
-    def test_java_standard_covers_team_guardrails(self) -> None:
-        text = read_skill("zztt-java-backend-standard")
-        self.assertEqual(
-            "zztt-java-backend-standard",
-            frontmatter_value(text, "name"),
+    def test_java_rules_cover_team_guardrails(self) -> None:
+        text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((RULES / "java").glob("*.md"))
         )
         for token in (
             "项目约束",
@@ -162,13 +165,22 @@ class SupportingSkillContractTest(unittest.TestCase):
             "循环远程调用",
             "单一关系源",
             "-Dsmart-doc.phase=verify",
-            "java-backend-guidelines.md",
+            "Strategy（策略）",
+            "DDD（领域驱动设计）",
         ):
             self.assertIn(token, text)
 
+    def test_abstraction_and_patterns_are_evidence_gated(self) -> None:
+        abstraction = (RULES / "java" / "abstraction.md").read_text(encoding="utf-8")
+        patterns = (RULES / "java" / "design-patterns.md").read_text(encoding="utf-8")
+        for token in ("变化轴", "不抽象", "不适用", "真实使用点"):
+            self.assertIn(token, abstraction)
+        for token in ("候选解法", "不适用", "不应使用", "例子"):
+            self.assertIn(token, patterns)
+
     def test_code_simplification_is_optional_and_phase_neutral(self) -> None:
-        text = read_skill("zztt-code-simplification")
-        self.assertEqual("zztt-code-simplification", frontmatter_value(text, "name"))
+        text = read_skill("zstt-code-simplification")
+        self.assertEqual("zstt-code-simplification", frontmatter_value(text, "name"))
         for token in (
             "仅当用户明确指定",
             "不属于固定流程",
@@ -184,31 +196,30 @@ class SupportingSkillContractTest(unittest.TestCase):
 
     def test_supporting_skills_stay_under_500_lines(self) -> None:
         for name in (
-            "zztt-java-backend-standard",
-            "zztt-code-simplification",
-            "zztt-module-refactor",
+            "zstt-code-simplification",
+            "zstt-module-refactor",
         ):
             with self.subTest(name=name):
                 self.assertLess(len(read_skill(name).splitlines()), 500)
 
     def test_module_refactor_is_optional_and_approval_gated(self) -> None:
-        text = read_skill("zztt-module-refactor")
-        self.assertEqual("zztt-module-refactor", frontmatter_value(text, "name"))
+        text = read_skill("zstt-module-refactor")
+        self.assertEqual("zstt-module-refactor", frontmatter_value(text, "name"))
         for token in (
             "仅当用户明确指定",
             "不属于固定流程",
-            "不修改 `.zztt/meta.json`",
+            "不修改 `.zstt/meta.json`",
             "Fast path",
             "Plan review path",
             "Behavior-change path",
             "characterization test",
-            ".zztt/refactors",
+            ".zstt/refactors",
             "等待用户明确批准",
         ):
             self.assertIn(token, text)
 
     def test_code_review_is_read_only_and_evidence_first(self) -> None:
-        text = read_skill("zztt-code-review")
+        text = read_skill("zstt-code-review")
         for token in (
             "默认只读",
             "需求、方案、任务与实现",
@@ -219,7 +230,7 @@ class SupportingSkillContractTest(unittest.TestCase):
             self.assertIn(token, text)
 
     def test_test_verify_classifies_differences(self) -> None:
-        text = read_skill("zztt-test-verify")
+        text = read_skill("zstt-test-verify")
         for token in (
             "需求歧义",
             "方案遗漏",

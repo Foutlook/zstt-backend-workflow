@@ -3,18 +3,18 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "zztt-cli"
-version = "0.1.0"
-description = "将 ZZTT Java 后端工作流安装到业务仓库的 Codex 项目级 Skills"
+name = "zstt-cli"
+version = "0.2.0"
+description = "将 ZSTT Java 后端 Skills、规则和运行时安装到业务仓库"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-  { name = "ZZTT Team" }
+  { name = "ZSTT Team" }
 ]
 dependencies = []
 
 [project.scripts]
-zztt = "zztt_cli.cli:main"
+zstt = "zstt_cli.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -24,16 +24,20 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-zztt_cli = [
+zstt_cli = [
   "resources/skills/*/*",
   "resources/skills/*/*/*",
   "resources/skills/*/*/*/*",
   "resources/skills/*/*/*/*/*",
-  "resources/skills/*/*/*/*/*/*"
+  "resources/skills/*/*/*/*/*/*",
+  "resources/rules/*",
+  "resources/rules/*/*",
+  "resources/runtime/*",
+  "resources/templates/*/*"
 ]
 
 [tool.setuptools.exclude-package-data]
-zztt_cli = [
+zstt_cli = [
   "resources/**/__pycache__/*",
   "resources/**/*.pyc"
 ]
