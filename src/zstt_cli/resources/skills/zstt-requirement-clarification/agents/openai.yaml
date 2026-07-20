@@ -1,5 +1,5 @@
 interface:
-  display_name: "ZSTT 需求澄清"
+  display_name: "zstt-requirement-clarification"
   short_description: "澄清混合需求材料，形成可确认、可追溯并可供下游复核的唯一需求基线"
   default_prompt: "使用 $zstt-requirement-clarification 澄清当前需求，并把唯一权威产物写入业务仓库 .zstt。"
 

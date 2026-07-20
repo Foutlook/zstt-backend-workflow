@@ -70,7 +70,7 @@ class ProjectStructureTest(unittest.TestCase):
             metadata = SKILLS / skill / "agents" / "openai.yaml"
             self.assertTrue(metadata.is_file(), skill)
             text = metadata.read_text(encoding="utf-8")
-            self.assertIn("display_name:", text, skill)
+            self.assertIn(f'display_name: "{skill}"', text, skill)
             self.assertIn("short_description:", text, skill)
             self.assertIn(f"${skill}", text, skill)
             self.assertIn("allow_implicit_invocation: false", text, skill)
