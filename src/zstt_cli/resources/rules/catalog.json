@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rulesetVersion": "1.0.0",
+  "rulesetVersion": "1.1.0",
   "ruleTypes": {
     "constraint": "必须遵守的硬约束；违反时应停止、修正或形成阻塞。",
     "decision": "只有实际证据满足适用条件时才采用的工程决策。",
@@ -25,6 +25,7 @@
       "workflow.capability-fallback",
       "workflow.document-authority",
       "java.core",
+      "java.sql-design",
       "java.verification"
     ],
     "zstt-task-breakdown": [
@@ -128,6 +129,13 @@
       "path": "java/data-access.md",
       "description": "N+1、批量查询、远程调用和聚合数据源一致性。",
       "selectors": ["data-access", "database", "rpc", "aggregation", "batch"]
+    },
+    {
+      "id": "java.sql-design",
+      "type": "constraint",
+      "path": "java/sql-design.md",
+      "description": "SQL 最小设计、公共字段、精确语句、索引迁移和用户确认门禁。",
+      "selectors": ["sql", "sql-design", "database", "mysql", "ddl", "dml", "migration"]
     },
     {
       "id": "java.transaction-exception",

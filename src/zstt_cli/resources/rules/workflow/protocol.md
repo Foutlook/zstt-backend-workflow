@@ -68,6 +68,15 @@ python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <需求目�
 python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <需求目录> --stage <阶段键>
 ```
 
+技术方案 SQL Gate：
+
+```text
+python .zstt-kit/runtime/workflow_cli.py prepare-sql-gate --feature-dir <需求目录> --impact none|query_dml|ddl
+python .zstt-kit/runtime/workflow_cli.py confirm-sql --feature-dir <需求目录> --source <可追溯的用户确认记录>
+```
+
+`none` 不需要用户确认；`query_dml` 和 `ddl` 必须先生成 `auxiliary/sql-design.sql`，运行第一条命令后暂停并等待用户明确确认。只有收到确认后才能执行 `confirm-sql`。SQL 或技术方案第 7 节变化会使确认指纹失效。
+
 查看状态：
 
 ```text
