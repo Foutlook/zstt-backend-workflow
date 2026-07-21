@@ -357,7 +357,7 @@ class CliTest(unittest.TestCase):
             exit_code = main(["version"])
 
         self.assertEqual(0, exit_code)
-        self.assertIn("zstt-cli 0.2.0", stdout.getvalue())
+        self.assertIn("zstt-cli 0.3.0", stdout.getvalue())
 
     def test_check_returns_nonzero_for_local_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

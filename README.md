@@ -1,5 +1,7 @@
 # ZSTT Backend Workflow
 
+[![CI](https://github.com/Foutlook/zstt-backend-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Foutlook/zstt-backend-workflow/actions/workflows/ci.yml)
+
 面向小组的 Codex Java 后端开发工作流。它统一了需求澄清、代码调研、技术方案、任务拆分、编码实现、代码评审和测试验证，同时保留 quick/full 两种处理强度。
 
 **快速导航：** [工作流总览](#工作流总览) · [安装](#安装) · [工作流使用](#工作流使用) · [阶段产物](#full-产物) · [辅助 Skill](#辅助-skill)
@@ -202,6 +204,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 
 验证脚本运行全部测试、编译 Python 源码、构建 Wheel，并检查 Wheel 包含完整 Skill、Rules、Runtime 和 Templates，且不包含 Codex 插件元数据。脚本不会自动 commit、push、合并或发布。
 
+版本遵循语义化版本，发布变化记录在 [`CHANGELOG.md`](CHANGELOG.md)。README 中的安装命令默认继续安装 GitHub `main` 分支最新版本。
+
 ## 工作流使用
 
 ### 1. 进入业务仓库并新建 Codex 任务
@@ -335,7 +339,7 @@ Java 开发规范、抽象、设计模式和 DDD 决策已经统一放入 `.zstt
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-验证脚本会运行仓库测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。
+验证脚本会运行仓库内 9 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
 
 ## 非目标
 

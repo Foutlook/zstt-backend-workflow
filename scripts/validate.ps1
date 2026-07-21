@@ -15,6 +15,11 @@ $wheelRoot = Join-Path $temporaryRoot "wheel"
 
 Push-Location $repoRoot
 try {
+    & $python -X utf8 (Join-Path $repoRoot "scripts\validate_skills.py")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Skill validation failed with exit code $LASTEXITCODE"
+    }
+
     if (-not $SkipTests) {
         & $python -m unittest discover -s tests -v
         if ($LASTEXITCODE -ne 0) {
