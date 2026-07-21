@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -358,6 +360,36 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         self.assertIn("zstt-cli 0.3.0", stdout.getvalue())
+
+    def test_redirected_cli_output_overrides_incompatible_cp1252(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            (project_root / ".git").mkdir()
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "cp1252"
+            existing_python_path = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = (
+                str(SRC)
+                if not existing_python_path
+                else str(SRC) + os.pathsep + existing_python_path
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "zstt_cli.cli",
+                    "init",
+                    str(project_root),
+                ],
+                check=False,
+                capture_output=True,
+                cwd=ROOT,
+                env=env,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertIn("初始化完成", completed.stdout.decode("utf-8"))
 
     def test_check_returns_nonzero_for_local_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -81,9 +81,19 @@ try {
     }
     New-Item -ItemType Directory -Path $smokeProject | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $smokeProject ".git") | Out-Null
+    # Simulate redirected Windows runners whose inherited stream encoding cannot encode Chinese.
+    $previousPythonIoEncoding = $env:PYTHONIOENCODING
+    $env:PYTHONIOENCODING = "cp1252"
     & $zstt init $smokeProject
-    if ($LASTEXITCODE -ne 0) {
-        throw "Installed zstt init smoke test failed with exit code $LASTEXITCODE"
+    $initExitCode = $LASTEXITCODE
+    if ($null -eq $previousPythonIoEncoding) {
+        Remove-Item Env:PYTHONIOENCODING
+    }
+    else {
+        $env:PYTHONIOENCODING = $previousPythonIoEncoding
+    }
+    if ($initExitCode -ne 0) {
+        throw "Installed zstt init smoke test failed with exit code $initExitCode"
     }
     if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".agents\skills\zstt-requirement-clarification\SKILL.md"))) {
         throw "Installed wheel did not initialize project-level ZSTT Skills"

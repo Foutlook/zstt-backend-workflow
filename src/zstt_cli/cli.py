@@ -21,6 +21,15 @@ from zstt_cli.installer import (
 )
 
 
+def _configure_redirected_utf8() -> None:
+    # Windows CI may redirect Python through CP1252 even though CLI messages are Chinese.
+    # Keep interactive terminals unchanged, but make redirected output deterministic UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None and not stream.isatty():
+            reconfigure(encoding="utf-8")
+
+
 def _add_project_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("path", nargs="?", help="业务仓库路径，默认使用当前目录")
     parser.add_argument(
@@ -117,6 +126,7 @@ def _print_doctor_result(result: DoctorResult) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_redirected_utf8()
     parser = build_parser()
     args = parser.parse_args(argv)
 
