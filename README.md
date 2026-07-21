@@ -140,6 +140,7 @@ zstt version
 ```powershell
 cd C:\projects\learning-service
 zstt init --here
+zstt doctor --here
 ```
 
 初始化写入下列工具文件：
@@ -154,6 +155,11 @@ zstt init --here
 
 `.zstt-kit/manifest.json` 记录 CLI 版本和受管文件 SHA-256。CLI 不覆盖 `AGENTS.md`、其他项目级 Skill、业务源码或 `.zstt/features`、`.zstt/quick` 下的需求产物。初始化完成后新建 Codex 任务，让 Codex 加载 `$zstt-*` Skills。
 
+`zstt doctor --here` 会同时检查安装清单、9 个项目级 Skill、Git 仓库根目录和 Codex 发现边界。出现 `Codex 可发现: 否` 时，应按诊断提示修复目录或重新初始化，再新建 Codex 任务。
+
+> [!WARNING]
+> `.agents/skills` 必须位于实际业务 Git 仓库内。若 `C:\idea_workspace_tob` 只是聚合目录，下面的 `jzx`、`backend-a` 等才是独立 Git 仓库，就要分别进入每个仓库执行 `zstt init --here`。Codex 从当前目录向上扫描到当前 Git 根目录，不会跨越子仓库边界读取聚合目录中的 Skills。
+
 确认生成内容后，把 `.agents/skills/zstt-*` 和 `.zstt-kit/` 提交到业务仓库。普通团队成员只需拉取代码并新建 Codex 任务，不需要重复执行 `zstt init`；只有新项目初始化和工作流升级需要安装 `zstt-cli`。
 
 ### 项目工作流升级
@@ -163,8 +169,10 @@ zstt init --here
 ```powershell
 uv tool install zstt-cli --force --from "git+https://github.com/Foutlook/zstt-backend-workflow.git"
 cd C:\projects\learning-service
+zstt doctor --here
 zstt check --here
 zstt update --here
+zstt doctor --here
 ```
 
 如果受管 Skill、Rules、Runtime 或 Templates 被人工修改，`zstt update` 会在写文件前报告全部冲突并停止。人工合并后重试；只有明确接受覆盖时才使用 `zstt update --here --force`。`--force` 只作用于清单记录的 `.agents/skills/zstt-*`、`.zstt-kit/rules/`、`.zstt-kit/runtime/` 和 `.zstt-kit/templates/`，不能扩张到 `AGENTS.md`、`.zstt` 业务产物或其他 Skill。
@@ -214,7 +222,7 @@ $zstt-requirement-clarification
 请按 quick 模式澄清这个小改动：<问题描述与验收标准>
 ```
 
-需求澄清会创建对应目录、`meta.json` 和 `00-requirement.md`。系统完成当前阶段后只推荐下一步，不会自动执行推荐的 Skill。
+需求澄清会创建对应目录、`meta.json` 和 `00-requirement.md`。系统完成当前阶段后只推荐下一步，不会自动执行推荐的 Skill。`meta.json` v3 使用 `.zstt/...` 相对目录，避免把某个成员的本机绝对路径提交到仓库；读取旧 v2 状态后，会在下一次成功写入时自动迁移。
 
 ### 3. 审阅当前阶段产物
 
@@ -245,7 +253,7 @@ $zstt-implementation
 继续处理 .zstt/quick/20260716-fix-learning-report
 ```
 
-Quick 的代码评审和测试验证由用户根据风险决定是否调用。即使跳过代码评审，测试报告仍固定使用 `03-test-report.md`。
+Quick 的代码评审和测试验证由用户根据风险决定是否调用。实现完成后，状态会同时给出 `$zstt-code-review` 和 `$zstt-test-verify` 两个可选推荐；用户若直接完成测试，Quick 流程结束，不会再倒退推荐代码评审。即使跳过代码评审，测试报告仍固定使用 `03-test-report.md`。
 
 ### 5. 识别阶段是否真正完成
 
@@ -299,9 +307,11 @@ python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-d
 - `complete-stage` 校验状态、P0、必需章节实质内容、未填写模板项和阶段追溯 ID，成功后记录新指纹。
 - 已完成产物发生变化时，该阶段及其下游完成状态自动撤销，但原产物文件保留；用户重新执行被修改阶段的 `complete-stage` 后才能继续。
 - `meta.json` 由工具维护，不要手工编辑。
+- `recommended_next_skill` 保留首个推荐以兼容旧调用方；新调用方应优先读取 `recommended_next_skills`，以支持 Quick 的并列可选分支。
 
 ## 错误恢复
 
+- Codex 找不到 `$zstt-*`：在当前业务 Git 仓库执行 `zstt doctor --here`；若提示 Skills 位于仓库边界外，则在当前仓库重新执行 `zstt init --here`，提交生成文件并新建 Codex 任务。
 - 缺少上游文件：回到对应阶段 Skill 补齐，不手工创建后续文档。
 - P0 阻塞：在上游权威产物完成确认并清零，再重新调用当前阶段。
 - 用户修改已完成产物：系统撤销该阶段及下游完成状态；先核对修改影响，再重新完成被修改阶段。
@@ -323,7 +333,7 @@ Java 开发规范、抽象、设计模式和 DDD 决策已经统一放入 `.zstt
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-验证脚本会运行仓库测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、规则动态选择与指纹、冲突保护、阶段顺序、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。
+验证脚本会运行仓库测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。
 
 ## 非目标
 

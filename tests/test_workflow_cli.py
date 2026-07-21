@@ -104,12 +104,21 @@ class WorkflowCliInitTest(unittest.TestCase):
                 {path.name for path in feature_dir.iterdir()},
             )
             meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(3, meta["version"])
             self.assertEqual("full", meta["mode"])
+            self.assertEqual(
+                ".zstt/features/20260716-学习报告",
+                meta["feature_dir"],
+            )
             self.assertEqual("requirement_clarification", meta["current_stage"])
             self.assertEqual([], meta["completed_stages"])
             self.assertEqual(
                 "zstt-requirement-clarification",
                 meta["recommended_next_skill"],
+            )
+            self.assertEqual(
+                ["zstt-requirement-clarification"],
+                meta["recommended_next_skills"],
             )
 
     def test_init_quick_uses_quick_directory(self) -> None:
@@ -191,6 +200,59 @@ class WorkflowCliInitTest(unittest.TestCase):
             feature_dir = Path(tmp) / ".zstt" / "features" / "20260716-学习报告"
             for path in feature_dir.iterdir():
                 self.assertFalse(path.read_bytes().startswith(b"\xef\xbb\xbf"), path.name)
+
+    def test_v2_meta_is_migrated_to_relative_v3_on_next_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            meta_path = feature_dir / "meta.json"
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            meta["version"] = 2
+            meta["feature_dir"] = str(feature_dir.resolve())
+            meta.pop("recommended_next_skills")
+            meta_path.write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            migrated = json.loads(meta_path.read_text(encoding="utf-8"))
+            self.assertEqual(3, migrated["version"])
+            self.assertEqual(
+                ".zstt/features/20260716-学习报告",
+                migrated["feature_dir"],
+            )
+            self.assertEqual(
+                ["zstt-repo-research"],
+                migrated["recommended_next_skills"],
+            )
+
+    def test_unknown_meta_version_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            meta_path = feature_dir / "meta.json"
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            meta["version"] = 99
+            meta_path.write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            status = run_cli("status", "--feature-dir", str(feature_dir))
+
+            self.assertNotEqual(0, status.returncode)
+            self.assertIn("不支持的 meta.json 版本", status.stderr)
 
 
 class WorkflowCliGateTest(unittest.TestCase):
@@ -448,6 +510,49 @@ class WorkflowCliGateTest(unittest.TestCase):
             self.assertEqual(0, prepared.returncode, prepared.stderr)
             self.assertTrue((feature_dir / "03-test-report.md").is_file())
             self.assertFalse((feature_dir / "02-code-review.md").exists())
+
+    def test_quick_exposes_both_optional_recommendations_after_implementation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp), mode="quick")
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            self.assertEqual(
+                0,
+                run_cli(
+                    "complete-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "requirement_clarification",
+                ).returncode,
+            )
+            self.assertEqual(
+                0,
+                run_cli(
+                    "prepare-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "implementation",
+                ).returncode,
+            )
+            implementation = feature_dir / "01-implementation.md"
+            fill_stage_document(implementation, "implementation")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "implementation",
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                ["zstt-code-review", "zstt-test-verify"],
+                meta["recommended_next_skills"],
+            )
 
 
 if __name__ == "__main__":

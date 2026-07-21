@@ -58,6 +58,7 @@ class WorkflowEndToEndTest(unittest.TestCase):
             meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
             self.assertEqual([stage for stage, _ in stages], meta["completed_stages"])
             self.assertIsNone(meta["recommended_next_skill"])
+            self.assertEqual([], meta["recommended_next_skills"])
             self.assertEqual(
                 {"meta.json", *(artifact for _, artifact in stages)},
                 {path.name for path in feature_dir.iterdir()},
@@ -93,6 +94,8 @@ class WorkflowEndToEndTest(unittest.TestCase):
             self.assertFalse((feature_dir / "02-code-review.md").exists())
             meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
             self.assertNotIn("code_simplification", meta["artifacts"])
+            self.assertIsNone(meta["recommended_next_skill"])
+            self.assertEqual([], meta["recommended_next_skills"])
 
     def test_upstream_edit_blocks_then_allows_retry_after_correction(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

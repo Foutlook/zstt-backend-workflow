@@ -381,6 +381,78 @@ class CliTest(unittest.TestCase):
             self.assertIn("已修改文件", stdout.getvalue())
             self.assertEqual("", stderr.getvalue())
 
+    def test_doctor_reports_healthy_git_repository_as_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            (project_root / ".git").mkdir()
+            init_project(project_root)
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["doctor", str(project_root), "--json"])
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(0, exit_code)
+            self.assertTrue(result["healthy"])
+            self.assertTrue(result["codexDiscoverable"])
+            self.assertEqual("normal", result["installationStatus"])
+            self.assertEqual(9, len(result["expectedSkills"]))
+            self.assertEqual([], result["missingSkills"])
+
+    def test_doctor_uses_git_root_when_called_from_repository_subdirectory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            (project_root / ".git").mkdir()
+            subdirectory = project_root / "module" / "src"
+            subdirectory.mkdir(parents=True)
+            init_project(project_root)
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["doctor", str(subdirectory), "--json"])
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(0, exit_code)
+            self.assertEqual(str(project_root.resolve()), result["installationRoot"])
+            self.assertTrue(result["codexDiscoverable"])
+
+    def test_doctor_detects_parent_skills_outside_nested_git_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            init_project(workspace)
+            nested_repository = workspace / "backend"
+            (nested_repository / ".git").mkdir(parents=True)
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["doctor", str(nested_repository), "--json"])
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(1, exit_code)
+            self.assertFalse(result["codexDiscoverable"])
+            self.assertEqual(
+                str(workspace / ".agents" / "skills"),
+                result["parentSkillRoot"],
+            )
+            self.assertTrue(
+                any("不会跨越" in warning for warning in result["warnings"])
+            )
+
+    def test_init_warns_when_parent_contains_nested_git_repositories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            nested_repository = workspace / "backend"
+            (nested_repository / ".git").mkdir(parents=True)
+            stderr = StringIO()
+            stdout = StringIO()
+
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["init", str(workspace)])
+
+            self.assertEqual(0, exit_code)
+            self.assertIn("直属子 Git 仓库", stderr.getvalue())
+            self.assertIn(str(nested_repository), stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

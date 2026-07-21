@@ -75,6 +75,7 @@ try {
         throw "Installed zstt entry point failed with exit code $LASTEXITCODE"
     }
     New-Item -ItemType Directory -Path $smokeProject | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $smokeProject ".git") | Out-Null
     & $zstt init $smokeProject
     if ($LASTEXITCODE -ne 0) {
         throw "Installed zstt init smoke test failed with exit code $LASTEXITCODE"
@@ -84,6 +85,10 @@ try {
     }
     if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py"))) {
         throw "Installed wheel did not initialize ZSTT rules runtime"
+    }
+    & $zstt doctor $smokeProject --json
+    if ($LASTEXITCODE -ne 0) {
+        throw "Installed zstt doctor smoke test failed with exit code $LASTEXITCODE"
     }
     & $venvPython (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py") check
     if ($LASTEXITCODE -ne 0) {
