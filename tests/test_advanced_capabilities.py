@@ -59,6 +59,7 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
             "zstt-test-verify",
             "zstt-code-simplification",
             "zstt-module-refactor",
+            "zstt-bug-fix",
         ):
             with self.subTest(skill=skill):
                 text = read_skill(skill)
@@ -407,6 +408,46 @@ class TestVerifyAdvancedCapabilityTest(unittest.TestCase):
                 self.assertIn("环境与能力", text)
                 self.assertIn("原始执行记录", text)
                 self.assertIn("测试轮次", text)
+
+
+class BugFixAdvancedCapabilityTest(unittest.TestCase):
+    def test_bug_fix_loads_playbook_and_report_template(self) -> None:
+        text = read_skill("zstt-bug-fix")
+        self.assertIn("references/advanced-playbook.md", text)
+        self.assertIn("assets/bug-report-template.md", text)
+
+    def test_bug_fix_playbook_covers_evidence_and_environment_safety(self) -> None:
+        text = read_reference("zstt-bug-fix", "advanced-playbook.md")
+        for token in (
+            "diagnosis",
+            "awaiting_confirmation",
+            "fixing",
+            "verified",
+            "线上环境",
+            "只读查询",
+            "真实调用链",
+            "代码证据",
+            "数据/日志证据",
+            "二次确认",
+            "SQL Gate",
+        ):
+            self.assertIn(token, text)
+
+    def test_bug_fix_template_preserves_confirmation_and_verification(self) -> None:
+        text = (
+            SKILLS / "zstt-bug-fix" / "assets" / "bug-report-template.md"
+        ).read_text(encoding="utf-8")
+        for token in (
+            "phase: diagnosis",
+            "fix_authorized: false",
+            "范围、基线与能力",
+            "证据与候选假设",
+            "修复确认门禁",
+            "实际修改",
+            "验证证据",
+            "回归点与残余风险",
+        ):
+            self.assertIn(token, text)
 
 
 class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):

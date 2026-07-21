@@ -15,6 +15,7 @@ RUNTIME = PACKAGE_ROOT / "resources" / "runtime"
 TEMPLATES = PACKAGE_ROOT / "resources" / "templates"
 
 EXPECTED_SKILLS = {
+    "zstt-bug-fix",
     "zstt-requirement-clarification",
     "zstt-repo-research",
     "zstt-technical-design",
@@ -54,7 +55,7 @@ class ProjectStructureTest(unittest.TestCase):
         self.assertTrue((ROOT / ".github" / "workflows" / "ci.yml").is_file())
         self.assertTrue((ROOT / "CHANGELOG.md").is_file())
 
-    def test_repository_skill_validator_passes_all_nine_skills(self) -> None:
+    def test_repository_skill_validator_passes_all_ten_skills(self) -> None:
         completed = subprocess.run(
             [
                 sys.executable,
@@ -69,7 +70,7 @@ class ProjectStructureTest(unittest.TestCase):
         )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("9 个 Skill 校验通过", completed.stdout)
+        self.assertIn("10 个 Skill 校验通过", completed.stdout)
 
     def test_all_skill_directories_exist(self) -> None:
         actual = {
