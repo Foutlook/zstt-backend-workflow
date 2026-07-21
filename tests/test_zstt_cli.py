@@ -431,7 +431,7 @@ class CliTest(unittest.TestCase):
             self.assertEqual(1, exit_code)
             self.assertFalse(result["codexDiscoverable"])
             self.assertEqual(
-                str(workspace / ".agents" / "skills"),
+                str((workspace / ".agents" / "skills").resolve()),
                 result["parentSkillRoot"],
             )
             self.assertTrue(
@@ -451,7 +451,7 @@ class CliTest(unittest.TestCase):
 
             self.assertEqual(0, exit_code)
             self.assertIn("直属子 Git 仓库", stderr.getvalue())
-            self.assertIn(str(nested_repository), stderr.getvalue())
+            self.assertIn(str(nested_repository.resolve()), stderr.getvalue())
 
 
 if __name__ == "__main__":
