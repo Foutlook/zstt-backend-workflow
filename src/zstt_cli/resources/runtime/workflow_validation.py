@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -14,6 +15,23 @@ COMMON_FRONTMATTER_KEYS = {
     "open_p1_count",
     "open_p2_count",
 }
+
+TECHNICAL_DESIGN_SQL_KEYS = {
+    "sql_impact",
+    "sql_gate_status",
+    "sql_fingerprint",
+    "sql_confirmation_source",
+}
+
+SQL_IMPACTS = {"pending", "none", "query_dml", "ddl"}
+SQL_GATE_STATUSES = {
+    "not_evaluated",
+    "pending_confirmation",
+    "not_involved",
+    "confirmed",
+    "stale",
+}
+SQL_DESIGN_ARTIFACT = Path("auxiliary/sql-design.sql")
 
 REQUIRED_HEADINGS: dict[tuple[str, str], tuple[str, ...]] = {
     ("full", "requirement_clarification"): (
@@ -122,6 +140,8 @@ REQUIRED_HEADINGS: dict[tuple[str, str], tuple[str, ...]] = {
     ),
 }
 
+TECHNICAL_DESIGN_PRE_SQL_HEADINGS = REQUIRED_HEADINGS[("full", "technical_design")][:7]
+
 PLACEHOLDER_PATTERN = re.compile(r"\{\{[^{}\n]+}}")
 EMPTY_SCAFFOLD_PATTERN = re.compile(
     r"^\s*[-*]\s+[^\n：:]+[：:]\s*$",
@@ -149,6 +169,66 @@ def artifact_fingerprint(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def sql_gate_fingerprint(design_path: Path) -> str:
+    """Fingerprint SQL decisions while ignoring gate bookkeeping fields."""
+    if not design_path.is_file():
+        return ""
+    text = design_path.read_text(encoding="utf-8")
+    section = section_body(text, "## 7. 数据存储与查询设计")
+    stable_lines = [
+        line
+        for line in section.splitlines()
+        if not re.match(
+            r"^\s*-\s*(SQL Gate 状态|SQL 指纹|用户确认来源)[：:]",
+            line,
+        )
+    ]
+    sql_path = design_path.parent / SQL_DESIGN_ARTIFACT
+    sql_bytes = sql_path.read_bytes() if sql_path.is_file() else b""
+    digest = hashlib.sha256()
+    digest.update("\n".join(stable_lines).encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(sql_bytes)
+    return digest.hexdigest()
+
+
+def validate_sql_artifact(design_path: Path, impact: str) -> list[str]:
+    errors: list[str] = []
+    sql_path = design_path.parent / SQL_DESIGN_ARTIFACT
+    if impact == "none":
+        if sql_path.exists():
+            errors.append(f"SQL 影响为 none 时不得保留 SQL 草案: {sql_path}")
+        return errors
+
+    if impact not in {"query_dml", "ddl"}:
+        return [f"不支持的 SQL 影响类型: {impact}"]
+    if not sql_path.is_file():
+        return [f"涉及 SQL 时必须提供精确 SQL 草案: {sql_path}"]
+    text = sql_path.read_text(encoding="utf-8").strip()
+    if not text:
+        return [f"SQL 草案不能为空: {sql_path}"]
+    executable = re.sub(r"/\*(?!\!)[\s\S]*?\*/", " ", text)
+    executable = re.sub(r"--[^\n]*", " ", executable)
+    if not re.search(
+        r"\b(select|insert|update|delete|create|alter|drop|truncate|rename)\b",
+        executable,
+        flags=re.IGNORECASE,
+    ):
+        errors.append("SQL 草案缺少可执行的 SELECT/INSERT/UPDATE/DELETE/DDL")
+    has_ddl = bool(
+        re.search(
+            r"\b(create|alter|drop|truncate|rename)\b",
+            executable,
+            flags=re.IGNORECASE,
+        )
+    )
+    if impact == "ddl" and not has_ddl:
+        errors.append("SQL 影响类型为 ddl，但草案中未发现 DDL")
+    if impact == "query_dml" and has_ddl:
+        errors.append("SQL 草案包含 DDL，影响类型必须使用 ddl")
+    return errors
+
+
 def parse_frontmatter(text: str) -> dict[str, str]:
     lines = text.splitlines()
     if not lines or lines[0] != "---":
@@ -163,7 +243,13 @@ def parse_frontmatter(text: str) -> dict[str, str]:
         if ":" not in line:
             continue
         key, value = line.split(":", 1)
-        values[key.strip()] = value.strip()
+        parsed_value = value.strip()
+        if parsed_value.startswith('"') and parsed_value.endswith('"'):
+            try:
+                parsed_value = json.loads(parsed_value)
+            except json.JSONDecodeError:
+                pass
+        values[key.strip()] = parsed_value
     return values
 
 
@@ -245,6 +331,29 @@ def section_has_substance(body: str) -> bool:
     return False
 
 
+def validate_sql_checkpoint_document(path: Path) -> list[str]:
+    errors, _ = validate_stage_document(
+        path,
+        "full",
+        "technical_design",
+        require_completed=False,
+    )
+    if not path.is_file():
+        return errors
+    text = path.read_text(encoding="utf-8")
+    empty_sections = [
+        heading
+        for heading in TECHNICAL_DESIGN_PRE_SQL_HEADINGS
+        if heading in text and not section_has_substance(section_body(text, heading))
+    ]
+    if empty_sections:
+        errors.append(
+            "SQL 确认前的技术方案章节缺少实质内容: " + ", ".join(empty_sections)
+        )
+    errors.extend(validate_traceability(path, "full", "technical_design", text))
+    return errors
+
+
 def validate_traceability(path: Path, mode: str, stage: str, text: str) -> list[str]:
     errors: list[str] = []
     for pattern, label in TRACEABILITY_PATTERNS.get((mode, stage), ()):
@@ -294,6 +403,10 @@ def validate_stage_document(
 
     frontmatter = parse_frontmatter(text)
     missing_keys = sorted(COMMON_FRONTMATTER_KEYS - frontmatter.keys())
+    if mode == "full" and stage == "technical_design":
+        missing_keys.extend(
+            sorted(TECHNICAL_DESIGN_SQL_KEYS - frontmatter.keys())
+        )
     if missing_keys:
         errors.append("frontmatter 缺少字段: " + ", ".join(missing_keys))
     if frontmatter.get("workflow") != "zstt-backend-workflow":
@@ -310,6 +423,32 @@ def validate_stage_document(
     count_value(frontmatter, "open_p2_count", errors)
     if p0_count > 0:
         errors.append(f"仍有 {p0_count} 个 P0 阻塞项")
+
+    if mode == "full" and stage == "technical_design":
+        sql_impact = frontmatter.get("sql_impact", "")
+        sql_gate_status = frontmatter.get("sql_gate_status", "")
+        if sql_impact not in SQL_IMPACTS:
+            errors.append(
+                "frontmatter 的 sql_impact 必须是 pending/none/query_dml/ddl"
+            )
+        if sql_gate_status not in SQL_GATE_STATUSES:
+            errors.append(
+                "frontmatter 的 sql_gate_status 无效"
+            )
+        if require_completed:
+            expected_status = "not_involved" if sql_impact == "none" else "confirmed"
+            if sql_impact == "pending":
+                errors.append("尚未完成 SQL 影响判定")
+            elif sql_gate_status != expected_status:
+                errors.append(
+                    f"SQL Gate 尚未满足: {sql_impact}/{sql_gate_status}"
+                )
+            if not frontmatter.get("sql_fingerprint"):
+                errors.append("frontmatter 缺少 SQL 指纹")
+            if sql_impact in {"query_dml", "ddl"} and not frontmatter.get(
+                "sql_confirmation_source"
+            ):
+                errors.append("frontmatter 缺少用户 SQL 确认来源")
 
     missing_headings = [
         heading

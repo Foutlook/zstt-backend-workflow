@@ -6,6 +6,10 @@ status: draft
 blocking_p0_count: 0
 open_p1_count: 0
 open_p2_count: 0
+sql_impact: pending
+sql_gate_status: not_evaluated
+sql_fingerprint:
+sql_confirmation_source:
 ---
 
 # 后端技术方案：{{FEATURE_NAME}}
@@ -59,9 +63,34 @@ open_p2_count: 0
 
 ## 7. 数据存储与查询设计
 
+### 7.1 SQL 影响与最小方案
+
+- SQL 影响类型：pending
+- 判定依据：
+- 最小方案顺序（不改库 → 复用已有表 → 修改已有表 → 新建表）：
+
+### 7.2 表、字段与公共字段
+
+| 对象 | 现状证据 Cxx | 新增/修改 | 业务事实与生命周期 | 公共字段依据/例外 | 不落库或不采用方案 |
+|---|---|---|---|---|---|
+
+### 7.3 精确 SQL、索引与事务
+
+- 精确 SQL 附件（涉及 SQL 时固定为 `auxiliary/sql-design.sql`）：
+- 查询条件、JOIN、排序、分页、逻辑删除和权限范围：
+- 主键、唯一约束、索引及对应真实查询：
+- 更新条件、预计影响行数、事务、并发和锁：
+
 ### 数据迁移
 
 - 历史数据范围、回填、校验、兼容窗口和回滚：
+
+### 7.4 SQL 用户确认门禁
+
+- SQL Gate 状态：not_evaluated
+- SQL 指纹：
+- 用户确认来源：
+- 确认范围：精确 SQL/DDL、表字段、公共字段、索引、事务、迁移、兼容与回滚
 
 ## 8. 代码改动落点
 
