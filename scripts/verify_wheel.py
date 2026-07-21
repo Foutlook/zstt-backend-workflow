@@ -7,6 +7,7 @@ from pathlib import Path
 
 REQUIRED_SUFFIXES = (
     "zstt_cli/cli.py",
+    "zstt_cli/diagnostics.py",
     "zstt_cli/installer.py",
     "zstt_cli/resources/skills/zstt-requirement-clarification/SKILL.md",
     "zstt_cli/resources/rules/catalog.json",

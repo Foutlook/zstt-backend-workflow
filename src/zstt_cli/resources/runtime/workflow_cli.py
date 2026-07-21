@@ -5,11 +5,11 @@ import json
 import re
 import sys
 from datetime import date, datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from workflow_contracts import (
     get_contract,
-    recommended_next_skill,
+    recommended_next_skills,
     required_predecessors,
     stages_for,
 )
@@ -28,6 +28,58 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 KIT_ROOT = SCRIPT_DIR.parent
 TEMPLATE_ROOT = KIT_ROOT / "templates"
 META_NAME = "meta.json"
+META_SCHEMA_VERSION = 3
+SUPPORTED_META_SCHEMA_VERSIONS = {2, META_SCHEMA_VERSION}
+
+
+def feature_relative_path(feature_dir: Path) -> str:
+    resolved = feature_dir.resolve()
+    indexes = [
+        index
+        for index, part in enumerate(resolved.parts)
+        if part == ".zstt"
+    ]
+    if not indexes:
+        raise ValueError(f"需求目录不在 .zstt 下: {resolved}")
+    relative = PurePosixPath(*resolved.parts[indexes[-1] :])
+    if len(relative.parts) < 3 or relative.parts[1] not in {"features", "quick"}:
+        raise ValueError(f"需求目录必须位于 .zstt/features 或 .zstt/quick: {resolved}")
+    return relative.as_posix()
+
+
+def set_recommendations(meta: dict[str, object], skills: tuple[str, ...]) -> None:
+    meta["recommended_next_skill"] = skills[0] if skills else None
+    meta["recommended_next_skills"] = list(skills)
+
+
+def normalize_meta(
+    feature_dir: Path,
+    meta: object,
+) -> dict[str, object]:
+    if not isinstance(meta, dict):
+        raise ValueError("meta.json 顶层必须是对象")
+    version = meta.get("version")
+    if version not in SUPPORTED_META_SCHEMA_VERSIONS:
+        raise ValueError(f"不支持的 meta.json 版本: {version}")
+
+    normalized = dict(meta)
+    mode = str(normalized.get("mode", ""))
+    completed_value = normalized.get("completed_stages", [])
+    if not isinstance(completed_value, list) or not all(
+        isinstance(stage, str) for stage in completed_value
+    ):
+        raise ValueError("meta.json 的 completed_stages 必须是字符串数组")
+    current_stage = str(normalized.get("current_stage", ""))
+    if current_stage and current_stage not in completed_value:
+        recommendations = (get_contract(mode, current_stage).skill,)
+    else:
+        recommendations = recommended_next_skills(mode, completed_value)
+
+    # v2 可能保存了本机绝对目录；v3 每次都从实际需求目录重建可提交的相对路径。
+    normalized["version"] = META_SCHEMA_VERSION
+    normalized["feature_dir"] = feature_relative_path(feature_dir)
+    set_recommendations(normalized, recommendations)
+    return normalized
 
 
 def default_sql_gate() -> dict[str, object]:
@@ -46,11 +98,17 @@ def read_meta(feature_dir: Path) -> dict[str, object]:
     meta_path = feature_dir / META_NAME
     if not meta_path.is_file():
         raise ValueError(f"状态文件不存在: {meta_path}")
-    return json.loads(meta_path.read_text(encoding="utf-8"))
+    return normalize_meta(
+        feature_dir,
+        json.loads(meta_path.read_text(encoding="utf-8")),
+    )
 
 
 def write_meta(feature_dir: Path, meta: dict[str, object]) -> None:
-    content = json.dumps(meta, ensure_ascii=False, indent=2) + "\n"
+    normalized = normalize_meta(feature_dir, meta)
+    meta.clear()
+    meta.update(normalized)
+    content = json.dumps(normalized, ensure_ascii=False, indent=2) + "\n"
     (feature_dir / META_NAME).write_text(content, encoding="utf-8", newline="\n")
 
 
@@ -202,11 +260,11 @@ def init_feature(args: argparse.Namespace) -> int:
         newline="\n",
     )
     meta: dict[str, object] = {
-        "version": 3,
+        "version": META_SCHEMA_VERSION,
         "workflow": "zstt-backend-workflow",
         "mode": args.mode,
         "feature_name": args.feature_name.strip(),
-        "feature_dir": str(target),
+        "feature_dir": feature_relative_path(target),
         "created_date": date_text,
         "current_stage": requirement.key,
         "completed_stages": [],
@@ -215,6 +273,7 @@ def init_feature(args: argparse.Namespace) -> int:
         "blocking_counts": {"p0": 0, "p1": 0, "p2": 0},
         "last_validation": None,
         "recommended_next_skill": requirement.skill,
+        "recommended_next_skills": [requirement.skill],
     }
     if args.mode == "full":
         meta["sql_gate"] = default_sql_gate()
@@ -310,7 +369,7 @@ def invalidate_changed_stages(
         fingerprints.pop(stage, None)
     meta["artifact_fingerprints"] = fingerprints
     meta["current_stage"] = earliest
-    meta["recommended_next_skill"] = get_contract(mode, earliest).skill
+    set_recommendations(meta, (get_contract(mode, earliest).skill,))
     if mode == "full":
         technical_index = stage_order.index("technical_design")
         gate = sql_gate_from_meta(meta)
@@ -411,7 +470,7 @@ def complete_stage(args: argparse.Namespace) -> int:
         "p2": int(frontmatter["open_p2_count"]),
     }
     meta["last_validation"] = {"stage": contract.key, "valid": True}
-    meta["recommended_next_skill"] = recommended_next_skill(mode, completed)
+    set_recommendations(meta, recommended_next_skills(mode, completed))
     write_meta(feature_dir, meta)
     print(json.dumps(meta, ensure_ascii=False, indent=2))
     return 0
@@ -481,7 +540,7 @@ def prepare_stage(args: argparse.Namespace) -> int:
     artifacts[contract.key] = contract.artifact
     meta["artifacts"] = artifacts
     meta["current_stage"] = contract.key
-    meta["recommended_next_skill"] = contract.skill
+    set_recommendations(meta, (contract.skill,))
     if mode == "full" and contract.key == "technical_design" and not isinstance(
         meta.get("sql_gate"), dict
     ):

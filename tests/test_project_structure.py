@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import tomllib
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -13,6 +15,7 @@ RUNTIME = PACKAGE_ROOT / "resources" / "runtime"
 TEMPLATES = PACKAGE_ROOT / "resources" / "templates"
 
 EXPECTED_SKILLS = {
+    "zstt-bug-fix",
     "zstt-requirement-clarification",
     "zstt-repo-research",
     "zstt-technical-design",
@@ -48,6 +51,26 @@ class ProjectStructureTest(unittest.TestCase):
 
     def test_maintenance_scripts_exist(self) -> None:
         self.assertTrue((ROOT / "scripts" / "validate.ps1").is_file())
+        self.assertTrue((ROOT / "scripts" / "validate_skills.py").is_file())
+        self.assertTrue((ROOT / ".github" / "workflows" / "ci.yml").is_file())
+        self.assertTrue((ROOT / "CHANGELOG.md").is_file())
+
+    def test_repository_skill_validator_passes_all_ten_skills(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-X",
+                "utf8",
+                str(ROOT / "scripts" / "validate_skills.py"),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("10 个 Skill 校验通过", completed.stdout)
 
     def test_all_skill_directories_exist(self) -> None:
         actual = {

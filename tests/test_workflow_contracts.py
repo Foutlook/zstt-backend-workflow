@@ -14,6 +14,8 @@ from workflow_contracts import (  # noqa: E402
     FULL_STAGES,
     QUICK_STAGES,
     get_contract,
+    recommended_next_skill,
+    recommended_next_skills,
     required_predecessors,
 )
 from workflow_paths import feature_directory, sanitize_feature_name  # noqa: E402
@@ -61,6 +63,34 @@ class WorkflowContractsTest(unittest.TestCase):
             required_predecessors("quick", "test_verify"),
         )
 
+    def test_full_recommends_exactly_one_next_stage(self) -> None:
+        self.assertEqual(
+            ("zstt-technical-design",),
+            recommended_next_skills(
+                "full",
+                ["requirement_clarification", "repo_research"],
+            ),
+        )
+
+    def test_quick_recommends_optional_review_and_test_after_implementation(self) -> None:
+        completed = ["requirement_clarification", "implementation"]
+
+        self.assertEqual(
+            ("zstt-code-review", "zstt-test-verify"),
+            recommended_next_skills("quick", completed),
+        )
+        self.assertEqual("zstt-code-review", recommended_next_skill("quick", completed))
+
+    def test_quick_ends_after_test_without_backtracking_to_review(self) -> None:
+        completed = [
+            "requirement_clarification",
+            "implementation",
+            "test_verify",
+        ]
+
+        self.assertEqual((), recommended_next_skills("quick", completed))
+        self.assertIsNone(recommended_next_skill("quick", completed))
+
     def test_code_simplification_is_not_a_fixed_stage(self) -> None:
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
         self.assertNotIn("zstt-code-simplification", fixed_skills)
@@ -68,6 +98,10 @@ class WorkflowContractsTest(unittest.TestCase):
     def test_module_refactor_is_not_a_fixed_stage(self) -> None:
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
         self.assertNotIn("zstt-module-refactor", fixed_skills)
+
+    def test_bug_fix_is_not_a_fixed_stage(self) -> None:
+        fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
+        self.assertNotIn("zstt-bug-fix", fixed_skills)
 
     def test_unknown_stage_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "未知阶段"):

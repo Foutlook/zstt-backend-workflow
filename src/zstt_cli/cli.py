@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from zstt_cli import __version__
+from zstt_cli.diagnostics import (
+    DoctorResult,
+    diagnose_project,
+    project_layout_warnings,
+)
 from zstt_cli.installer import (
     ConflictError,
     InstallResult,
@@ -13,6 +19,15 @@ from zstt_cli.installer import (
     init_project,
     update_project,
 )
+
+
+def _configure_redirected_utf8() -> None:
+    # Windows CI may redirect Python through CP1252 even though CLI messages are Chinese.
+    # Keep interactive terminals unchanged, but make redirected output deterministic UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None and not stream.isatty():
+            reconfigure(encoding="utf-8")
 
 
 def _add_project_argument(parser: argparse.ArgumentParser) -> None:
@@ -56,6 +71,17 @@ def build_parser() -> argparse.ArgumentParser:
     check_parser = subparsers.add_parser("check", help="检查项目级安装状态")
     _add_project_argument(check_parser)
 
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="诊断 Git 仓库边界、Codex Skill 发现和安装状态",
+    )
+    _add_project_argument(doctor_parser)
+    doctor_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="输出机器可读的 JSON 诊断结果",
+    )
+
     subparsers.add_parser("version", help="显示 ZSTT CLI 版本")
     return parser
 
@@ -74,7 +100,33 @@ def _print_install_result(
     print("请新建 Codex 任务以加载更新后的项目级 Skills。")
 
 
+def _print_layout_warnings(project_root: Path) -> None:
+    for warning in project_layout_warnings(project_root):
+        print(f"警告: {warning}", file=sys.stderr)
+
+
+def _print_doctor_result(result: DoctorResult) -> None:
+    data = result.as_dict()
+    print(f"项目目录: {data['projectRoot']}")
+    print(f"Git 根目录: {data['gitRoot'] or '未检测到'}")
+    print(f"安装检查目录: {data['installationRoot']}")
+    print(f"Skills 目录: {data['skillsRoot']}")
+    print(
+        "Skills: 已安装 {installed}/{expected}，缺失 {missing}".format(
+            installed=len(data["installedSkills"]),
+            expected=len(data["expectedSkills"]),
+            missing=len(data["missingSkills"]),
+        )
+    )
+    print(f"Codex 可发现: {'是' if data['codexDiscoverable'] else '否'}")
+    print(f"安装状态: {data['installationStatus']}")
+    for warning in data["warnings"]:
+        print(f"警告: {warning}")
+    print(f"诊断结果: {'正常' if data['healthy'] else '需要处理'}")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _configure_redirected_utf8()
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -85,13 +137,22 @@ def main(argv: list[str] | None = None) -> int:
 
         project_root = _project_root(args).resolve()
         if args.command == "init":
+            _print_layout_warnings(project_root)
             result = init_project(project_root, force=args.force)
             _print_install_result("初始化", project_root, result)
             return 0
         if args.command == "update":
+            _print_layout_warnings(project_root)
             result = update_project(project_root, force=args.force)
             _print_install_result("更新", project_root, result)
             return 0
+        if args.command == "doctor":
+            result = diagnose_project(project_root)
+            if args.json:
+                print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
+            else:
+                _print_doctor_result(result)
+            return 0 if result.healthy else 1
 
         status = check_project(project_root)
         print(f"项目: {project_root}")

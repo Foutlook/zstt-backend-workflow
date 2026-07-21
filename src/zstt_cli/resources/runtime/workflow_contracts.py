@@ -121,9 +121,36 @@ def required_predecessors(mode: str, stage_key: str) -> tuple[str, ...]:
     return get_contract(mode, stage_key).required
 
 
-def recommended_next_skill(mode: str, completed_stages: list[str]) -> str | None:
+def recommended_next_skills(
+    mode: str,
+    completed_stages: list[str],
+) -> tuple[str, ...]:
     completed = set(completed_stages)
-    for stage in stages_for(mode):
-        if stage.key not in completed:
-            return stage.skill
-    return None
+    if mode == "full":
+        for stage in FULL_STAGES:
+            if stage.key not in completed:
+                return (stage.skill,)
+        return ()
+
+    if mode != "quick":
+        raise ValueError(f"未知工作流模式: {mode}")
+
+    requirement = get_contract("quick", "requirement_clarification")
+    implementation = get_contract("quick", "implementation")
+    review = get_contract("quick", "code_review")
+    verification = get_contract("quick", "test_verify")
+    if requirement.key not in completed:
+        return (requirement.skill,)
+    if implementation.key not in completed:
+        return (implementation.skill,)
+    # Quick 的 Review 与测试都是用户可选分支；测试完成后流程结束，不能倒退推荐 Review。
+    if verification.key in completed:
+        return ()
+    if review.key in completed:
+        return (verification.skill,)
+    return (review.skill, verification.skill)
+
+
+def recommended_next_skill(mode: str, completed_stages: list[str]) -> str | None:
+    recommendations = recommended_next_skills(mode, completed_stages)
+    return recommendations[0] if recommendations else None

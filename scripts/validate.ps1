@@ -15,6 +15,11 @@ $wheelRoot = Join-Path $temporaryRoot "wheel"
 
 Push-Location $repoRoot
 try {
+    & $python -X utf8 (Join-Path $repoRoot "scripts\validate_skills.py")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Skill validation failed with exit code $LASTEXITCODE"
+    }
+
     if (-not $SkipTests) {
         & $python -m unittest discover -s tests -v
         if ($LASTEXITCODE -ne 0) {
@@ -75,15 +80,30 @@ try {
         throw "Installed zstt entry point failed with exit code $LASTEXITCODE"
     }
     New-Item -ItemType Directory -Path $smokeProject | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $smokeProject ".git") | Out-Null
+    # Simulate redirected Windows runners whose inherited stream encoding cannot encode Chinese.
+    $previousPythonIoEncoding = $env:PYTHONIOENCODING
+    $env:PYTHONIOENCODING = "cp1252"
     & $zstt init $smokeProject
-    if ($LASTEXITCODE -ne 0) {
-        throw "Installed zstt init smoke test failed with exit code $LASTEXITCODE"
+    $initExitCode = $LASTEXITCODE
+    if ($null -eq $previousPythonIoEncoding) {
+        Remove-Item Env:PYTHONIOENCODING
+    }
+    else {
+        $env:PYTHONIOENCODING = $previousPythonIoEncoding
+    }
+    if ($initExitCode -ne 0) {
+        throw "Installed zstt init smoke test failed with exit code $initExitCode"
     }
     if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".agents\skills\zstt-requirement-clarification\SKILL.md"))) {
         throw "Installed wheel did not initialize project-level ZSTT Skills"
     }
     if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py"))) {
         throw "Installed wheel did not initialize ZSTT rules runtime"
+    }
+    & $zstt doctor $smokeProject --json
+    if ($LASTEXITCODE -ne 0) {
+        throw "Installed zstt doctor smoke test failed with exit code $LASTEXITCODE"
     }
     & $venvPython (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py") check
     if ($LASTEXITCODE -ne 0) {

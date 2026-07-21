@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -102,6 +104,15 @@ class ProjectInstallerTest(unittest.TestCase):
                     / ".agents"
                     / "skills"
                     / "zstt-requirement-clarification"
+                    / "SKILL.md"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    project_root
+                    / ".agents"
+                    / "skills"
+                    / "zstt-bug-fix"
                     / "SKILL.md"
                 ).is_file()
             )
@@ -357,7 +368,37 @@ class CliTest(unittest.TestCase):
             exit_code = main(["version"])
 
         self.assertEqual(0, exit_code)
-        self.assertIn("zstt-cli 0.2.0", stdout.getvalue())
+        self.assertIn("zstt-cli 0.4.0", stdout.getvalue())
+
+    def test_redirected_cli_output_overrides_incompatible_cp1252(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            (project_root / ".git").mkdir()
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "cp1252"
+            existing_python_path = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = (
+                str(SRC)
+                if not existing_python_path
+                else str(SRC) + os.pathsep + existing_python_path
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "zstt_cli.cli",
+                    "init",
+                    str(project_root),
+                ],
+                check=False,
+                capture_output=True,
+                cwd=ROOT,
+                env=env,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertIn("初始化完成", completed.stdout.decode("utf-8"))
 
     def test_check_returns_nonzero_for_local_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -380,6 +421,78 @@ class CliTest(unittest.TestCase):
             self.assertEqual(1, exit_code)
             self.assertIn("已修改文件", stdout.getvalue())
             self.assertEqual("", stderr.getvalue())
+
+    def test_doctor_reports_healthy_git_repository_as_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            (project_root / ".git").mkdir()
+            init_project(project_root)
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["doctor", str(project_root), "--json"])
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(0, exit_code)
+            self.assertTrue(result["healthy"])
+            self.assertTrue(result["codexDiscoverable"])
+            self.assertEqual("normal", result["installationStatus"])
+            self.assertEqual(10, len(result["expectedSkills"]))
+            self.assertEqual([], result["missingSkills"])
+
+    def test_doctor_uses_git_root_when_called_from_repository_subdirectory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            (project_root / ".git").mkdir()
+            subdirectory = project_root / "module" / "src"
+            subdirectory.mkdir(parents=True)
+            init_project(project_root)
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["doctor", str(subdirectory), "--json"])
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(0, exit_code)
+            self.assertEqual(str(project_root.resolve()), result["installationRoot"])
+            self.assertTrue(result["codexDiscoverable"])
+
+    def test_doctor_detects_parent_skills_outside_nested_git_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            init_project(workspace)
+            nested_repository = workspace / "backend"
+            (nested_repository / ".git").mkdir(parents=True)
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["doctor", str(nested_repository), "--json"])
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(1, exit_code)
+            self.assertFalse(result["codexDiscoverable"])
+            self.assertEqual(
+                str((workspace / ".agents" / "skills").resolve()),
+                result["parentSkillRoot"],
+            )
+            self.assertTrue(
+                any("不会跨越" in warning for warning in result["warnings"])
+            )
+
+    def test_init_warns_when_parent_contains_nested_git_repositories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            nested_repository = workspace / "backend"
+            (nested_repository / ".git").mkdir(parents=True)
+            stderr = StringIO()
+            stdout = StringIO()
+
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["init", str(workspace)])
+
+            self.assertEqual(0, exit_code)
+            self.assertIn("直属子 Git 仓库", stderr.getvalue())
+            self.assertIn(str(nested_repository.resolve()), stderr.getvalue())
 
 
 if __name__ == "__main__":
