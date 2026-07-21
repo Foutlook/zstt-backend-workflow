@@ -32,7 +32,7 @@ class RuleResolverTest(unittest.TestCase):
             set(catalog["ruleTypes"]),
         )
         self.assertEqual(9, len(catalog["profiles"]))
-        self.assertEqual(15, len(catalog["rules"]))
+        self.assertEqual(16, len(catalog["rules"]))
         self.assertNotIn("zstt-workflow-shared", catalog["profiles"])
         self.assertNotIn("zstt-java-backend-standard", catalog["profiles"])
 
@@ -167,6 +167,7 @@ class RuleResolverTest(unittest.TestCase):
         for context in (
             "jackson",
             "data-access",
+            "sql-design",
             "abstraction",
             "design-patterns",
             "ddd",

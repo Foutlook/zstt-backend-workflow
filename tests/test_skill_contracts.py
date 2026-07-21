@@ -81,6 +81,10 @@ class AnalysisSkillContractTest(unittest.TestCase):
             "接口契约",
             "Jackson",
             "数据源一致性",
+            "SQL 用户确认门禁",
+            "prepare-sql-gate",
+            "不改数据库",
+            "create_user",
             "发布与回滚",
             "测试策略",
             "fallback",
@@ -167,6 +171,9 @@ class SupportingSkillContractTest(unittest.TestCase):
             "-Dsmart-doc.phase=verify",
             "Strategy（策略）",
             "DDD（领域驱动设计）",
+            "SQL 设计约束",
+            "不改数据库",
+            "create_user",
         ):
             self.assertIn(token, text)
 

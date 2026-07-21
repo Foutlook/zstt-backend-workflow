@@ -1,6 +1,6 @@
 ---
 name: zstt-technical-design
-description: ZSTT 后端技术方案阶段。仅当用户明确指定 $zstt-technical-design，或明确要求执行“ZSTT 技术方案阶段”时使用；基于已完成的需求和仓库调研生成可评审的 02-design.md，不自动拆任务或编码。
+description: ZSTT 后端技术方案阶段。仅当用户明确指定 $zstt-technical-design，或明确要求执行“ZSTT 技术方案阶段”时使用；基于已完成的需求和仓库调研生成可评审的 02-design.md，在方案内部先完成业务与接口设计，再对新增或修改 SQL 执行用户确认门禁，不自动拆任务或编码。
 ---
 
 # ZSTT Technical Design
@@ -16,7 +16,7 @@ description: ZSTT 后端技术方案阶段。仅当用户明确指定 $zstt-tech
 1. 运行 `python .zstt-kit/runtime/rule_resolver.py resolve --skill zstt-technical-design`。
 2. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 3. 完整读取本阶段 `references/advanced-playbook.md`。
-4. 读取需求、调研和与设计落点相关的真实代码，根据实际契约与调用链追加 `jackson`、`data-access`、`transaction`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；没有适用证据时不加载、也不强行采用抽象或模式。
+4. 读取需求、调研和与设计落点相关的真实代码，根据实际契约与调用链追加 `jackson`、`data-access`、`database`、`transaction`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；没有适用证据时不加载、也不强行采用抽象或模式。
 5. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage technical_design --feature-dir <需求目录>`，重新校验 `00-requirement.md` 和 `01-research.md`。调研结论无法支持关键设计时，先回到上游补证据。
 
 ## 设计顺序
@@ -24,16 +24,30 @@ description: ZSTT 后端技术方案阶段。仅当用户明确指定 $zstt-tech
 1. 列出当前代码基线和需求差距。
 2. 确认核心数据身份、去重维度、状态隔离和生命周期。
 3. 明确模块职责、写入方、只读方和跨仓库契约。
-4. 设计主流程和必要时序，并映射到真实类、方法、表、SQL、配置或消息。
+4. 设计主流程和必要时序，并映射到真实类、方法、配置或消息；此时只描述业务事实和逻辑数据需要，不提前确定物理表、字段或 SQL。
 5. 设计接口契约：请求、响应、类型、必填、默认值、枚举、错误、权限、幂等和兼容策略。
 6. 检查 Jackson JavaBean 命名边界。`zValue`、`pType`、`uId` 等高风险字段必须在方案中要求显式 `@JsonProperty` 和绑定测试。
-7. 设计存储、查询、索引、事务、缓存、MQ、异步和历史数据处理。
-8. 写清发布顺序、灰度、监控、发布与回滚策略。
-9. 给出主链路、边界、异常、兼容、性能和异步测试策略。
+7. 完成存储选择和 SQL 影响判定；若涉及 SQL，先完成 SQL 设计并执行下述用户确认门禁。
+8. SQL Gate 满足后，完成代码改动落点以及缓存、MQ、异步等剩余一致性设计。
+9. 写清发布顺序、灰度、监控、发布与回滚策略。
+10. 给出主链路、边界、异常、兼容、性能和异步测试策略。
 
 重要设计决策使用 `Dxx`，引用调研 Claim Ledger 中的 `Cxx`。每项同时记录确认状态（`已确认`/`待确认`）和取舍结论（采用、不采用或暂定），不要把“已确认不采用”与“尚未决定”混为同一状态。真实取舍要列候选方案、未采用理由、边界和验证方式；接口或 SQL 详细附件可以写入 `auxiliary/`，但主方案必须保留最终契约和附件索引。
 
 会改变任务范围、契约或验收方式的待确认 `Dxx` 必须计为 P0，不得进入最终契约或任务交接；任务交接只能引用已确认 `Dxx`。
+
+## SQL 用户确认门禁
+
+SQL Gate 属于当前技术方案阶段，不新增阶段。先完成 `02-design.md` 第 1～7 节；第 1～6 节只确定业务事实、身份、职责、主流程和接口契约，第 7 节才确定物理存储和 SQL。
+
+1. 识别本次是否新增或修改 `SELECT`、`INSERT`、`UPDATE`、`DELETE`、DDL、JOIN、过滤、排序、分页、更新条件、索引或约束等 SQL 语义。纯空白、换行或注释调整不计为 SQL 语义变化。
+2. 不涉及 SQL 时，在第 7 节写明依据，运行 `prepare-sql-gate --impact none`，然后继续第 8～11 节。
+3. 涉及查询或 DML 时使用 `query_dml`；包含任何 DDL 时使用 `ddl`。把可执行的精确 SQL 写入 `auxiliary/sql-design.sql`，在第 7 节写明表字段、公共字段、索引、事务、迁移、兼容和回滚，并运行 `prepare-sql-gate --impact query_dml|ddl`。
+4. 命令成功后保持 `status: draft`，只向用户展示本次 SQL 基线、主要取舍和风险，并询问是否确认。此时必须结束当前回合，不得继续填写第 8～11 节，不得运行 `confirm-sql` 或 `complete-stage`。
+5. 用户必须明确回复确认并再次指定 `$zstt-technical-design`。恢复后运行 `confirm-sql --source <可追溯的用户确认记录>`，再完成第 8～11 节。泛化的“用户确认”不是有效来源。
+6. 用户要求修改时，更新第 7 节和 SQL 附件，重新运行 `prepare-sql-gate` 并再次等待确认。确认后 SQL 或第 7 节发生变化会使指纹失效，不能沿用旧确认。
+
+SQL 设计遵循最小顺序：不改数据库、复用已有表、修改已有表、最后才新建表。公共字段优先沿用同模块真实表；没有可引用项目规范时，默认检查 `id`、`create_user`、`create_time`、`modify_user`、`modify_time`、`is_delete`。`user_id`、`tenant_id`、`version`、`status`、`remark`、`ext_json` 等不是通用公共字段，只能在需求、隔离、并发或生命周期证据成立时加入。不得为未来可能、排查方便或单次使用预留字段、表、索引或扩展结构。
 
 ## 方案原则
 
@@ -48,26 +62,29 @@ description: ZSTT 后端技术方案阶段。仅当用户明确指定 $zstt-tech
 
 ## 主产物
 
-`02-design.md` 必须覆盖：输入与代码基线、需求差距、设计决策、身份/状态/职责、主流程、接口契约、存储查询、代码落点、发布与回滚、可观测性、测试策略、风险与任务交接。
+`02-design.md` 必须覆盖：输入与代码基线、需求差距、设计决策、身份/状态/职责、主流程、接口契约、存储查询与 SQL Gate、代码落点、发布与回滚、可观测性、测试策略、风险与任务交接。
 
-接口和 SQL 是本阶段主文档的组成部分。详细接口、DDL 或图表可作为 `auxiliary/` 附件，但不生成与 `02-design.md` 竞争权威性的平行方案。
+接口和 SQL 是本阶段主文档的组成部分。涉及 SQL 时，`auxiliary/sql-design.sql` 只保存被确认的精确语句，主文档第 7 节仍保存关键决策、确认状态、指纹和附件索引；附件不得形成与 `02-design.md` 竞争权威性的平行方案。
 
 ## 状态与定稿边界
 
 - 高影响歧义、关键证据缺口或开放 P0 尚未关闭时，只能输出标注为“评审草案”的 `02-design.md`。草案可以记录已确认基线、候选方案、暂定建议、影响范围和一个可直接回答的确认问题，但不得把待确认 `Dxx` 当成最终契约。
-- 只有上游产物仍然有效、P0 为零、必需章节有实质内容且最终 `Dxx` 均可追溯到有效 `Cxx` 时，才允许声明正式方案。用户要求立即交稿不能改变证据或问题状态。
+- 只有上游产物仍然有效、SQL Gate 为 `not_involved` 或 `confirmed`、P0 为零、必需章节有实质内容且最终 `Dxx` 均可追溯到有效 `Cxx` 时，才允许声明正式方案。用户要求立即交稿不能改变证据或问题状态。
 - 用户只要求补充或修改局部章节时，更新主产物并重新校验整份方案；不得因局部内容完成而沿用旧的 `completed` 状态。
 
 ## 完成
 
 1. 更新 frontmatter 为真实状态和问题数量。
-2. 仍是评审草案时保持 `status: draft`，输出草案结论、产物路径、开放风险和阻塞项，并按缺口推荐 `$zstt-requirement-clarification` 或 `$zstt-repo-research`；不运行完成命令，不推荐任务拆分。
-3. 满足定稿条件后运行 `complete-stage --stage technical_design`。命令失败时恢复 `draft`，记录失败原因和复验动作，不手工修改 `meta.json` 伪造完成。
-4. 只有完成命令成功后，才声明技术方案阶段完成并推荐 `$zstt-task-breakdown`；同时输出核心设计、产物路径和开放风险。
+2. SQL 等待确认时保持 `status: draft`，输出 SQL 基线、指纹、风险和一个确认问题后结束；不继续后半段、不推荐任务拆分。
+3. 其他评审草案保持 `status: draft`，输出草案结论、产物路径、开放风险和阻塞项，并按缺口推荐 `$zstt-requirement-clarification` 或 `$zstt-repo-research`；不运行完成命令，不推荐任务拆分。
+4. 满足定稿条件后运行 `complete-stage --stage technical_design`。命令失败时恢复 `draft`，记录失败原因和复验动作，不手工修改 `meta.json` 伪造完成。
+5. 只有完成命令成功后，才声明技术方案阶段完成并推荐 `$zstt-task-breakdown`；同时输出核心设计、产物路径和开放风险。
 
 ## 禁止事项
 
 - 不生成 `03-tasks.md`，不开始编码。
+- 不在第 1～6 节首次确定表结构、字段或精确 SQL，也不在用户确认 SQL 前完成第 8～11 节。
+- 不把伪 SQL、仅字段清单或省略条件的示意语句交给用户确认。
 - 不把需求目标写成当前代码事实。
 - 不用空泛的“遵循 SOLID”“高内聚低耦合”替代具体落点。
 - 不用架构框图替代真实业务主流程。

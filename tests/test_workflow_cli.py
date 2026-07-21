@@ -80,6 +80,44 @@ def init_feature(repo_root: Path, mode: str = "full") -> Path:
     return repo_root / ".zstt" / category / f"20260716-{name}"
 
 
+def prepare_technical_design(repo_root: Path) -> Path:
+    feature_dir = init_feature(repo_root)
+    requirement = feature_dir / "00-requirement.md"
+    fill_stage_document(requirement, "requirement_clarification")
+    assert run_cli(
+        "complete-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "requirement_clarification",
+    ).returncode == 0
+    assert run_cli(
+        "prepare-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "repo_research",
+    ).returncode == 0
+    research = feature_dir / "01-research.md"
+    fill_stage_document(research, "repo_research")
+    assert run_cli(
+        "complete-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "repo_research",
+    ).returncode == 0
+    assert run_cli(
+        "prepare-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "technical_design",
+    ).returncode == 0
+    fill_stage_document(feature_dir / "02-design.md", "technical_design")
+    return feature_dir
+
+
 class WorkflowCliInitTest(unittest.TestCase):
     def test_init_full_creates_only_meta_and_requirement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -256,6 +294,158 @@ class WorkflowCliInitTest(unittest.TestCase):
 
 
 class WorkflowCliGateTest(unittest.TestCase):
+    def test_technical_design_without_sql_can_complete_after_impact_recorded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_technical_design(Path(tmp))
+
+            gated = run_cli(
+                "prepare-sql-gate",
+                "--feature-dir",
+                str(feature_dir),
+                "--impact",
+                "none",
+            )
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "technical_design",
+            )
+
+            self.assertEqual(0, gated.returncode, gated.stderr)
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual("not_involved", meta["sql_gate"]["status"])
+
+    def test_sql_change_requires_explicit_confirmation_before_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_technical_design(Path(tmp))
+            auxiliary = feature_dir / "auxiliary"
+            auxiliary.mkdir()
+            (auxiliary / "sql-design.sql").write_text(
+                "ALTER TABLE lesson_record ADD COLUMN source_type tinyint NOT NULL DEFAULT 0;\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            gated = run_cli(
+                "prepare-sql-gate",
+                "--feature-dir",
+                str(feature_dir),
+                "--impact",
+                "ddl",
+            )
+            blocked = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "technical_design",
+            )
+            confirmed = run_cli(
+                "confirm-sql",
+                "--feature-dir",
+                str(feature_dir),
+                "--source",
+                "Codex task: 用户明确回复确认以上 SQL",
+            )
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "technical_design",
+            )
+
+            self.assertEqual(0, gated.returncode, gated.stderr)
+            self.assertNotEqual(0, blocked.returncode)
+            self.assertIn("SQL Gate", blocked.stderr)
+            self.assertEqual(0, confirmed.returncode, confirmed.stderr)
+            self.assertEqual(0, completed.returncode, completed.stderr)
+
+    def test_confirm_sql_rejects_generic_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_technical_design(Path(tmp))
+            auxiliary = feature_dir / "auxiliary"
+            auxiliary.mkdir()
+            (auxiliary / "sql-design.sql").write_text(
+                "SELECT id FROM lesson_record WHERE student_id = ?;\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            self.assertEqual(
+                0,
+                run_cli(
+                    "prepare-sql-gate",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--impact",
+                    "query_dml",
+                ).returncode,
+            )
+
+            confirmed = run_cli(
+                "confirm-sql",
+                "--feature-dir",
+                str(feature_dir),
+                "--source",
+                "用户确认",
+            )
+
+            self.assertNotEqual(0, confirmed.returncode)
+            self.assertIn("可追溯", confirmed.stderr)
+
+    def test_confirmed_sql_change_marks_gate_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_technical_design(Path(tmp))
+            auxiliary = feature_dir / "auxiliary"
+            auxiliary.mkdir()
+            sql_path = auxiliary / "sql-design.sql"
+            sql_path.write_text(
+                "SELECT id FROM lesson_record WHERE student_id = ?;\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            self.assertEqual(
+                0,
+                run_cli(
+                    "prepare-sql-gate",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--impact",
+                    "query_dml",
+                ).returncode,
+            )
+            self.assertEqual(
+                0,
+                run_cli(
+                    "confirm-sql",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--source",
+                    "当前任务用户明确回复：确认以上查询 SQL",
+                ).returncode,
+            )
+            sql_path.write_text(
+                "SELECT id FROM lesson_record WHERE student_id = ? ORDER BY id DESC;\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "technical_design",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("必须重新确认", completed.stderr)
+            meta = json.loads((feature_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual("stale", meta["sql_gate"]["status"])
+
     def test_empty_template_cannot_complete_by_changing_status_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             feature_dir = init_feature(Path(tmp))

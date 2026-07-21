@@ -18,6 +18,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def complete_document(feature_dir: Path, stage: str, artifact: str) -> None:
     fill_stage_document(feature_dir / artifact, stage)
+    if stage == "technical_design":
+        sql_gate = run_cli(
+            "prepare-sql-gate",
+            "--feature-dir",
+            str(feature_dir),
+            "--impact",
+            "none",
+        )
+        if sql_gate.returncode != 0:
+            raise AssertionError(sql_gate.stderr)
     completed = run_cli(
         "complete-stage",
         "--feature-dir",
