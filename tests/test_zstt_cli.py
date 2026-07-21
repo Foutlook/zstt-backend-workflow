@@ -108,6 +108,15 @@ class ProjectInstallerTest(unittest.TestCase):
                 ).is_file()
             )
             self.assertTrue(
+                (
+                    project_root
+                    / ".agents"
+                    / "skills"
+                    / "zstt-bug-fix"
+                    / "SKILL.md"
+                ).is_file()
+            )
+            self.assertTrue(
                 (project_root / ".zstt-kit" / "rules" / "catalog.json").is_file()
             )
             self.assertTrue(
@@ -359,7 +368,7 @@ class CliTest(unittest.TestCase):
             exit_code = main(["version"])
 
         self.assertEqual(0, exit_code)
-        self.assertIn("zstt-cli 0.3.0", stdout.getvalue())
+        self.assertIn("zstt-cli 0.4.0", stdout.getvalue())
 
     def test_redirected_cli_output_overrides_incompatible_cp1252(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -428,7 +437,7 @@ class CliTest(unittest.TestCase):
             self.assertTrue(result["healthy"])
             self.assertTrue(result["codexDiscoverable"])
             self.assertEqual("normal", result["installationStatus"])
-            self.assertEqual(9, len(result["expectedSkills"]))
+            self.assertEqual(10, len(result["expectedSkills"]))
             self.assertEqual([], result["missingSkills"])
 
     def test_doctor_uses_git_root_when_called_from_repository_subdirectory(self) -> None:

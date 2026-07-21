@@ -24,14 +24,14 @@ from rule_resolver import (  # noqa: E402
 
 
 class RuleResolverTest(unittest.TestCase):
-    def test_catalog_supports_four_rule_types_and_nine_profiles(self) -> None:
+    def test_catalog_supports_four_rule_types_and_ten_profiles(self) -> None:
         catalog, _ = load_catalog()
 
         self.assertEqual(
             {"constraint", "decision", "checklist", "reference"},
             set(catalog["ruleTypes"]),
         )
-        self.assertEqual(9, len(catalog["profiles"]))
+        self.assertEqual(10, len(catalog["profiles"]))
         self.assertEqual(16, len(catalog["rules"]))
         self.assertNotIn("zstt-workflow-shared", catalog["profiles"])
         self.assertNotIn("zstt-java-backend-standard", catalog["profiles"])
@@ -48,6 +48,20 @@ class RuleResolverTest(unittest.TestCase):
         self.assertNotIn("java.data-access", rule_ids)
         self.assertNotIn("java.abstraction", rule_ids)
         self.assertNotIn("java.design-patterns", rule_ids)
+
+    def test_bug_fix_profile_loads_evidence_and_java_guardrails(self) -> None:
+        result = resolve_rules("zstt-bug-fix")
+        rule_ids = [rule["id"] for rule in result["rules"]]
+
+        for rule_id in (
+            "workflow.evidence",
+            "workflow.capability-fallback",
+            "workflow.document-authority",
+            "java.core",
+            "java.comments",
+            "java.verification",
+        ):
+            self.assertIn(rule_id, rule_ids)
 
     def test_explicit_contexts_add_only_matching_rules_and_reasons(self) -> None:
         result = resolve_rules(

@@ -205,6 +205,7 @@ class SupportingSkillContractTest(unittest.TestCase):
         for name in (
             "zstt-code-simplification",
             "zstt-module-refactor",
+            "zstt-bug-fix",
         ):
             with self.subTest(name=name):
                 self.assertLess(len(read_skill(name).splitlines()), 500)
@@ -222,6 +223,24 @@ class SupportingSkillContractTest(unittest.TestCase):
             "characterization test",
             ".zstt/refactors",
             "等待用户明确批准",
+        ):
+            self.assertIn(token, text)
+
+    def test_bug_fix_is_evidence_first_and_requires_second_confirmation(self) -> None:
+        text = read_skill("zstt-bug-fix")
+        self.assertEqual("zstt-bug-fix", frontmatter_value(text, "name"))
+        for token in (
+            "仅当用户明确指定",
+            "不属于 Full/Quick 固定阶段",
+            "代码证据",
+            "数据证据",
+            "过程证据",
+            "线上环境",
+            "二次确认",
+            "禁止修改业务代码",
+            "SQL Gate",
+            ".zstt/bugs",
+            "不自动 commit、push、合并、部署",
         ):
             self.assertIn(token, text)
 

@@ -81,7 +81,7 @@ flowchart LR
     class QC,QT optional
 ```
 
-`$zstt-code-simplification` 和 `$zstt-module-refactor` 是可随时显式调用的辅助 Skill，不属于固定流程，也不推进阶段状态。
+`$zstt-bug-fix`、`$zstt-code-simplification` 和 `$zstt-module-refactor` 是可随时显式调用的辅助 Skill，不属于固定流程，也不推进阶段状态。
 
 ## Skill 与 Rules 分工
 
@@ -159,7 +159,7 @@ zstt doctor --here
 
 `.zstt-kit/manifest.json` 记录 CLI 版本和受管文件 SHA-256。CLI 不覆盖 `AGENTS.md`、其他项目级 Skill、业务源码或 `.zstt/features`、`.zstt/quick` 下的需求产物。初始化完成后新建 Codex 任务，让 Codex 加载 `$zstt-*` Skills。
 
-`zstt doctor --here` 会同时检查安装清单、9 个项目级 Skill、Git 仓库根目录和 Codex 发现边界。出现 `Codex 可发现: 否` 时，应按诊断提示修复目录或重新初始化，再新建 Codex 任务。
+`zstt doctor --here` 会同时检查安装清单、10 个项目级 Skill、Git 仓库根目录和 Codex 发现边界。出现 `Codex 可发现: 否` 时，应按诊断提示修复目录或重新初始化，再新建 Codex 任务。
 
 > [!WARNING]
 > `.agents/skills` 必须位于实际业务 Git 仓库内。若 `C:\idea_workspace_tob` 只是聚合目录，下面的 `jzx`、`backend-a` 等才是独立 Git 仓库，就要分别进入每个仓库执行 `zstt init --here`。Codex 从当前目录向上扫描到当前 Git 根目录，不会跨越子仓库边界读取聚合目录中的 Skills。
@@ -327,6 +327,8 @@ python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-d
 
 ## 辅助 Skill
 
+`$zstt-bug-fix` 用于 Java 后端 Bug、线上问题和偶现问题的证据化排查与最小修复。它先结合代码、日志、MySQL、ES 和时间线交付根因、影响与方案，只有用户看到结论后二次确认才修改代码；独立记录写入 `.zstt/bugs/`，关联需求时写入需求 `auxiliary/bugs/`。涉及新增能力、接口/消息契约、表结构、索引、SQL 口径、核心状态或权限变化时转入 Full/Quick 对应阶段，不借 Bug 修复绕过方案和 SQL Gate。
+
 `$zstt-code-simplification` 可在任何时间对当前 diff、指定提交、文件或符号做行为保持型简化。它不属于固定流程，不修改阶段状态；关联需求时可在 `auxiliary/` 下记录结果。
 
 `$zstt-module-refactor` 用于多文件职责拆分、模块化、DDD 边界和有证据的性能、并发、锁、内存/GC、资源生命周期治理。它不属于固定流程，不修改阶段状态；重大重构先生成 `.zstt/refactors/` 或需求 `auxiliary/refactors/` 下的计划并等待用户审批，可能改变业务行为的部分必须单独审批。
@@ -339,7 +341,7 @@ Java 开发规范、抽象、设计模式和 DDD 决策已经统一放入 `.zstt
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-验证脚本会运行仓库内 9 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
+验证脚本会运行仓库内 10 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
 
 ## 非目标
 

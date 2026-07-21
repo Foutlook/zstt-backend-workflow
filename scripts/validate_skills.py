@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SKILLS_ROOT = ROOT / "src" / "zstt_cli" / "resources" / "skills"
 EXPECTED_SKILLS = {
+    "zstt-bug-fix",
     "zstt-code-review",
     "zstt-code-simplification",
     "zstt-implementation",
