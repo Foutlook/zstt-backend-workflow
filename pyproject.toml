@@ -32,6 +32,9 @@ zstt_cli = [
   "resources/skills/*/*/*/*/*/*",
   "resources/rules/*",
   "resources/rules/*/*",
+  "resources/env/.env.example",
+  "resources/env/.env.prod.example",
+  "resources/env/.gitignore",
   "resources/runtime/*",
   "resources/templates/*/*"
 ]

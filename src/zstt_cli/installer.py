@@ -18,16 +18,23 @@ MANAGED_SKILLS_ROOT = PurePosixPath(".agents/skills")
 MANAGED_RULES_ROOT = PurePosixPath(".zstt-kit/rules")
 MANAGED_RUNTIME_ROOT = PurePosixPath(".zstt-kit/runtime")
 MANAGED_TEMPLATES_ROOT = PurePosixPath(".zstt-kit/templates")
+MANAGED_ENV_ROOT = PurePosixPath(".zstt-kit/.env")
 MANAGED_KIT_ROOTS = (
     MANAGED_RULES_ROOT,
     MANAGED_RUNTIME_ROOT,
     MANAGED_TEMPLATES_ROOT,
+)
+MANAGED_ENV_FILES = (
+    MANAGED_ENV_ROOT / ".env.example",
+    MANAGED_ENV_ROOT / ".env.prod.example",
+    MANAGED_ENV_ROOT / ".gitignore",
 )
 RESOURCE_TARGETS = {
     "skills": MANAGED_SKILLS_ROOT,
     "rules": MANAGED_RULES_ROOT,
     "runtime": MANAGED_RUNTIME_ROOT,
     "templates": MANAGED_TEMPLATES_ROOT,
+    "env": MANAGED_ENV_ROOT,
 }
 TOOL_NAME = "zstt-cli"
 
@@ -102,6 +109,8 @@ def _normalize_project_root(project_root: Path) -> Path:
 
 def _managed_root(relative: PurePosixPath) -> PurePosixPath | None:
     parts = relative.parts
+    if relative in MANAGED_ENV_FILES:
+        return MANAGED_ENV_ROOT
     if (
         len(parts) >= 4
         and parts[:2] == MANAGED_SKILLS_ROOT.parts

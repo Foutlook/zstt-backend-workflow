@@ -1,3 +1,6 @@
 recursive-include src/zstt_cli/resources *
+include src/zstt_cli/resources/env/.env.example
+include src/zstt_cli/resources/env/.env.prod.example
+include src/zstt_cli/resources/env/.gitignore
 recursive-exclude src/zstt_cli/resources __pycache__ *
 global-exclude *.py[cod]

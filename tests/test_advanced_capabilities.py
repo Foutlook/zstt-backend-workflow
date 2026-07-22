@@ -414,7 +414,33 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
     def test_bug_fix_loads_playbook_and_report_template(self) -> None:
         text = read_skill("zstt-bug-fix")
         self.assertIn("references/advanced-playbook.md", text)
+        self.assertIn("references/observability-mcp.md", text)
+        self.assertIn("references/environment-config.md", text)
         self.assertIn("assets/bug-report-template.md", text)
+
+    def test_bug_fix_defaults_to_chat_delivery_and_scoped_credentials(self) -> None:
+        text = read_skill("zstt-bug-fix")
+        self.assertIn("默认不创建 Bug 报告", text)
+        self.assertIn("with_env.py", text)
+        self.assertIn("observability|mysql|es", text)
+
+        observability = read_reference("zstt-bug-fix", "observability-mcp.md")
+        for token in (
+            "umodel_get_traces",
+            "sls_execute_sql",
+            "标准降级",
+            "不打包 MCP Server 二进制或凭据",
+        ):
+            self.assertIn(token, observability)
+
+        environment = read_reference("zstt-bug-fix", "environment-config.md")
+        for token in (
+            ".env.local",
+            ".env.prod.local",
+            "生产配置缺失",
+            "不同 Scope 的凭据不得交叉注入",
+        ):
+            self.assertIn(token, environment)
 
     def test_bug_fix_playbook_covers_evidence_and_environment_safety(self) -> None:
         text = read_reference("zstt-bug-fix", "advanced-playbook.md")

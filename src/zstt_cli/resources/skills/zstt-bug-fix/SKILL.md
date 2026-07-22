@@ -15,9 +15,11 @@ description: ZSTT Java 后端 Bug 排查与修复辅助 Skill。仅当用户明�
 
 1. 运行 `python .zstt-kit/runtime/rule_resolver.py resolve --skill zstt-bug-fix`，完整读取返回的规则，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和原因；失败时停止并执行 `zstt check --here`。
 2. 完整读取 `references/advanced-playbook.md`。
-3. 根据真实链路追加 `data-access`、`transaction`、`concurrency`、`jackson`、`sql-design` 等上下文并重新解析；不得只凭类名或现象加载规则。
-4. 使用 `assets/bug-report-template.md` 建立唯一排查记录：关联现有需求时写入 `<需求目录>/auxiliary/bugs/`，否则写入 `.zstt/bugs/YYYYMMDD-<问题名>/bug-report.md`。
-5. 记录 Git 基线、用户已有改动和未跟踪业务文件。排查阶段默认只读，不把用户已有改动归因于本轮。
+3. 问题包含 Trace ID、日志、服务异常或明确时间窗口时，完整读取 `references/observability-mcp.md`，优先探测项目已注册的只读 Observability MCP；工具不可用再走标准降级。
+4. 使用 Observability、MySQL 或 ES 凭据前，完整读取 `references/environment-config.md`，确认目标是 `test` 还是 `prod`；生产环境禁止回退到测试配置。
+5. 根据真实链路追加 `data-access`、`transaction`、`concurrency`、`jackson`、`sql-design` 等上下文并重新解析；不得只凭类名或现象加载规则。
+6. 默认不创建 Bug 报告、排查文档、`.zstt/bugs/` 目录或其他留档文件。只有用户明确要求“生成报告”“保存排查记录”“需要文档”等文件产物时，才使用 `assets/bug-report-template.md` 创建；普通的排查、定位或修复请求不构成文档创建授权。
+7. 在当前任务上下文中确认 Git 基线、用户已有改动和未跟踪业务文件。排查阶段默认只读，不把用户已有改动归因于本轮。
 
 ## 第一阶段：证据化排查
 
@@ -31,16 +33,25 @@ description: ZSTT Java 后端 Bug 排查与修复辅助 Skill。仅当用户明�
 
 - 测试或本地环境：确认目标后可以执行只读 MySQL、ES、日志、编译和测试；查询必须按关键 ID 或时间范围收敛，大表查询限制数量。
 - 线上环境：默认不直接连接线上数据库、ES 或执行写操作；基于真实调用链向用户提供只读 SQL、ES DSL、日志筛选条件和需要回传的字段。
-- 任何环境都不得在报告或回复中泄露完整 Token、Cookie、Authorization、账号或密码。
+- 本地命令需要凭据时，只通过 `.zstt-kit/runtime/with_env.py` 按 `test|prod` 和 `observability|mysql|es` Scope 注入；禁止读取后回显、跨 Scope 复用或把生产缺失降级为测试。
+- 任何环境都不得在回复或用户明确要求的文档中泄露完整 Token、Cookie、Authorization、账号或密码。
 - 未经用户明确授权，不执行 `INSERT`、`UPDATE`、`DELETE`、数据修复、消息重放、缓存删除或线上写接口。
 
-### 3. 追踪真实主链路
+### 3. 日志与 Trace MCP 取证
+
+- 有 Trace ID 时先查完整 Trace 和 Span，再按失败服务、Span 时间窗口查询日志；不要先做无边界关键词扫描。
+- 无 Trace ID 时按接口、业务 ID、Pod/服务名和分钟级时间范围查询入口日志，再从结果提取 Trace ID 回查链路。
+- 优先使用 `umodel_get_traces`、`umodel_search_traces`、`sls_execute_sql` 和 `sls_get_context_logs`；项目、Logstore、Workspace 或 TraceSet 未知时只做一次收敛式发现。
+- MCP 查询和结果都不得包含完整 Token、Cookie、Authorization、AccessKey、Secret 或密码；对外输出前再次脱敏。
+- MCP 未注册、鉴权失败或数据源不覆盖目标环境时，记录能力缺口，并给出可由用户执行的精确查询条件，不把“查不到”写成“不存在”。
+
+### 4. 追踪真实主链路
 
 按问题实际经过的路径检查入口、Service/Manager、Facade/Client、Repository/Mapper/SQL、缓存、ES、MQ、异步任务，以及直接影响入参、权限、路由、事务和状态的配置或横切逻辑。追到最终查询、计算、赋值、持久化或外部调用点，区分 Guard 条件和真实业务依赖。
 
 只把必经链路或有直接证据的横切逻辑纳入结论；相似代码和搜索未命中都不能直接证明根因或不存在。
 
-### 4. 建立证据链
+### 5. 建立证据链
 
 至少分别整理：
 
@@ -50,9 +61,9 @@ description: ZSTT Java 后端 Bug 排查与修复辅助 Skill。仅当用户明�
 
 没有运行数据或日志佐证时，将结论标为“推测”或“待验证”，不得写成已证明根因。用户补充新证据时刷新结论，必要时明确推翻旧判断。
 
-### 5. 交付排查结论并停止
+### 6. 交付排查结论并停止
 
-先更新 Bug 报告，再向用户交付：现象、触发条件、根因或当前假设、证据、影响范围、最小修复方案、风险和建议回归点。此时将报告标为 `awaiting_confirmation`，禁止修改业务代码。
+直接向用户交付：现象、触发条件、根因或当前假设、证据、影响范围、最小修复方案、风险和建议回归点，然后等待用户确认，禁止修改业务代码。除非用户明确要求文件产物，否则只在当前任务中输出结论，不创建或更新任何报告文件。
 
 若根因要求新增需求、改变接口契约、DDL/索引/SQL 口径、核心状态、权限、事务语义或跨服务协议，停止 Bug 快修并建议进入 ZSTT Full/Quick 对应阶段；不得以 Bug 修复名义绕过设计和 SQL Gate。
 
@@ -60,12 +71,12 @@ description: ZSTT Java 后端 Bug 排查与修复辅助 Skill。仅当用户明�
 
 只有获得排查结论之后的用户明确确认，才执行以下步骤：
 
-1. 在报告中记录确认来源、修复范围、风险和验证方式，将阶段改为 `fixing`。
+1. 确认用户是在看到排查结论后明确授权修复，并在当前任务上下文中保留确认来源、修复范围、风险和验证方式；若用户明确要求了报告，再同步更新报告。
 2. 重新检查 Git 状态和完整目标文件；不自动 `pull`、切换分支、stash、reset、提交或覆盖用户改动。需要新分支或新基线时先遵循仓库规则并向用户说明。
 3. 先建立失败信号或可复现证据，再做最小改动；禁止无关重构、整片格式化、推测性 fallback 和临时排查代码遗留。
 4. 按动态 Java Rules 检查注释、日志、异常、事务、Jackson、N+1、循环远程调用、兼容和数据源一致性。
 5. 使用修改前后的同一口径完成聚焦验证；至少执行与风险相称的编译、单测、接口、SQL/状态回查或关键链路验证之一。
-6. 更新实际文件、验证命令、退出码、结果、未验证边界和回归点；只有修复和关键验证闭环后才标为 `verified`。
+6. 向用户交付实际文件、验证命令、退出码、结果、未验证边界和回归点；若用户明确要求了报告，再同步更新报告。只有修复和关键验证闭环后才视为已验证。
 
 发现修复方案与排查结论不一致、需要扩大范围或会覆盖用户已有工作时立即停止，重新交付偏差和新方案，等待再次确认。
 
