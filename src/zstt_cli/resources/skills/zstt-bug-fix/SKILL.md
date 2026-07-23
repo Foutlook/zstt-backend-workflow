@@ -16,7 +16,7 @@ description: ZSTT Java 后端 Bug 排查与修复辅助 Skill。仅当用户明�
 1. 运行 `python .zstt-kit/runtime/rule_resolver.py resolve --skill zstt-bug-fix`，完整读取返回的规则，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和原因；失败时停止并执行 `zstt check --here`。
 2. 完整读取 `references/advanced-playbook.md`。
 3. 问题包含 Trace ID、日志、服务异常或明确时间窗口时，完整读取 `references/observability-mcp.md`，优先探测项目已注册的只读 Observability MCP；工具不可用再走标准降级。
-4. 使用 Observability、MySQL 或 ES 凭据前，完整读取 `references/environment-config.md`，确认目标是 `test` 还是 `prod`；生产环境禁止回退到测试配置。
+4. 使用 Observability、MySQL 或 ES 凭据前，完整读取 `references/environment-config.md`；数据库名先按其中规则读取 `.zstt-kit/project-databases.json`，确认目标环境与库名。`$productionSameAsTest` 只确认生产与测试库名相同，不授权连接生产库，生产凭据仍禁止回退到测试配置。
 5. 根据真实链路追加 `data-access`、`transaction`、`concurrency`、`jackson`、`sql-design` 等上下文并重新解析；不得只凭类名或现象加载规则。
 6. 默认不创建 Bug 报告、排查文档、`.zstt/bugs/` 目录或其他留档文件。只有用户明确要求“生成报告”“保存排查记录”“需要文档”等文件产物时，才使用 `assets/bug-report-template.md` 创建；普通的排查、定位或修复请求不构成文档创建授权。
 7. 在当前任务上下文中确认 Git 基线、用户已有改动和未跟踪业务文件。排查阶段默认只读，不把用户已有改动归因于本轮。
@@ -27,12 +27,12 @@ description: ZSTT Java 后端 Bug 排查与修复辅助 Skill。仅当用户明�
 
 优先确认现象、预期、必现或偶现、环境、时间范围、主项目、关联项目以及 `traceId`、业务 ID、接口、MQ key、ES 文档 ID 等关键标识。信息不足时每轮只询问最影响定位的 1–5 项；能从当前代码和上下文确认的内容不重复询问。
 
-库名、索引名、环境或项目归属不明确时必须确认，不能猜测后写成事实。
+测试库名优先从 `.zstt-kit/project-databases.json` 按当前项目相对路径匹配；没有匹配、匹配冲突或项目归属不明确时必须确认，不能猜测后写成事实。用户确认的新映射可以建议补入该文件，但未经用户要求不得修改配置。
 
 ### 2. 按环境取证
 
 - 测试或本地环境：确认目标后可以执行只读 MySQL、ES、日志、编译和测试；查询必须按关键 ID 或时间范围收敛，大表查询限制数量。
-- 线上环境：默认不直接连接线上数据库、ES 或执行写操作；基于真实调用链向用户提供只读 SQL、ES DSL、日志筛选条件和需要回传的字段。
+- 线上环境：默认不直接连接线上数据库、ES 或执行写操作；基于真实调用链向用户提供只读 SQL、ES DSL、日志筛选条件和需要回传的字段。仅当映射文件明确声明 `$productionSameAsTest: true` 时，才可在生产只读 SQL 中使用已匹配的库名；否则使用待确认占位或先询问用户。
 - 本地命令需要凭据时，只通过 `.zstt-kit/runtime/with_env.py` 按 `test|prod` 和 `observability|mysql|es` Scope 注入；禁止读取后回显、跨 Scope 复用或把生产缺失降级为测试。
 - 任何环境都不得在回复或用户明确要求的文档中泄露完整 Token、Cookie、Authorization、账号或密码。
 - 未经用户明确授权，不执行 `INSERT`、`UPDATE`、`DELETE`、数据修复、消息重放、缓存删除或线上写接口。

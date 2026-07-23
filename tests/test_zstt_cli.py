@@ -134,6 +134,10 @@ class ProjectInstallerTest(unittest.TestCase):
             self.assertFalse(
                 (project_root / ".zstt-kit" / ".env" / ".env.local").exists()
             )
+            project_databases = (
+                project_root / ".zstt-kit" / "project-databases.json"
+            )
+            self.assertEqual("{}\n", project_databases.read_text(encoding="utf-8"))
             self.assertTrue(
                 (project_root / ".zstt-kit" / "templates" / "full" / "00-requirement.md").is_file()
             )
@@ -156,6 +160,10 @@ class ProjectInstallerTest(unittest.TestCase):
                     for path in manifest["managedFiles"]
                 )
             )
+            self.assertNotIn(
+                ".zstt-kit/project-databases.json",
+                manifest["managedFiles"],
+            )
             self.assertFalse(check_project(project_root).outdated)
 
     def test_update_preserves_unmanaged_local_environment_values(self) -> None:
@@ -176,6 +184,27 @@ class ProjectInstallerTest(unittest.TestCase):
             )
             self.assertNotIn(
                 ".zstt-kit/.env/.env.local",
+                read_manifest(project_root)["managedFiles"],
+            )
+
+    def test_update_preserves_unmanaged_project_database_mappings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            project_databases = (
+                project_root / ".zstt-kit" / "project-databases.json"
+            )
+            mappings = '{\n  "service-a": "service_a_test"\n}\n'
+            project_databases.write_text(mappings, encoding="utf-8")
+
+            update_project(project_root, force=True)
+
+            self.assertEqual(
+                mappings,
+                project_databases.read_text(encoding="utf-8"),
+            )
+            self.assertNotIn(
+                ".zstt-kit/project-databases.json",
                 read_manifest(project_root)["managedFiles"],
             )
 

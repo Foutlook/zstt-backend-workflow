@@ -437,6 +437,10 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         for token in (
             ".env.local",
             ".env.prod.local",
+            ".zstt-kit/project-databases.json",
+            "$productionSameAsTest",
+            "最长配置项",
+            "不进入安装清单",
             "生产配置缺失",
             "不同 Scope 的凭据不得交叉注入",
         ):
