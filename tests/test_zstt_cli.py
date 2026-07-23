@@ -123,6 +123,22 @@ class ProjectInstallerTest(unittest.TestCase):
                 (project_root / ".zstt-kit" / "runtime" / "rule_resolver.py").is_file()
             )
             self.assertTrue(
+                (project_root / ".zstt-kit" / "runtime" / "with_env.py").is_file()
+            )
+            self.assertTrue(
+                (project_root / ".zstt-kit" / ".env" / ".env.example").is_file()
+            )
+            self.assertTrue(
+                (project_root / ".zstt-kit" / ".env" / ".env.prod.example").is_file()
+            )
+            self.assertFalse(
+                (project_root / ".zstt-kit" / ".env" / ".env.local").exists()
+            )
+            project_databases = (
+                project_root / ".zstt-kit" / "project-databases.json"
+            )
+            self.assertEqual("{}\n", project_databases.read_text(encoding="utf-8"))
+            self.assertTrue(
                 (project_root / ".zstt-kit" / "templates" / "full" / "00-requirement.md").is_file()
             )
             self.assertFalse(
@@ -144,7 +160,53 @@ class ProjectInstallerTest(unittest.TestCase):
                     for path in manifest["managedFiles"]
                 )
             )
+            self.assertNotIn(
+                ".zstt-kit/project-databases.json",
+                manifest["managedFiles"],
+            )
             self.assertFalse(check_project(project_root).outdated)
+
+    def test_update_preserves_unmanaged_local_environment_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            local_env = project_root / ".zstt-kit" / ".env" / ".env.local"
+            local_env.write_text(
+                "ZSTT_ENV=test\nZSTT_MYSQL_PASSWORD=local-secret\n",
+                encoding="utf-8",
+            )
+
+            update_project(project_root, force=True)
+
+            self.assertEqual(
+                "ZSTT_ENV=test\nZSTT_MYSQL_PASSWORD=local-secret\n",
+                local_env.read_text(encoding="utf-8"),
+            )
+            self.assertNotIn(
+                ".zstt-kit/.env/.env.local",
+                read_manifest(project_root)["managedFiles"],
+            )
+
+    def test_update_preserves_unmanaged_project_database_mappings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            project_databases = (
+                project_root / ".zstt-kit" / "project-databases.json"
+            )
+            mappings = '{\n  "service-a": "service_a_test"\n}\n'
+            project_databases.write_text(mappings, encoding="utf-8")
+
+            update_project(project_root, force=True)
+
+            self.assertEqual(
+                mappings,
+                project_databases.read_text(encoding="utf-8"),
+            )
+            self.assertNotIn(
+                ".zstt-kit/project-databases.json",
+                read_manifest(project_root)["managedFiles"],
+            )
 
     def test_init_refuses_an_existing_install_without_force(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -359,6 +421,24 @@ class ProjectInstallerTest(unittest.TestCase):
 
             with self.assertRaises(InstallationError):
                 update_project(project_root, force=True)
+
+    def test_manifest_cannot_claim_a_local_environment_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            local_env = project_root / ".zstt-kit" / ".env" / ".env.local"
+            content = b"ZSTT_ENV=test\nZSTT_MYSQL_PASSWORD=local-secret\n"
+            local_env.write_bytes(content)
+            manifest = read_manifest(project_root)
+            manifest["managedFiles"][".zstt-kit/.env/.env.local"] = {
+                "sha256": sha256(content)
+            }
+            write_manifest(project_root, manifest)
+
+            with self.assertRaises(InstallationError):
+                update_project(project_root, force=True)
+
+            self.assertEqual(content, local_env.read_bytes())
 
 
 class CliTest(unittest.TestCase):

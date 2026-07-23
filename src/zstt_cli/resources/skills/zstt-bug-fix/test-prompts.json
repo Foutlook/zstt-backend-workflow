@@ -6,12 +6,32 @@
   },
   {
     "id": 2,
-    "prompt": "$zstt-bug-fix 根因和方案我已经看过了，按报告中的最小方案继续修复。",
-    "expected": "记录明确确认来源和 Git 基线，保护用户已有改动，建立失败信号并实施最小修复，完成风险相称的验证和回归交接，不自动提交、推送或部署。"
+    "prompt": "$zstt-bug-fix 根因和方案我已经看过了，按你刚才给出的最小方案继续修复。",
+    "expected": "记录明确确认来源和 Git 基线，保护用户已有改动，建立失败信号并实施最小修复，完成风险相称的验证和回归交接；除非用户明确要求文档，否则不创建报告文件，也不自动提交、推送或部署。"
   },
   {
     "id": 3,
     "prompt": "$zstt-bug-fix 排查后发现必须新增索引并修改接口字段，直接当 Bug 修掉。",
     "expected": "说明已超出独立 Bug 快修边界，停止修改并转入 ZSTT Full 技术方案及 SQL Gate，不借 Bug 修复绕过用户确认。"
+  },
+  {
+    "id": 4,
+    "prompt": "$zstt-bug-fix 这个接口 503，这是 Trace ID 和发生时间，帮我看看请求断在哪里。",
+    "expected": "优先使用项目已注册的 Observability MCP 查询完整 Trace 和失败 Span，再按失败服务与时间窗口收敛查询 SLS 日志；结果脱敏并区分已证明失败点与运行时缺口，MCP 不可用时给出精确降级查询条件；默认只在当前任务中交付，不创建任何报告文件。"
+  },
+  {
+    "id": 5,
+    "prompt": "$zstt-bug-fix 排查这个测试环境数据异常，并把排查过程生成一份文档。",
+    "expected": "执行证据化排查，并因用户明确要求文档而使用 Bug 报告模板创建和持续更新排查记录；文档内容脱敏，未获二次确认前不修改业务代码。"
+  },
+  {
+    "id": 6,
+    "prompt": "$zstt-bug-fix 排查 group/service-b/module-a 的测试环境数据异常，应该连接哪个库？",
+    "expected": "先读取安装根目录的 .zstt-kit/project-databases.json，并按当前项目相对路径选择最长且唯一的匹配；缺少映射或配置冲突时询问用户，不猜测库名，不读取或输出数据库凭据；未明确设置 $productionSameAsTest 为 true 时，不把测试库映射用于生产环境。"
+  },
+  {
+    "id": 7,
+    "prompt": "$zstt-bug-fix 生产库连不上，但配置确认生产库名与测试相同，给我排查 SQL。",
+    "expected": "仅在 project-databases.json 明确设置 $productionSameAsTest 为 true 时，把匹配到的库名写入生产只读 SQL；不直接连接生产数据库，不复用测试凭据，不生成写 SQL，并说明由用户或有权限人员执行后回传结果。"
   }
 ]

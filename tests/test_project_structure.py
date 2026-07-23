@@ -13,6 +13,7 @@ SKILLS = PACKAGE_ROOT / "resources" / "skills"
 RULES = PACKAGE_ROOT / "resources" / "rules"
 RUNTIME = PACKAGE_ROOT / "resources" / "runtime"
 TEMPLATES = PACKAGE_ROOT / "resources" / "templates"
+ENV_TEMPLATES = PACKAGE_ROOT / "resources" / "env"
 
 EXPECTED_SKILLS = {
     "zstt-bug-fix",
@@ -86,7 +87,11 @@ class ProjectStructureTest(unittest.TestCase):
         self.assertTrue((RULES / "catalog.json").is_file())
         self.assertTrue((RUNTIME / "rule_resolver.py").is_file())
         self.assertTrue((RUNTIME / "workflow_cli.py").is_file())
+        self.assertTrue((RUNTIME / "with_env.py").is_file())
         self.assertTrue((TEMPLATES / "full" / "00-requirement.md").is_file())
+        self.assertTrue((ENV_TEMPLATES / ".env.example").is_file())
+        self.assertTrue((ENV_TEMPLATES / ".env.prod.example").is_file())
+        self.assertFalse((ENV_TEMPLATES / ".env.local").exists())
 
     def test_all_skills_have_explicit_only_codex_metadata(self) -> None:
         for skill in EXPECTED_SKILLS:
@@ -100,7 +105,12 @@ class ProjectStructureTest(unittest.TestCase):
 
     def test_text_files_do_not_have_utf8_bom(self) -> None:
         text_suffixes = {".md", ".py", ".ps1", ".json", ".yaml", ".yml", ".txt"}
-        paths = [ROOT / ".gitignore"]
+        paths = [
+            ROOT / ".gitignore",
+            ENV_TEMPLATES / ".env.example",
+            ENV_TEMPLATES / ".env.prod.example",
+            ENV_TEMPLATES / ".gitignore",
+        ]
         paths.extend(
             path
             for path in ROOT.rglob("*")

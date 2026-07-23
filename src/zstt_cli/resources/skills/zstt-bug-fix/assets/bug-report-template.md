@@ -22,7 +22,7 @@ confirmation_source: null
 |---|---|---|
 | Git 基线与用户已有改动 | | |
 | 代码与调用链能力 | | |
-| 日志、MySQL、ES及其他数据能力 | | |
+| Observability MCP、日志、Trace、MySQL、ES及其他数据能力 | | |
 | 环境、账号、权限与前置数据 | | |
 
 ## 3. 复现与真实调用链

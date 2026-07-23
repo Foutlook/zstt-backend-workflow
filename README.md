@@ -327,7 +327,9 @@ python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-d
 
 ## 辅助 Skill
 
-`$zstt-bug-fix` 用于 Java 后端 Bug、线上问题和偶现问题的证据化排查与最小修复。它先结合代码、日志、MySQL、ES 和时间线交付根因、影响与方案，只有用户看到结论后二次确认才修改代码；独立记录写入 `.zstt/bugs/`，关联需求时写入需求 `auxiliary/bugs/`。涉及新增能力、接口/消息契约、表结构、索引、SQL 口径、核心状态或权限变化时转入 Full/Quick 对应阶段，不借 Bug 修复绕过方案和 SQL Gate。
+`$zstt-bug-fix` 用于 Java 后端 Bug、线上问题和偶现问题的证据化排查与最小修复。它先结合代码、Trace、日志、MySQL、ES 和时间线交付根因、影响与方案，只有用户看到结论后二次确认才修改代码。默认直接在当前任务中交付，不创建报告；只有用户明确要求保存文档时，独立记录才写入 `.zstt/bugs/`，关联需求时写入需求 `auxiliary/bugs/`。项目已注册只读 Observability MCP 时优先查询 Trace 和 SLS；未注册时输出精确降级查询条件。涉及新增能力、接口/消息契约、表结构、索引、SQL 口径、核心状态或权限变化时转入 Full/Quick 对应阶段，不借 Bug 修复绕过方案和 SQL Gate。
+
+`zstt init/update` 会安装 `.zstt-kit/.env/.env.example`、`.env.prod.example` 和跨平台的 `runtime/with_env.py`。真实 `*.local` 配置始终由项目本机维护，不进入安装清单，安装和更新流程不会读取、覆盖或提交；生产配置缺失时禁止回退到测试环境。ZSTT 不打包 Observability MCP Server 二进制或任何凭据。
 
 `$zstt-code-simplification` 可在任何时间对当前 diff、指定提交、文件或符号做行为保持型简化。它不属于固定流程，不修改阶段状态；关联需求时可在 `auxiliary/` 下记录结果。
 

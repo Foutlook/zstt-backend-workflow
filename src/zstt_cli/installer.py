@@ -18,16 +18,26 @@ MANAGED_SKILLS_ROOT = PurePosixPath(".agents/skills")
 MANAGED_RULES_ROOT = PurePosixPath(".zstt-kit/rules")
 MANAGED_RUNTIME_ROOT = PurePosixPath(".zstt-kit/runtime")
 MANAGED_TEMPLATES_ROOT = PurePosixPath(".zstt-kit/templates")
+MANAGED_ENV_ROOT = PurePosixPath(".zstt-kit/.env")
+PROJECT_DATABASES_RELATIVE_PATH = PurePosixPath(
+    ".zstt-kit/project-databases.json"
+)
 MANAGED_KIT_ROOTS = (
     MANAGED_RULES_ROOT,
     MANAGED_RUNTIME_ROOT,
     MANAGED_TEMPLATES_ROOT,
+)
+MANAGED_ENV_FILES = (
+    MANAGED_ENV_ROOT / ".env.example",
+    MANAGED_ENV_ROOT / ".env.prod.example",
+    MANAGED_ENV_ROOT / ".gitignore",
 )
 RESOURCE_TARGETS = {
     "skills": MANAGED_SKILLS_ROOT,
     "rules": MANAGED_RULES_ROOT,
     "runtime": MANAGED_RUNTIME_ROOT,
     "templates": MANAGED_TEMPLATES_ROOT,
+    "env": MANAGED_ENV_ROOT,
 }
 TOOL_NAME = "zstt-cli"
 
@@ -102,6 +112,8 @@ def _normalize_project_root(project_root: Path) -> Path:
 
 def _managed_root(relative: PurePosixPath) -> PurePosixPath | None:
     parts = relative.parts
+    if relative in MANAGED_ENV_FILES:
+        return MANAGED_ENV_ROOT
     if (
         len(parts) >= 4
         and parts[:2] == MANAGED_SKILLS_ROOT.parts
@@ -197,6 +209,14 @@ def _write_manifest(project_root: Path, resource_files: dict[str, bytes]) -> Non
     _atomic_write(_manifest_path(project_root), content)
 
 
+def _ensure_project_databases_config(project_root: Path) -> bool:
+    path = project_root.joinpath(*PROJECT_DATABASES_RELATIVE_PATH.parts)
+    if path.exists():
+        return False
+    _atomic_write(path, b"{}\n")
+    return True
+
+
 def _remove_empty_parents(
     path: Path,
     project_root: Path,
@@ -273,10 +293,11 @@ def _apply_install(
         _remove_empty_parents(target, project_root, relative_path)
     for relative_path, content in writes.items():
         _atomic_write(_target_path(project_root, relative_path), content)
+    config_created = _ensure_project_databases_config(project_root)
     _write_manifest(project_root, resource_files)
 
     return InstallResult(
-        created=created,
+        created=created + int(config_created),
         updated=updated,
         deleted=len(deletes),
         unchanged=unchanged,
