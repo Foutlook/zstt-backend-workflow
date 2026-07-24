@@ -53,8 +53,8 @@ flowchart TB
 
 | 阶段 | 主要回答 | 唯一权威主产物 | 完成后 |
 | --- | --- | --- | --- |
-| 01 需求澄清 | 要做什么、边界和验收标准是什么 | `00-requirement.md` | 推荐仓库调研 |
-| 02 仓库调研 | 真实入口、调用链、数据源和影响范围是什么 | `01-research.md` | 推荐技术方案 |
+| 01 需求澄清 | 要做什么、边界和验收标准是什么，原始材料是否全部收口 | `00-requirement.md` | 推荐仓库调研 |
+| 02 仓库调研 | 每个 Rxx 的真实入口、调用链、数据源、仓库范围及共享语义/SQL 影响是什么 | `01-research.md` | 推荐技术方案 |
 | 03 技术方案 | 怎么改、为什么这样改、SQL 是否已确认、如何发布和回滚 | `02-design.md` | 推荐任务拆分 |
 | 04 任务拆分 | 改哪些文件、按什么顺序、如何验证 | `03-tasks.md` | 推荐编码实现 |
 | 05 编码实现 | 实际改了什么、是否偏离方案、验证结果如何 | `04-implementation.md` | 推荐代码评审 |
@@ -105,6 +105,8 @@ flowchart LR
 - `阻塞`：缺少的环境、token、权限或前置数据会影响关键结论时，停止给出完成/通过结论。
 
 工具不可用不等于可以省略能力目标，也不会成为伪造远程证据、运行结果或测试通过的理由。可选并行能力仅在用户明确要求或批准、且当前显式阶段证明安全时使用；主上下文负责去重、复核和最终写入。
+
+仓库调研采用显式本地路径优先：用户给出仓库路径后，只读取指定 checkout，不检查或调用远程仓库 MCP；未给路径时，才检查本机受 Git 忽略的 `.zstt-kit/.env/.env.local` 私有配置，并确认当前会话确实暴露匹配的只读 MCP。配置缺失、工具未注册或调用失败时进入本地源码、CodeGraph、`rg` 和逐层阅读的默认降级。`.env.local` 不会自动注册 MCP，也不得把其中 URL 当普通 HTTP 接口请求。
 
 每个阶段仍只有一个唯一权威主产物。接口明细、Schema、Review 轮次、测试轮次和代码简化记录等细节可写入 `auxiliary/`，但必须由主产物索引，不能形成第二份当前结论。系统可以推荐下一步，但不会自动执行任何推荐的 Skill。
 
@@ -228,7 +230,9 @@ $zstt-requirement-clarification
 请按 quick 模式澄清这个小改动：<问题描述与验收标准>
 ```
 
-需求澄清会创建对应目录、`meta.json` 和 `00-requirement.md`。系统完成当前阶段后只推荐下一步，不会自动执行推荐的 Skill。`meta.json` v3 使用 `.zstt/...` 相对目录，避免把某个成员的本机绝对路径提交到仓库；读取旧 v2 状态后，会在下一次成功写入时自动迁移。
+用户未指定模式时，Skill 会根据范围、状态、权限、数据身份、旧链路副作用和关键契约给出 quick/full 推荐及依据；最终模式仍由用户选择，或由用户明确授权 AI 采用推荐。确认模式后，需求澄清会创建对应目录、`meta.json` 和 `00-requirement.md`。
+
+需求材料中的独立要点使用 `Sxx`，正式需求使用 `Rxx`，疑问使用 `Qxx`。每个 `Sxx` 必须形成需求、形成疑问或明确不适用；每个 `Rxx` 必须有来源和验收覆盖。系统完成当前阶段后只推荐下一步，不会自动执行推荐的 Skill。`meta.json` v3 使用 `.zstt/...` 相对目录，避免把某个成员的本机绝对路径提交到仓库；读取旧 v2 状态后，会在下一次成功写入时自动迁移。
 
 ### 3. 审阅当前阶段产物
 
@@ -310,7 +314,7 @@ python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-d
 ```
 
 - `prepare-stage` 在创建当前产物前重新校验上游，并对照内容指纹检测用户修改。
-- `complete-stage` 校验状态、P0、必需章节实质内容、未填写模板项和阶段追溯 ID，成功后记录新指纹。
+- `complete-stage` 除了校验状态、P0、章节和模板项，还会校验需求 `S/R/Q` 来源与验收覆盖、最终确认来源，以及调研 `R/C/E/RQ` 覆盖、仓库 ChangeScope、本地证据行号、共享语义和当前 SQL 事实，成功后记录新指纹。
 - 已完成产物发生变化时，该阶段及其下游完成状态自动撤销，但原产物文件保留；用户重新执行被修改阶段的 `complete-stage` 后才能继续。
 - `meta.json` 由工具维护，不要手工编辑。
 - `recommended_next_skill` 保留首个推荐以兼容旧调用方；新调用方应优先读取 `recommended_next_skills`，以支持 Quick 的并列可选分支。
@@ -321,7 +325,7 @@ python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-d
 - 缺少上游文件：回到对应阶段 Skill 补齐，不手工创建后续文档。
 - P0 阻塞：在上游权威产物完成确认并清零，再重新调用当前阶段。
 - 用户修改已完成产物：系统撤销该阶段及下游完成状态；先核对修改影响，再重新完成被修改阶段。
-- 内容门禁失败：补齐空章节、模板项和 Cxx/Exx/Dxx/Txx 追溯信息后重试，不用只改 `status` 绕过。
+- 内容门禁失败：按错误补齐 `Sxx/Rxx/Qxx/Cxx/Exx/RQxx/Dxx/Txx` 定义、引用、验收或影响矩阵后重试，不用只改 `status` 或数量字段绕过。
 - 运行时证据不足：在调研、方案或测试产物中记录缺口和验证动作，不把静态推断写成事实。
 - quick 影响面扩大：建议重新执行需求澄清并升级 full，不自动改变模式。
 
@@ -329,7 +333,7 @@ python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-d
 
 `$zstt-bug-fix` 用于 Java 后端 Bug、线上问题和偶现问题的证据化排查与最小修复。它先结合代码、Trace、日志、MySQL、ES 和时间线交付根因、影响与方案，只有用户看到结论后二次确认才修改代码。默认直接在当前任务中交付，不创建报告；只有用户明确要求保存文档时，独立记录才写入 `.zstt/bugs/`，关联需求时写入需求 `auxiliary/bugs/`。项目已注册只读 Observability MCP 时优先查询 Trace 和 SLS；未注册时输出精确降级查询条件。涉及新增能力、接口/消息契约、表结构、索引、SQL 口径、核心状态或权限变化时转入 Full/Quick 对应阶段，不借 Bug 修复绕过方案和 SQL Gate。
 
-`zstt init/update` 会安装 `.zstt-kit/.env/.env.example`、`.env.prod.example` 和跨平台的 `runtime/with_env.py`。真实 `*.local` 配置始终由项目本机维护，不进入安装清单，安装和更新流程不会读取、覆盖或提交；生产配置缺失时禁止回退到测试环境。ZSTT 不打包 Observability MCP Server 二进制或任何凭据。
+`zstt init/update` 会安装 `.zstt-kit/.env/.env.example`、`.env.prod.example` 和跨平台的 `runtime/with_env.py`。真实 `*.local` 配置始终由项目本机维护，不进入安装清单，安装和更新流程不会读取、覆盖或提交；生产配置缺失时禁止回退到测试环境。私有仓库 MCP 的真实服务名、传输类型、URL 和鉴权信息也只保存在本机 `.env.local`，不写入 Skill、代码、README、示例模板或阶段产物。ZSTT 不打包任何 MCP Server 二进制或凭据。
 
 `$zstt-code-simplification` 可在任何时间对当前 diff、指定提交、文件或符号做行为保持型简化。它不属于固定流程，不修改阶段状态；关联需求时可在 `auxiliary/` 下记录结果。
 
@@ -343,11 +347,11 @@ Java 开发规范、抽象、设计模式和 DDD 决策已经统一放入 `.zstt
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-验证脚本会运行仓库内 10 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、追溯 ID、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
+验证脚本会运行仓库内 10 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、需求来源与验收覆盖、调研证据交叉引用、本地文件行号、共享语义/SQL 影响、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
 
 ## 非目标
 
 - 不自动串行执行阶段。
-- 不自动选择 quick/full。
+- 不在缺少用户选择或明确授权时自动选择 quick/full；允许先给出推荐和依据。
 - 首版不支持非 Java 技术栈或自动多 Agent 编码。
 - 不自动 commit、push、合并、发布或部署。

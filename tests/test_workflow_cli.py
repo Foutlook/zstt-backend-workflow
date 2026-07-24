@@ -36,6 +36,16 @@ def replace_frontmatter_value(path: Path, key: str, value: str) -> None:
     raise AssertionError(f"frontmatter key not found: {key}")
 
 
+def insert_markdown_row(text: str, header: str, row: str) -> str:
+    lines = text.splitlines()
+    try:
+        header_index = lines.index(header)
+    except ValueError as exc:
+        raise AssertionError(f"table header not found: {header}") from exc
+    lines.insert(header_index + 2, row)
+    return "\n".join(lines) + "\n"
+
+
 def fill_stage_document(path: Path, stage: str) -> None:
     """Fill generated scaffolding with deterministic, substantive test evidence."""
     text = path.read_text(encoding="utf-8")
@@ -51,8 +61,92 @@ def fill_stage_document(path: Path, stage: str) -> None:
         text,
         flags=re.MULTILINE,
     )
+
+    if stage == "requirement_clarification":
+        text = insert_markdown_row(
+            text,
+            "| 来源 ID | 原始材料定位 | 原始要点 | 处理结果 | 对应 Rxx/Qxx | 处理说明 |"
+            if "mode: full" in text
+            else "| 来源 ID | 原始要点 | 处理结果 | 对应 Rxx/Qxx | 处理说明 |",
+            "| S01 | PRD 第 1 条 | 管理员导出学习报告 | 形成需求 | R01 | 已形成正式需求 |"
+            if "mode: full" in text
+            else "| S01 | 管理员导出学习报告 | 形成需求 | R01 | 已形成正式需求 |",
+        )
+        text = insert_markdown_row(
+            text,
+            "| 需求 ID | 类型 | 已确认业务结论 | 来源 Sxx/Qxx | 详细章节 | 状态 |"
+            if "mode: full" in text
+            else "| 需求 ID | 已确认边界/规则 | 来源 Sxx/Qxx | 状态 |",
+            "| R01 | 功能 | 管理员可以导出学习报告 | S01 | 用户路径与验收 | 已确认 |"
+            if "mode: full" in text
+            else "| R01 | 管理员可以导出学习报告 | S01 | 已确认 |",
+        )
+        text = insert_markdown_row(
+            text,
+            "| 需求 ID | 场景 | 前置/输入 | 操作/触发 | 预期结果 | 验证方式 |"
+            if "mode: full" in text
+            else "| 需求 ID | 前置/输入 | 操作/触发 | 用户可见结果 | 最小验证信号 |",
+            "| R01 | 主路径 | 管理员已登录 | 点击导出 | 获得学习报告文件 | 功能验证 |"
+            if "mode: full" in text
+            else "| R01 | 管理员已登录 | 点击导出 | 获得学习报告文件 | 文件可下载 |",
+        )
+        text = text.replace(
+            "confirmation_status: pending",
+            "confirmation_status: confirmed",
+            1,
+        ).replace(
+            'confirmation_source: ""',
+            "confirmation_source: 用户确认消息-1",
+            1,
+        )
+
+    if stage == "repo_research":
+        text = insert_markdown_row(
+            text,
+            "| 需求 ID | 需求主张 | 代码验证问题 | 验证状态 | 结论 ID | 证据 ID | 风险/RQxx |",
+            "| R01 | 管理员导出学习报告 | 当前代码入口和数据源是什么 | 已验证 | C01 | E01 | 无 |",
+        )
+        text = insert_markdown_row(
+            text,
+            "| 仓库 | 角色 | 分类 | 判断依据 | 结论 ID | 证据 ID | 置信度 |",
+            "| test-repo | 主业务仓库 | Must change | 导出入口位于本仓库 | C01 | E01 | 高 |",
+        )
+        text = insert_markdown_row(
+            text,
+            "| 仓库 | 变更对象/排除范围 | API/DTO/契约 | 服务逻辑 | SQL/配置/消息/任务 | 测试与发布依赖 | 结论/证据 |",
+            "| test-repo | 导出入口 | 保持现有契约 | 调整导出逻辑 | 不涉及 | 补充聚焦测试 | C01/E01 |",
+        )
+        text = insert_markdown_row(
+            text,
+            "| 结论 ID | 结论 | 证据 ID | 证据等级 | 代码位置 | 反证 | 覆盖度 | 置信度 | 运行时缺口 | 待验证动作 |",
+            "| C01 | 导出入口位于本仓库 | E01 | Proven | src/Test.java:1 | 未发现 | 已覆盖 R01 | 高 | 无 | 无 |",
+        )
+        text = insert_markdown_row(
+            text,
+            "| 证据 ID | 证据类型 | 仓库 | 文件/符号/运行证据 | 行号/定位 | 支持结论 | 限制 |",
+            "| E01 | 本地源码 | test-repo | src/Test.java | 1 | C01 | 仅证明测试入口 |",
+        )
+        text = text.replace(
+            "research_scope: full",
+            "research_scope: full",
+            1,
+        ).replace(
+            "shared_semantic_impact: pending",
+            "shared_semantic_impact: none",
+            1,
+        ).replace(
+            "current_sql_impact: pending",
+            "current_sql_impact: none",
+            1,
+        ).replace(
+            "- 判定依据： 已确认",
+            "- 判定依据：C01/E01",
+        )
+        source_file = path.parents[3] / "src" / "Test.java"
+        source_file.parent.mkdir(parents=True, exist_ok=True)
+        source_file.write_text("class Test {}\n", encoding="utf-8", newline="\n")
+
     traceability = {
-        "repo_research": "\n- C01：测试结论，证据为 E01，位置为 src/Test.java:1。\n- E01：源码静态证据。\n",
         "technical_design": "\n- D01：基于 C01 选择最小改动方案。\n",
         "task_breakdown": "\n- T01：依据 D01 实现并执行验证。\n",
     }
@@ -115,6 +209,32 @@ def prepare_technical_design(repo_root: Path) -> Path:
         "technical_design",
     ).returncode == 0
     fill_stage_document(feature_dir / "02-design.md", "technical_design")
+    return feature_dir
+
+
+def prepare_research_document(repo_root: Path) -> Path:
+    feature_dir = init_feature(repo_root)
+    requirement = feature_dir / "00-requirement.md"
+    fill_stage_document(requirement, "requirement_clarification")
+    completed = run_cli(
+        "complete-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "requirement_clarification",
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr)
+    prepared = run_cli(
+        "prepare-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "repo_research",
+    )
+    if prepared.returncode != 0:
+        raise AssertionError(prepared.stderr)
+    fill_stage_document(feature_dir / "01-research.md", "repo_research")
     return feature_dir
 
 
@@ -742,6 +862,294 @@ class WorkflowCliGateTest(unittest.TestCase):
             self.assertEqual(
                 ["zstt-code-review", "zstt-test-verify"],
                 meta["recommended_next_skills"],
+            )
+
+
+class RequirementResearchTraceabilityGateTest(unittest.TestCase):
+    def test_requirement_rejects_unknown_source_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            requirement.write_text(
+                requirement.read_text(encoding="utf-8").replace(
+                    "| R01 | 功能 | 管理员可以导出学习报告 | S01 |",
+                    "| R01 | 功能 | 管理员可以导出学习报告 | S99 |",
+                    1,
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("引用了不存在的来源: S99", completed.stderr)
+
+    def test_requirement_rejects_missing_acceptance_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            lines = [
+                line
+                for line in requirement.read_text(encoding="utf-8").splitlines()
+                if not line.startswith("| R01 | 主路径 |")
+            ]
+            requirement.write_text(
+                "\n".join(lines) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("验收遗漏需求: R01", completed.stderr)
+
+    def test_requirement_counts_open_questions_from_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            text = insert_markdown_row(
+                requirement.read_text(encoding="utf-8"),
+                "| 问题 ID | 优先级 | 问题类型 | 疑问 | 准确来源 Sxx | 影响 Rxx/章节 | 确认人/承接阶段 | 确认结论/转交说明 | 状态 |",
+                "| Q01 | P1 | 用户意图 | 导出格式是什么 | S01 | R01 | 用户 |  | 待确认 |",
+            )
+            requirement.write_text(text, encoding="utf-8", newline="\n")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("open_p1_count=0", completed.stderr)
+            self.assertIn("Qxx 台账实际为 1", completed.stderr)
+
+    def test_requirement_requires_final_confirmation_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            replace_frontmatter_value(requirement, "confirmation_status", "pending")
+            replace_frontmatter_value(requirement, "confirmation_source", '""')
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("未完成最终反向确认", completed.stderr)
+            self.assertIn("缺少可回查的最终确认来源", completed.stderr)
+
+    def test_research_requires_exact_requirement_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_research_document(Path(tmp))
+            research = feature_dir / "01-research.md"
+            research.write_text(
+                research.read_text(encoding="utf-8").replace(
+                    "| R01 | 管理员导出学习报告 | 当前代码入口和数据源是什么 |",
+                    "| R02 | 管理员导出学习报告 | 当前代码入口和数据源是什么 |",
+                    1,
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "repo_research",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("需求验证遗漏: R01", completed.stderr)
+            self.assertIn("需求验证引用未知需求: R02", completed.stderr)
+
+    def test_research_rejects_duplicate_claim_and_invalid_local_line(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_research_document(Path(tmp))
+            research = feature_dir / "01-research.md"
+            text = insert_markdown_row(
+                research.read_text(encoding="utf-8"),
+                "| 结论 ID | 结论 | 证据 ID | 证据等级 | 代码位置 | 反证 | 覆盖度 | 置信度 | 运行时缺口 | 待验证动作 |",
+                "| C01 | 重复结论 | E01 | Proven | src/Test.java:99 | 未发现 | 已覆盖 R01 | 高 | 无 | 无 |",
+            ).replace(
+                "| E01 | 本地源码 | test-repo | src/Test.java | 1 |",
+                "| E01 | 本地源码 | test-repo | src/Test.java | 99 |",
+                1,
+            )
+            research.write_text(text, encoding="utf-8", newline="\n")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "repo_research",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("结论 ID 重复: C01", completed.stderr)
+            self.assertIn("E01 行号越界", completed.stderr)
+
+    def test_research_requires_semantic_and_sql_detail_when_involved(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_research_document(Path(tmp))
+            research = feature_dir / "01-research.md"
+            replace_frontmatter_value(research, "shared_semantic_impact", "involved")
+            replace_frontmatter_value(research, "current_sql_impact", "involved")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "repo_research",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn(
+                "shared_semantic_impact=involved 但影响矩阵为空",
+                completed.stderr,
+            )
+            self.assertIn(
+                "current_sql_impact=involved 但影响矩阵为空",
+                completed.stderr,
+            )
+
+    def test_research_accepts_complete_semantic_and_sql_matrices(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_research_document(Path(tmp))
+            research = feature_dir / "01-research.md"
+            text = research.read_text(encoding="utf-8").replace(
+                "shared_semantic_impact: none",
+                "shared_semantic_impact: involved",
+                1,
+            ).replace(
+                "current_sql_impact: none",
+                "current_sql_impact: involved",
+                1,
+            )
+            text = insert_markdown_row(
+                text,
+                "| 语义对象 | 类型 | 生产方 | 持久化/传播 | 消费方 | 消费逻辑/历史值兼容 | 结论 ID | 证据 ID | 风险/RQxx |",
+                "| 任务状态 | 枚举/类型码 | TaskService | 数据库/RPC/MQ | TaskJob | status=2 按历史语义读取 | C01 | E01 | 无 |",
+            )
+            text = insert_markdown_row(
+                text,
+                "| SQL 事实 ID | 仓库与位置 | 类型 | 当前语义 | JOIN/过滤/排序/分页/写入条件 | 可能受影响原因 | 结论 ID | 证据 ID | 是否交技术设计 |",
+                "| SQL01 | src/Test.java:1 | SELECT | 查询可处理任务 | status IN (1,2) | status=2 语义变化 | C01 | E01 | 是 |",
+            )
+            research.write_text(text, encoding="utf-8", newline="\n")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "repo_research",
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+
+    def test_research_requires_change_scope_for_every_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = prepare_research_document(Path(tmp))
+            research = feature_dir / "01-research.md"
+            research.write_text(
+                research.read_text(encoding="utf-8").replace(
+                    "| test-repo | 导出入口 | 保持现有契约 |",
+                    "| other-repo | 导出入口 | 保持现有契约 |",
+                    1,
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "repo_research",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("缺少每仓 ChangeScope: test-repo", completed.stderr)
+            self.assertIn("ChangeScope 引用未知仓库: other-repo", completed.stderr)
+
+    def test_research_must_accept_transferred_code_fact_question(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp))
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            requirement.write_text(
+                insert_markdown_row(
+                    requirement.read_text(encoding="utf-8"),
+                    "| 问题 ID | 优先级 | 问题类型 | 疑问 | 准确来源 Sxx | 影响 Rxx/章节 | 确认人/承接阶段 | 确认结论/转交说明 | 状态 |",
+                    "| Q01 | P1 | 代码事实 | 当前导出查询在哪里 | S01 | R01 | 仓库调研 | 追踪最终 Mapper | 转下游 |",
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+            self.assertEqual(
+                0,
+                run_cli(
+                    "complete-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "requirement_clarification",
+                ).returncode,
+            )
+            self.assertEqual(
+                0,
+                run_cli(
+                    "prepare-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "repo_research",
+                ).returncode,
+            )
+            fill_stage_document(feature_dir / "01-research.md", "repo_research")
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "repo_research",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn(
+                "未承接需求阶段转交的代码事实问题: Q01",
+                completed.stderr,
             )
 
 

@@ -109,10 +109,16 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
             "确认日志",
             "不可读范围",
             "quick/full",
+            "Sxx",
+            "Rxx",
+            "Qxx",
+            "用户意图",
+            "最终反向确认",
+            "confirmation_source",
         ):
             self.assertIn(token, text)
 
-    def test_requirement_templates_record_material_and_tool_boundaries(self) -> None:
+    def test_requirement_templates_record_traceable_baseline_and_confirmation(self) -> None:
         for mode in ("full", "quick"):
             with self.subTest(mode=mode):
                 text = (
@@ -122,6 +128,12 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
                 ).read_text(encoding="utf-8")
                 self.assertIn("材料可读性与冲突", text)
                 self.assertIn("工具与降级记录", text)
+                self.assertIn("原始材料要点覆盖", text)
+                self.assertIn("来源 ID", text)
+                self.assertIn("需求 ID", text)
+                self.assertIn("问题 ID", text)
+                self.assertIn("confirmation_status", text)
+                self.assertIn("confirmation_source", text)
 
 
 class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
@@ -144,19 +156,60 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             "反证",
             "证据覆盖度",
             "运行时验证",
+            "Rxx",
+            "共享状态",
+            "IN/NOT IN",
+            "SQLxx",
+            "RQxx",
+            "每仓 ChangeScope",
         ):
             self.assertIn(token, text)
 
     def test_research_playbook_defines_tool_fallbacks(self) -> None:
         text = read_reference("zstt-repo-research", "advanced-playbook.md")
         for token in (
-            "远程优先",
+            "显式本地路径优先",
+            "短路",
+            ".zstt-kit/.env/.env.local",
+            "ZSTT_REPO_MCP_*",
+            "当前会话",
+            "普通 HTTP",
+            "默认降级",
             "CodeGraph 不可用",
             "rg",
             "逐层源码",
             "pending",
         ):
             self.assertIn(token, text)
+
+    def test_research_skill_prioritizes_explicit_local_checkout(self) -> None:
+        text = read_skill("zstt-repo-research")
+        for token in (
+            "仓库来源门禁",
+            "用户明确提供",
+            "只读取这些本地路径",
+            "禁止检查私有 MCP 配置",
+            "不能静默切换远程来源",
+            "当前会话暴露",
+            "不能把其中 URL 当作普通 HTTP 接口直接请求",
+        ):
+            self.assertIn(token, text)
+
+    def test_repository_mcp_private_values_are_not_packaged(self) -> None:
+        for template_name in (".env.example", ".env.prod.example"):
+            with self.subTest(template=template_name):
+                text = (
+                    ROOT
+                    / "src"
+                    / "zstt_cli"
+                    / "resources"
+                    / "env"
+                    / template_name
+                ).read_text(encoding="utf-8")
+                self.assertNotIn("ZSTT_REPO_MCP_", text)
+
+        root_gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn(".zstt-kit/.env/.env.local", root_gitignore)
 
     def test_research_template_has_traceable_claim_ledger(self) -> None:
         text = (
@@ -171,6 +224,15 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             "覆盖度",
             "工具与降级记录",
             "待验证动作",
+            "需求验证矩阵",
+            "每仓 ChangeScope",
+            "共享语义反向影响",
+            "当前 SQL 事实与影响",
+            "证据类型",
+            "调研问题与阶段承接",
+            "research_scope",
+            "shared_semantic_impact",
+            "current_sql_impact",
         ):
             self.assertIn(token, text)
 

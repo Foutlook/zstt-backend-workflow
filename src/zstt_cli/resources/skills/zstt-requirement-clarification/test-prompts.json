@@ -2,11 +2,26 @@
   {
     "id": 1,
     "prompt": "$zstt-requirement-clarification 我们要新增学习报告导出，按 full 处理；材料包含 PRD、PDF、页面截图和状态流转图，部分角色、状态和验收口径互相冲突。",
-    "expected": "盘点并实际读取材料，区分事实、推断与冲突，逐个澄清 P0，只维护 00-requirement.md，不进入代码调研。"
+    "expected": "盘点并实际读取材料，把独立要点登记为 Sxx，形成可追溯 Rxx/Qxx；区分事实、推断与冲突，逐个澄清 P0，确保每个 Rxx 有验收覆盖，只维护 00-requirement.md。"
   },
   {
     "id": 2,
     "prompt": "$zstt-requirement-clarification 按 quick 澄清一个口头需求：管理员可以批量关闭任务，但权限范围、重复操作、历史任务和验收口径都没说清楚。",
-    "expected": "保留 quick 的必要风险扫描，聚焦高影响缺口，不静默补全权限、状态、历史数据或验收规则。"
+    "expected": "保留 quick 的必要风险扫描和最小 Sxx→Rxx/Qxx 链，聚焦高影响缺口，不静默补全权限、状态、历史数据或验收规则；无法闭环时建议由用户决定是否升级 full。"
+  },
+  {
+    "id": 3,
+    "prompt": "$zstt-requirement-clarification 帮我梳理会员冻结需求，我还没决定 quick 还是 full。它涉及角色权限、共享状态、历史会员和旧自动续费链路。",
+    "expected": "根据高影响不确定性推荐 full 并说明依据，等待用户选择或明确授权；确认前不初始化目录，也不替用户选择模式。"
+  },
+  {
+    "id": 4,
+    "prompt": "$zstt-requirement-clarification 产品语义已明确，但不知道旧接口是否会自动发消息，也没决定复用还是新增接口。",
+    "expected": "分别登记代码事实 Qxx 和设计选择 Qxx，前者明确转仓库调研、后者转技术设计；不得把它们混成用户意图，也不得用转下游代替业务口径确认。"
+  },
+  {
+    "id": 5,
+    "prompt": "$zstt-requirement-clarification 我确认所有问题了，直接完成阶段。",
+    "expected": "先核对每个 Sxx 已收口、每个 Rxx 有来源和验收覆盖、Qxx 数量与 frontmatter 一致，再按业务时间顺序做最终反向确认并记录 confirmation_source；没有最终确认时不能完成阶段。"
   }
 ]
