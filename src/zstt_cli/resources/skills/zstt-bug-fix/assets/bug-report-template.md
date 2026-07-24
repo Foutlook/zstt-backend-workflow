@@ -1,5 +1,6 @@
 ---
 skill: zstt-bug-fix
+role: developer
 phase: diagnosis
 fix_authorized: false
 confirmation_source: null
@@ -20,8 +21,9 @@ confirmation_source: null
 
 | 项目 | 结论 | 证据/影响 |
 |---|---|---|
-| Git 基线与用户已有改动 | | |
-| 代码与调用链能力 | | |
+| 当前角色（developer/tester） | | |
+| Git 基线与用户已有改动（仅开发角色） | | |
+| 代码与调用链能力（测试角色可标不适用） | | |
 | Observability MCP、日志、Trace、MySQL、ES及其他数据能力 | | |
 | 环境、账号、权限与前置数据 | | |
 
@@ -38,7 +40,7 @@ confirmation_source: null
 
 ## 7. 修复确认门禁
 
-- 当前状态：等待排查结论后的用户明确确认
+- 当前状态：开发角色等待排查结论后的用户明确确认；测试角色不适用
 - 确认来源：
 - 授权范围：
 

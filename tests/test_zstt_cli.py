@@ -128,8 +128,30 @@ class ProjectInstallerTest(unittest.TestCase):
             self.assertTrue(
                 (project_root / ".zstt-kit" / ".env" / ".env.example").is_file()
             )
+            test_env_template = (
+                project_root / ".zstt-kit" / ".env" / ".env.example"
+            ).read_text(encoding="utf-8")
+            self.assertIn(
+                "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_ID=",
+                test_env_template,
+            )
+            self.assertIn(
+                "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET=",
+                test_env_template,
+            )
             self.assertTrue(
                 (project_root / ".zstt-kit" / ".env" / ".env.prod.example").is_file()
+            )
+            production_env_template = (
+                project_root / ".zstt-kit" / ".env" / ".env.prod.example"
+            ).read_text(encoding="utf-8")
+            self.assertIn(
+                "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_ID=",
+                production_env_template,
+            )
+            self.assertIn(
+                "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET=",
+                production_env_template,
             )
             self.assertFalse(
                 (project_root / ".zstt-kit" / ".env" / ".env.local").exists()

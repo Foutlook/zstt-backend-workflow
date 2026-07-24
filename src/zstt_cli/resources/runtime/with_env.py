@@ -14,6 +14,11 @@ SCOPE_KEYS = {
         "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
         "ALIBABA_CLOUD_REGION",
     },
+    "observability-client": {
+        "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_ID",
+        "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+        "ZSTT_CLIENT_ALIBABA_CLOUD_REGION",
+    },
     "mysql": {
         "ZSTT_MYSQL_HOST",
         "ZSTT_MYSQL_PORT",
@@ -32,11 +37,25 @@ SCOPE_KEYS = {
         "ZSTT_ES_INDEX_PREFIX",
     },
 }
-MANAGED_KEYS = set().union(*SCOPE_KEYS.values())
+SCOPE_EXPORT_KEYS = {
+    "observability-client": {
+        "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_ID": "ALIBABA_CLOUD_ACCESS_KEY_ID",
+        "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET": "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+        "ZSTT_CLIENT_ALIBABA_CLOUD_REGION": "ALIBABA_CLOUD_REGION",
+    },
+}
+MANAGED_KEYS = set().union(
+    *SCOPE_KEYS.values(),
+    *(mapping.values() for mapping in SCOPE_EXPORT_KEYS.values()),
+)
 REQUIRED_KEYS = {
     "observability": {
         "ALIBABA_CLOUD_ACCESS_KEY_ID",
         "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+    },
+    "observability-client": {
+        "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_ID",
+        "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
     },
     "mysql": {"ZSTT_MYSQL_USERNAME", "ZSTT_MYSQL_PASSWORD"},
     "es": set(),
@@ -107,9 +126,10 @@ def _build_child_environment(environment: str, scope: str, env_file: Path) -> di
     for key in MANAGED_KEYS:
         child_env.pop(key, None)
     child_env["ZSTT_ENV"] = environment
+    export_keys = SCOPE_EXPORT_KEYS.get(scope, {})
     child_env.update(
         {
-            key: value
+            export_keys.get(key, key): value
             for key, value in values.items()
             if key in SCOPE_KEYS[scope] and value
         }
@@ -121,7 +141,8 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) < 4 or args[2] != "--":
         print(
-            "Usage: with_env.py <test|prod> <observability|mysql|es> -- "
+            "Usage: with_env.py <test|prod> "
+            "<observability|observability-client|mysql|es> -- "
             "<command> [args...]",
             file=sys.stderr,
         )
@@ -135,7 +156,6 @@ def main(argv: list[str] | None = None) -> int:
     if scope not in SCOPE_KEYS:
         print(f"Unsupported ZSTT environment scope: {scope}", file=sys.stderr)
         return 2
-
     env_name = ".env.local" if environment == "test" else ".env.prod.local"
     env_file = Path(__file__).resolve().parent.parent / ".env" / env_name
     if not env_file.is_file():

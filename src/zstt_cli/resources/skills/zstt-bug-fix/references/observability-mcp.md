@@ -26,11 +26,12 @@
 
 ## SLS 日志流程
 
-1. 已知 Project 和 Logstore 时直接调用 `sls_execute_sql`；未知时分别只调用一次 `sls_list_projects`、`sls_list_logstores` 做收敛发现。
+1. 查询应用日志时，先确认环境并区分后端和客户端：测试后端读取 `$testBackendSls` 并使用 `test observability`，测试客户端读取 `$testClientSls` 并使用 `test observability-client`；生产后端读取 `$prodBackendSls` 并使用 `prod observability`，生产客户端读取 `$prodClientSls` 并使用 `prod observability-client`。`region`、`project`、`logstore` 完整时直接调用 `sls_execute_sql`。其他场景已知 Project 和 Logstore 时也直接查询；未知或已配置目标失效时，分别只调用一次 `sls_list_projects`、`sls_list_logstores` 做收敛发现。
 2. 查询必须包含 Trace ID、业务 ID、接口或服务/Pod 条件之一，并限定开始、结束时间和 `limit`。
 3. 需要上下文时，在首次查询中追加 `|with_pack_meta`，取得 `__pack_id__` 和 `__pack_meta__` 后调用 `sls_get_context_logs`。
 4. `cms_natural_language_query` 只作为实体/数据源不明确时的辅助发现，不代替精确 Trace 或 SLS 查询。
 5. 查询无结果时记录 Project、Logstore、时间范围、索引字段和权限覆盖范围；结论标为 `Runtime dependent` 或 `Unknown`。
+6. 四个 SLS 映射仅指对应环境和端的应用日志，不用于 Trace、Istio 或 Kubernetes 事件；不得混用测试/生产、后端/客户端 AK，也不得因为名称相似静默切换 Logstore。
 
 ## 安全边界
 
