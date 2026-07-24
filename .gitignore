@@ -1,4 +1,6 @@
 .worktrees/
+.zstt-kit/.env/.env.local
+.zstt-kit/.env/.env.prod.local
 __pycache__/
 *.pyc
 *.egg-info/

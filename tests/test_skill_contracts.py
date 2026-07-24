@@ -88,6 +88,11 @@ class AnalysisSkillContractTest(unittest.TestCase):
             "发布与回滚",
             "测试策略",
             "fallback",
+            "设计输入去向",
+            "唯一真相",
+            "无持久业务实例",
+            "禁止外部传字段",
+            "代码改动落点",
             "02-design.md",
         ):
             self.assertIn(token, text)
@@ -135,6 +140,10 @@ class ExecutionSkillContractTest(unittest.TestCase):
             "依赖",
             "完成标准",
             "验证命令",
+            "核心 `Dxx`",
+            "非编码交接事项",
+            "测试执行和测试报告不拆 Txx",
+            "ZSTT_TASK_SCHEMA_VERSION",
             "03-tasks.md",
         ):
             self.assertIn(token, text)

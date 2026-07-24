@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "$zstt-requirement-clarification 我们要新增学习报告导出，需求材料里有 PRD、PDF、页面截图和一张状态流转图，部分口径互相冲突，请按 full 处理这些混合材料。",
-      "expected_output": "只执行需求澄清；先做输入盘点、可读性边界和冲突扫描，再在 full 的 00-requirement.md 区分事实、推断、P0/P1/P2 和确认日志，最后仅推荐 zstt-repo-research。",
+      "expected_output": "只执行需求澄清；先做输入盘点、可读性边界和冲突扫描，把原始要点登记为 Sxx、正式需求登记为 Rxx、疑问登记为 Qxx；每个 Rxx 有来源和验收覆盖，完成最终反向确认并记录 confirmation_source 后，才仅推荐 zstt-repo-research。",
       "forbidden_output": [
         "不得跳过不可读范围",
         "不得生成 research、design 或业务代码",
@@ -15,7 +15,7 @@
     {
       "id": 2,
       "prompt": "$zstt-repo-research 继续调研 .zstt/features/20260716-learning-report，重点确认导出数据最终来自哪个查询、跨仓库调用了什么；远程仓库和 CodeGraph 不可用。",
-      "expected_output": "重新校验 00-requirement.md，只生成 01-research.md；采用标准降级，通过本地 checkout、rg 和逐层源码追到真实入口、最终数据源、关键参数和跨仓库边界，并把图谱结论标记为 pending。",
+      "expected_output": "重新校验 00-requirement.md，只生成 01-research.md；逐条覆盖全部 Rxx，采用标准降级，通过本地 checkout、rg 和逐层源码追到真实入口、最终数据源、关键参数和跨仓库边界，建立 Cxx/Exx 证据闭环，并把无法证明的图谱关系标记为运行时缺口。",
       "forbidden_output": [
         "不得伪造远程仓库或 CodeGraph 证据",
         "不得把 guard clause 当成真实业务依赖",
@@ -147,7 +147,7 @@
     {
       "id": 14,
       "prompt": "$zstt-repo-research 用户刚修正了 00-requirement.md 的统计范围；继续当前调研并说明旧结论如何处理。",
-      "expected_output": "先重新校验用户修改后的唯一权威主产物，废止与新范围冲突的旧推断，更新 Claim Ledger 的反证、置信度和待验证动作，只写当前 01-research.md；必要细节放 auxiliary 并由主产物索引。",
+      "expected_output": "先重新校验用户修改后的唯一权威主产物和 Rxx 集合，废止与新范围冲突的旧推断，重新计算需求验证覆盖，更新 Claim Ledger 的反证、置信度和待验证动作，只写当前 01-research.md；必要细节放 auxiliary 并由主产物索引。",
       "forbidden_output": [
         "不得用旧对话记忆覆盖用户纠正",
         "不得创建第二份权威需求结论",
@@ -174,6 +174,50 @@
         "不得因用户说直接改而绕过审批",
         "不得把锁和重试语义变化写成行为保持",
         "不得自动 commit、push、合并或部署"
+      ],
+      "files": []
+    },
+    {
+      "id": 17,
+      "prompt": "$zstt-repo-research 完整调查任务状态 2 从“已关闭”调整为“已禁用”的影响。状态写数据库，也会通过 RPC、MQ 和 Redis 被其他仓库消费；当前 SQL 中还有 status IN (1,2)。",
+      "expected_output": "完整覆盖上游 Rxx；将 shared_semantic_impact 和 current_sql_impact 判为 involved，沿生产、持久化/传播、所有消费者和历史值做反向影响矩阵，登记当前 SQLxx 事实，并让每个结论通过 Cxx/Exx 追溯。",
+      "forbidden_output": [
+        "不得只检查枚举定义或主接口",
+        "不得在调研阶段设计未来 SQL",
+        "不得用关键词命中冒充完整消费者范围"
+      ],
+      "files": []
+    },
+    {
+      "id": 18,
+      "prompt": "$zstt-requirement-clarification 帮我梳理会员冻结需求，但我还没选 quick/full。需求涉及管理员权限、历史会员、冻结状态以及旧自动续费副作用。",
+      "expected_output": "根据高影响不确定性推荐 full 并给出一句可核对依据，等待用户选择或明确授权；选择后用 Sxx→Rxx/Qxx 收口材料、问题和验收，并在最终反向确认前保持 draft。",
+      "forbidden_output": [
+        "不得在用户选择或授权前初始化目录",
+        "不得替用户决定权限、状态和旧链路副作用",
+        "不得自动进入仓库调研"
+      ],
+      "files": []
+    },
+    {
+      "id": 19,
+      "prompt": "$zstt-repo-research 本机私有环境已配置远程仓库 MCP，但本次只允许读取 D:/work/order-service。",
+      "expected_output": "验证并只读取用户指定的本地 checkout；不检查私有 MCP 配置，不探测或调用远程仓库。路径无效或仓库身份不符时停止并请求修正，不能静默切换远程来源。",
+      "forbidden_output": [
+        "不得读取或回显私有 MCP 配置",
+        "不得调用远程仓库 MCP",
+        "不得把同名目录当成授权路径"
+      ],
+      "files": []
+    },
+    {
+      "id": 20,
+      "prompt": "$zstt-repo-research 没有提供本地仓库路径；如果本机私有环境配置了远程仓库 MCP 就使用它，否则按默认方式继续。",
+      "expected_output": "只在没有显式路径时检查本机私有配置是否完整且不回显值，并验证当前会话实际暴露匹配的只读 MCP；可用时通过 MCP 取证，不可用时进入已授权本地上下文、CodeGraph、rg 和逐层源码阅读的默认降级。",
+      "forbidden_output": [
+        "不得把配置存在当成 MCP 调用成功",
+        "不得通过普通 HTTP 客户端直接请求私有 URL",
+        "不得把私有连接信息写入产物"
       ],
       "files": []
     }

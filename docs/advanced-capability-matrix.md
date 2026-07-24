@@ -36,7 +36,9 @@
 |---|---|---|---|---|
 | `agent-skills/prd-clarifier` | PRD、PDF、截图、流程图、表格等混合材料 | `zstt-requirement-clarification/references/advanced-playbook.md` | 已融合 | 先做输入盘点和可读性边界，再提炼需求 |
 | `agent-skills/prd-clarifier` | 冲突扫描、多轮澄清、确认日志 | 同上及 `00-requirement.md` 模板 | 已融合 | P0/P1/P2 分级，保留用户逐轮确认结果 |
-| `ggg-prd-intake` | quick/full 分流和范围边界 | 同上 | 适配后融合 | 模式由用户选择或确认，不自动升级 |
+| `ggg-prd-intake` | quick/full 推荐、用户选择或授权 | 同上 | 适配后融合 | AI 给推荐和依据，用户选择；明确授权 AI 决定时记录来源，不自动升级 |
+| `ggg-prd-intake` | 原始材料、需求基线和疑问的逐条追溯 | `00-requirement.md` 模板及运行时校验 | 适配后融合 | 使用 `Sxx → Rxx/Qxx`；每个材料要点收口，每个 Rxx 有来源和验收覆盖 |
+| `ggg-prd-intake` | 问题类型、Owner、阶段承接和最终反向确认 | 同上 | 适配后融合 | 用户意图不能转下游；代码事实和设计选择明确承接阶段，最终确认来源可回查 |
 | 两套来源 | 产物完成后继续下一阶段 | Skill 推荐语 | 适配后融合 | 只推荐 `zstt-repo-research`，不会自动执行 |
 
 ## 仓库调研
@@ -45,8 +47,13 @@
 |---|---|---|---|---|
 | `clarified-requirement-repo-research` | 仓库边界、主项目、跨仓库证据链 | `zstt-repo-research/references/advanced-playbook.md` | 已融合 | 每个结论绑定证据 ID、反证和覆盖度 |
 | 同上 | 入口到最终 fetch/calculation/assignment 的真实调用链 | 同上 | 已融合 | 显式区分历史 guard 与真实业务依赖 |
-| `ggg-requirement-alignment` | 远程仓库优先、本地 checkout 降级 | 同上 | 适配后融合 | 远程能力不可用时回退本地源码，不伪造远程证据 |
+| `clarified-requirement-repo-research` | 远程仓库读取、本地 checkout 降级 | 同上 | 适配后融合 | 改为显式本地路径最高优先；未指定路径时才检查本机私有配置与会话 MCP，失败后进入默认降级，私有连接值不入库 |
 | `ggg-requirement-alignment` | CodeGraph 图谱分析和索引新鲜度 | 同上 | 适配后融合 | CodeGraph 不可用或索引过期时用 `rg` + 逐层源码并标记 `pending` |
+| `ggg-requirement-alignment` | 上游需求逐条覆盖 | `01-research.md` 需求验证矩阵及运行时校验 | 适配后融合 | 完整调研必须且只能覆盖全部 `Rxx`；聚焦调研保持 draft |
+| `ggg-requirement-alignment` | 共享状态、枚举和类型码反向影响 | `01-research.md` 共享语义矩阵 | 已融合 | 覆盖生产、持久化/传播、消费者、SQL/XML、任务、缓存和历史值 |
+| `ggg-requirement-alignment` | SQL 影响提前识别 | `01-research.md` 当前 SQL 事实表 | 适配后融合 | 调研只记录 `SQLxx` 当前事实；未来 SQL 草案、确认和 Gate 保留在技术设计 |
+| 两套来源 | 权威需改仓库清单与每仓范围 | `01-research.md` 仓库分类和 ChangeScope | 已融合 | 汇总与每仓范围一一对应，No code change 也记录排除证据 |
+| `ggg-requirement-alignment` | 严格 Claim/Evidence/Question 校验 | `.zstt-kit/runtime/workflow_validation.py` | 适配后融合 | 校验 R/C/E/RQ 唯一性、引用、证据等级、本地文件行号、问题数量和阶段承接 |
 | 两套来源 | 旧链路副作用、运行时验证缺口 | `01-research.md` 模板 | 已融合 | 不能把静态推断写成运行事实 |
 
 ## 技术方案

@@ -109,10 +109,16 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
             "确认日志",
             "不可读范围",
             "quick/full",
+            "Sxx",
+            "Rxx",
+            "Qxx",
+            "用户意图",
+            "最终反向确认",
+            "confirmation_source",
         ):
             self.assertIn(token, text)
 
-    def test_requirement_templates_record_material_and_tool_boundaries(self) -> None:
+    def test_requirement_templates_record_traceable_baseline_and_confirmation(self) -> None:
         for mode in ("full", "quick"):
             with self.subTest(mode=mode):
                 text = (
@@ -122,6 +128,12 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
                 ).read_text(encoding="utf-8")
                 self.assertIn("材料可读性与冲突", text)
                 self.assertIn("工具与降级记录", text)
+                self.assertIn("原始材料要点覆盖", text)
+                self.assertIn("来源 ID", text)
+                self.assertIn("需求 ID", text)
+                self.assertIn("问题 ID", text)
+                self.assertIn("confirmation_status", text)
+                self.assertIn("confirmation_source", text)
 
 
 class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
@@ -144,19 +156,60 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             "反证",
             "证据覆盖度",
             "运行时验证",
+            "Rxx",
+            "共享状态",
+            "IN/NOT IN",
+            "SQLxx",
+            "RQxx",
+            "每仓 ChangeScope",
         ):
             self.assertIn(token, text)
 
     def test_research_playbook_defines_tool_fallbacks(self) -> None:
         text = read_reference("zstt-repo-research", "advanced-playbook.md")
         for token in (
-            "远程优先",
+            "显式本地路径优先",
+            "短路",
+            ".zstt-kit/.env/.env.local",
+            "ZSTT_REPO_MCP_*",
+            "当前会话",
+            "普通 HTTP",
+            "默认降级",
             "CodeGraph 不可用",
             "rg",
             "逐层源码",
             "pending",
         ):
             self.assertIn(token, text)
+
+    def test_research_skill_prioritizes_explicit_local_checkout(self) -> None:
+        text = read_skill("zstt-repo-research")
+        for token in (
+            "仓库来源门禁",
+            "用户明确提供",
+            "只读取这些本地路径",
+            "禁止检查私有 MCP 配置",
+            "不能静默切换远程来源",
+            "当前会话暴露",
+            "不能把其中 URL 当作普通 HTTP 接口直接请求",
+        ):
+            self.assertIn(token, text)
+
+    def test_repository_mcp_private_values_are_not_packaged(self) -> None:
+        for template_name in (".env.example", ".env.prod.example"):
+            with self.subTest(template=template_name):
+                text = (
+                    ROOT
+                    / "src"
+                    / "zstt_cli"
+                    / "resources"
+                    / "env"
+                    / template_name
+                ).read_text(encoding="utf-8")
+                self.assertNotIn("ZSTT_REPO_MCP_", text)
+
+        root_gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn(".zstt-kit/.env/.env.local", root_gitignore)
 
     def test_research_template_has_traceable_claim_ledger(self) -> None:
         text = (
@@ -171,6 +224,15 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             "覆盖度",
             "工具与降级记录",
             "待验证动作",
+            "需求验证矩阵",
+            "每仓 ChangeScope",
+            "共享语义反向影响",
+            "当前 SQL 事实与影响",
+            "证据类型",
+            "调研问题与阶段承接",
+            "research_scope",
+            "shared_semantic_impact",
+            "current_sql_impact",
         ):
             self.assertIn(token, text)
 
@@ -222,6 +284,11 @@ class TechnicalDesignAdvancedCapabilityTest(unittest.TestCase):
             "附件索引",
             "扩展性与维护性",
             "性能、安全与质量",
+            "ZSTT_DESIGN_SCHEMA_VERSION",
+            "设计输入去向",
+            "后端推导字段/来源",
+            "禁止外部传字段",
+            "代码改动落点",
         ):
             self.assertIn(token, text)
 
@@ -260,6 +327,11 @@ class TaskBreakdownAdvancedCapabilityTest(unittest.TestCase):
             "允许修改",
             "禁止修改",
             "预期信号",
+            "ZSTT_TASK_SCHEMA_VERSION",
+            "任务总览",
+            "任务详情",
+            "当前可执行集合",
+            "非编码交接事项",
         ):
             self.assertIn(token, text)
 
@@ -522,110 +594,77 @@ class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
             "Simplification",
             "Efficiency",
             "Abstraction Level",
-            "强制并发分析",
-            "至少两个子 Agent",
-            "禁止自动修改",
+            "可选并行分析",
             "候选项去重",
             "统一应用",
-            "高收益大范围自主修改",
-            "跨文件或修改量大本身不构成 P1",
-            "逐批运行聚焦验证",
+            "P0 推荐",
+            "P1 推荐",
+            "P2 推荐",
+            "推荐修改的原因",
+            "未自动修改原因",
             "行为不变",
             "修改前后使用同一组验证",
         ):
             self.assertIn(token, text)
 
-    def test_simplification_requires_clear_parallel_summary(self) -> None:
+    def test_simplification_requires_clear_change_summary(self) -> None:
         text = read_skill("zstt-code-simplification")
         for token in (
-            "全部请求被调度器接受前",
-            "queued",
-            "running",
-            "至少两个子 Agent",
-            "status=completed",
-            "candidates=[]",
-            "已修改",
+            "### 1. 执行概览",
+            "### 2. 已修改",
+            "A-xx",
             "修改了什么",
             "为什么修改",
-            "推荐修改（未自动修改）",
+            "### 3. 推荐修改（未自动修改）",
             "P0",
             "P1",
             "P2",
+            "R-xx",
+            "推荐修改的原因",
             "没有自动修改的原因",
             "报告模式（用户明确限制只读）",
-            "既无自动修改项、也无有效推荐项",
-            "改动文件数或行数较大不构成",
-            "不少于 3 处",
-            "调整后 ROI = 收益分",
-            "B >= 7",
-            "E >= 0.9",
-            "至少两个只读子 Agent 独立评分一致",
-            "同一证据不得在多个维度重复计分",
-            "B = min(Bi)",
-            "C = max(Ci)",
-            "E = min(Ei)",
-            "高收益批次不得补贴",
-            "未四舍五入的原始结果",
-            "不覆盖用户当前的只读或范围限制",
-            "仓库级 `AGENTS.md`/项目规范门禁",
-            "调用只读或无副作用",
-            "重新冻结范围",
-            "不得覆盖或丢失与候选无关",
-            "无法证明契约、数据范围、事务、并发或模块边界保持不变",
-            "定位跨批次交互",
-            "不得声明完成",
-            "收益不足以覆盖修改与回归成本",
-            "逐批验证",
-            "并发能力不足",
-            "UTF-8 无 BOM",
+            "不能只写“风险较高”",
+            "### 4. 验证与边界",
+            "只有既无自动修改项、也无有效推荐项",
         ):
             self.assertIn(token, text)
 
-        prompts = json.loads(
-            (
-                SKILLS
-                / "zstt-code-simplification"
-                / "test-prompts.json"
-            ).read_text(encoding="utf-8")
-        )
-        corpus = json.dumps(prompts, ensure_ascii=False)
+    def test_design_contract_detail_template_keeps_one_contract_truth(self) -> None:
+        text = read_reference("zstt-technical-design", "contract-detail-template.md")
         for token in (
-            "至少两个只读子 Agent",
-            "P0/P1/P2",
-            "未自动修改原因",
-            "并发容量不足两个",
-            "不自动修改",
-            "报告模式（用户明确限制只读）",
-            "candidates=[]",
-            "不能把结果收口成空",
-            "疑似 Bug 作为 P1",
-            "不能因涉及 8 个文件",
-            "自主分批复用",
-            "高收益预估不能覆盖行为等价缺口",
-            "缺少关键验证基线也不得自主修改",
-            "最小闭环并重新冻结范围",
-            "精确保留无关用户改动",
-            "RPC 只读或无副作用",
-            "缓存一致性",
-            "最终模块测试失败",
-            "重新通过最终完整相关验证后才能交付成功",
-            "自主实施不能绕过仓库级门禁",
-            "先遵守 AGENTS.md 的计划和审批要求",
-            "调整后 ROI=1.8",
-            "E 未达到 0.9",
-            "禁止求平均或选高分",
-            "硬门禁失败不能由高 ROI 抵消",
-            "不能用 A 的高收益补贴 B",
-            "未四舍五入的 1.49",
+            "ZSTT_CONTRACT_DETAIL_VERSION",
+            "来源 Dxx",
+            "后端推导字段/来源",
+            "禁止外部传字段",
+            "权限/幂等/兼容",
+            "必须逐项一致",
         ):
-            self.assertIn(token, corpus)
+            self.assertIn(token, text)
+
+        prompts = (
+            SKILLS / "zstt-code-simplification" / "test-prompts.json"
+        ).read_text(encoding="utf-8")
+        for token in (
+            "A-xx",
+            "改了什么",
+            "为什么改",
+            "P0/P1/P2",
+            "R-xx",
+            "推荐修改的原因",
+            "没有自动修改的原因",
+            "已修改明确写无",
+            "报告模式（用户明确限制只读）",
+            "不能把结果收口成空",
+            "P0 无项目时明确写无",
+        ):
+            self.assertIn(token, prompts)
 
     def test_simplification_playbook_keeps_phase_and_risk_boundaries(self) -> None:
         text = read_reference("zstt-code-simplification", "advanced-playbook.md")
         for token in (
             "不修改 `.zstt/meta.json`",
             "报告模式",
-            "未自动修改原因",
+            "没有自动修改的原因",
             "疑似 Bug",
             "不得自动触发固定流程",
         ):

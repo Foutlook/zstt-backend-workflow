@@ -2,11 +2,46 @@
   {
     "id": 1,
     "prompt": "$zstt-repo-research 调研学习报告导出最终来自哪个查询、跨仓库调用了什么；远程仓库和 CodeGraph 当前不可用。",
-    "expected": "重新校验需求，使用本地 checkout、rg 和逐层源码阅读降级取证，追到入口、最终数据源和关键参数，不伪造增强工具证据。"
+    "expected": "重新校验需求并逐条覆盖上游 Rxx，使用本地 checkout、rg 和逐层源码阅读降级取证，追到入口、最终数据源和关键参数，不伪造增强工具证据。"
   },
   {
     "id": 2,
     "prompt": "$zstt-repo-research 排查统计接口 chapterId 偶发为空；代码里先判了 courseId 非空，但实体集合和 chapter 映射来自两个 Facade。",
     "expected": "定位最终赋值点和两套数据范围，区分 Guard 与真实依赖，用 Claim Ledger 记录来源分裂证据、反证和运行时缺口。"
+  },
+  {
+    "id": 3,
+    "prompt": "$zstt-repo-research 需求把任务状态 2 从“已关闭”改成“已禁用”，状态会写数据库并通过 RPC 和 MQ 下发。",
+    "expected": "将 shared_semantic_impact 判为 involved，从生产方沿数据库、RPC、MQ 反查所有消费者，并检查 switch/if、IN/NOT IN、CASE WHEN、缓存、任务和历史状态值兼容，逐行关联 Cxx/Exx。"
+  },
+  {
+    "id": 4,
+    "prompt": "$zstt-repo-research 完整调研订单取消，涉及 order-api、order-client、order-job 和配置仓库。",
+    "expected": "完整覆盖所有 Rxx，给出唯一权威仓库分类和每仓 ChangeScope；即使 No code change 也记录排除范围和证据，汇总与详细范围必须一一对应。"
+  },
+  {
+    "id": 5,
+    "prompt": "$zstt-repo-research 当前查询包含 status IN (1,2)、按 create_time 排序分页，更新语句还带 version 乐观锁；先做代码调研，不写技术方案。",
+    "expected": "把 current_sql_impact 判为 involved，使用 SQLxx 记录当前位置、类型、当前 JOIN/过滤/排序/分页/写入条件和影响原因；未来 SQL 草案、确认及 Gate 留给技术设计。"
+  },
+  {
+    "id": 6,
+    "prompt": "$zstt-repo-research 我只想确认一个字段是不是最终查询参数，不需要完成全量仓库调研。",
+    "expected": "执行 focused 调研，追到最终 fetch/calculation/assignment 并核对 Guard 与真实依赖，只记录必要 Cxx/Exx；research_scope 保持 focused、status 保持 draft，不冒充全量完成。"
+  },
+  {
+    "id": 7,
+    "prompt": "$zstt-repo-research 仓库 MCP 已在本机私有环境配置好，但这次请直接调研 D:/work/order-service。",
+    "expected": "先验证用户指定的本地 checkout 并只读取该路径；不得检查私有 MCP 配置、探测或调用远程仓库，路径无效时请用户修正而不是静默切换远程。"
+  },
+  {
+    "id": 8,
+    "prompt": "$zstt-repo-research 我没有本地仓库路径，但项目本机私有 .env.local 已配置远程仓库 MCP。",
+    "expected": "仅判断 ZSTT_REPO_MCP_* 配置完整性且不回显真实值，再确认当前会话实际暴露匹配的只读 MCP；成功后通过 MCP 取证，不把 URL 当普通 HTTP 接口请求。"
+  },
+  {
+    "id": 9,
+    "prompt": "$zstt-repo-research 没有提供仓库路径，本机也没有配置远程仓库 MCP。",
+    "expected": "进入默认降级：只使用已授权且身份明确的本地仓库上下文、CodeGraph、rg 和逐层源码阅读；无法确认目标仓库时向用户索取路径，不猜目录或伪造远程证据。"
   }
 ]
