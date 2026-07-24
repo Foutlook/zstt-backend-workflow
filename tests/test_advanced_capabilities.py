@@ -416,13 +416,19 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         self.assertIn("references/advanced-playbook.md", text)
         self.assertIn("references/observability-mcp.md", text)
         self.assertIn("references/environment-config.md", text)
+        self.assertIn("references/runtime-bootstrap.md", text)
         self.assertIn("assets/bug-report-template.md", text)
 
     def test_bug_fix_defaults_to_chat_delivery_and_scoped_credentials(self) -> None:
         text = read_skill("zstt-bug-fix")
         self.assertIn("默认不创建 Bug 报告", text)
         self.assertIn("with_env.py", text)
-        self.assertIn("observability|mysql|es", text)
+        self.assertIn("observability|observability-client|mysql|es", text)
+        self.assertIn("查询数据是两种角色共有能力", text)
+        self.assertIn("没有业务代码则选择测试角色", text)
+        self.assertIn("测试角色没有本阶段", text)
+        self.assertIn("没有全局 `zstt` 命令", text)
+        self.assertIn("已解析 Kit", text)
 
         observability = read_reference("zstt-bug-fix", "observability-mcp.md")
         for token in (
@@ -437,8 +443,12 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         for token in (
             ".env.local",
             ".env.prod.local",
-            ".zstt-kit/project-databases.json",
+            "{ZSTT_KIT}/project-databases.json",
             "$productionSameAsTest",
+            "$testBackendSls",
+            "$testClientSls",
+            "$prodBackendSls",
+            "$prodClientSls",
             "最长配置项",
             "不进入安装清单",
             "生产配置缺失",
@@ -446,9 +456,27 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         ):
             self.assertIn(token, environment)
 
+        bootstrap = read_reference("zstt-bug-fix", "runtime-bootstrap.md")
+        for token in (
+            "python3",
+            "python",
+            "py -3",
+            "Python 3.11+",
+            "ZSTT_KIT_ROOT",
+            "CODEX_HOME/zstt-kit",
+            ".codex/zstt-kit",
+            "不要求全局 `zstt` 命令",
+            "不得要求用户批准改用等价启动器",
+        ):
+            self.assertIn(token, bootstrap)
+
     def test_bug_fix_playbook_covers_evidence_and_environment_safety(self) -> None:
         text = read_reference("zstt-bug-fix", "advanced-playbook.md")
         for token in (
+            "开发角色",
+            "测试角色",
+            "纯数据查询",
+            "不要求代码或 Git",
             "diagnosis",
             "awaiting_confirmation",
             "fixing",
@@ -468,6 +496,7 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
             SKILLS / "zstt-bug-fix" / "assets" / "bug-report-template.md"
         ).read_text(encoding="utf-8")
         for token in (
+            "role: developer",
             "phase: diagnosis",
             "fix_authorized: false",
             "范围、基线与能力",

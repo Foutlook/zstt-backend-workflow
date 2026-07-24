@@ -1,7 +1,7 @@
 interface:
   display_name: "zstt-bug-fix"
-  short_description: "基于代码、日志和数据证据定位 Java 后端问题，确认后再执行最小修复"
-  default_prompt: "使用 $zstt-bug-fix 排查这个后端问题，先输出证据化根因和修复建议，得到确认后再改代码。"
+  short_description: "按开发或测试角色排查问题、查询数据，确认后最小修复"
+  default_prompt: "使用 $zstt-bug-fix 按当前开发或测试角色排查问题或查询数据，开发角色得到确认后再改代码。"
 
 policy:
   allow_implicit_invocation: false

@@ -232,6 +232,13 @@ class SupportingSkillContractTest(unittest.TestCase):
         for token in (
             "仅当用户明确指定",
             "不属于 Full/Quick 固定阶段",
+            "开发角色",
+            "测试角色",
+            "不要求 Git 仓库",
+            "纯数据查询",
+            "python3",
+            "Python 3.11+",
+            "当前目录不是安装根目录",
             "代码证据",
             "数据证据",
             "过程证据",

@@ -33,5 +33,50 @@
     "id": 7,
     "prompt": "$zstt-bug-fix 生产库连不上，但配置确认生产库名与测试相同，给我排查 SQL。",
     "expected": "仅在 project-databases.json 明确设置 $productionSameAsTest 为 true 时，把匹配到的库名写入生产只读 SQL；不直接连接生产数据库，不复用测试凭据，不生成写 SQL，并说明由用户或有权限人员执行后回传结果。"
+  },
+  {
+    "id": 8,
+    "prompt": "$zstt-bug-fix 查测试环境后端接口刚才的错误日志。",
+    "expected": "先读取 project-databases.json 的 $testBackendSls；region、project、logstore 完整时直接查询该后端应用 Logstore，不重复枚举 Project/Logstore，不把它用于 Trace、Istio、Kubernetes 事件或生产日志；配置失效时只做一次收敛式发现。"
+  },
+  {
+    "id": 9,
+    "prompt": "$zstt-bug-fix 查测试环境客户端刚才上报的应用日志。",
+    "expected": "读取 project-databases.json 的 $testClientSls，并通过 test observability-client Scope 使用独立客户端 AK 直接查询；不得注入或回退到后端 AK，不重复枚举 Project/Logstore，不把客户端应用 Logstore 用于其他日志类型或生产环境。"
+  },
+  {
+    "id": 10,
+    "prompt": "$zstt-bug-fix 查生产环境客户端刚才上报的应用日志。",
+    "expected": "确认用户明确指定生产环境，读取 $prodClientSls 并通过 prod observability-client 使用生产客户端 AK 做只读日志查询；不得回退到测试或后端 AK，不连接生产数据库/ES，不执行任何写操作。"
+  },
+  {
+    "id": 11,
+    "prompt": "$zstt-bug-fix 我是测试同学，没有项目代码，帮我排查测试环境这个接口为什么没有数据。",
+    "expected": "选择测试角色，不要求代码仓库或 Git 基线，也不把代码不可用写成阻塞；使用接口、时间、业务 ID、日志、Trace、测试 MySQL 和 ES 建立运行时链路，交付失败服务、异常阶段、数据不一致点、证据和开发待核对项，不进入代码修复。"
+  },
+  {
+    "id": 12,
+    "prompt": "$zstt-bug-fix 我是测试同学，查一下测试环境这个学生最近 10 条作业记录。",
+    "expected": "选择测试角色并把查数据作为两种角色共有能力；确认项目、查询对象、筛选条件和必要字段，匹配测试库后执行有 limit 的只读查询，返回脱敏结果或空结果说明，不强行扩展为 Bug 根因分析，不要求代码或进入修复。"
+  },
+  {
+    "id": 13,
+    "prompt": "$zstt-bug-fix 当前有完整业务代码，我是开发，定位这个问题并准备修复。",
+    "expected": "选择开发角色，联合代码、日志、Trace、MySQL、ES 和时间线证据完成定位；第一次请求只交付根因、影响和最小方案，等待用户看到结论后二次确认，未确认前禁止修改业务代码。"
+  },
+  {
+    "id": 14,
+    "prompt": "$zstt-bug-fix macOS 没有 python 和全局 zstt，但有 python3，共享目录里有完整 .zstt-kit，继续查设备日志。",
+    "expected": "读取 runtime-bootstrap.md，自动选择可用且版本满足要求的 python3，从当前目录、已加载 Skill 位置或共享目录定位完整 Kit，使用绝对路径运行 rule_resolver.py；不得要求用户批准改用 python3，不得因全局 zstt 不存在而停止，随后复用同一 Python 和 Kit 查询日志。"
+  },
+  {
+    "id": 15,
+    "prompt": "$zstt-bug-fix Windows 只有 py -3，没有 python3 命令，项目路径还包含空格。",
+    "expected": "把 py -3 作为启动器和参数组合进行 Python 3.11+ 验证，正确引用包含空格的 Kit 绝对路径并继续规则解析；不得把 py -3 当成单个可执行路径，不要求用户安装 python3 别名。"
+  },
+  {
+    "id": 16,
+    "prompt": "$zstt-bug-fix 我从没有代码的目录发起测试排查，Skill 是全局安装的。",
+    "expected": "选择测试角色，并按 ZSTT_KIT_ROOT、当前目录祖先、已加载全局 Skill 位置、CODEX_HOME/zstt-kit 和用户目录 .codex/zstt-kit 的顺序定位完整 Kit；不要求 Git 仓库或全局 zstt 命令，找不到时只报告已检查位置和缺失文件。"
   }
 ]
