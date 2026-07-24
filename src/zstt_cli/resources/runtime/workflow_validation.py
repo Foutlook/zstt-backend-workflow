@@ -200,6 +200,15 @@ TRACEABILITY_PATTERNS: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {
     ),
 }
 
+DESIGN_SCHEMA_MARKER = "ZSTT_DESIGN_SCHEMA_VERSION"
+TASK_SCHEMA_MARKER = "ZSTT_TASK_SCHEMA_VERSION"
+SUPPORTED_DESIGN_SCHEMA_VERSIONS = {1}
+SUPPORTED_TASK_SCHEMA_VERSIONS = {1}
+DESIGN_CONFIRMATION_STATUSES = {"已确认", "待确认"}
+DESIGN_CONCLUSIONS = {"采用", "不采用", "暂定"}
+TASK_INITIAL_STATUSES = {"ready", "pending", "blocked"}
+CONTRACT_TYPES = {"HTTP", "RPC", "MQ", "Job", "内部方法", "不涉及"}
+
 
 def artifact_fingerprint(path: Path) -> str:
     if not path.is_file():
@@ -423,6 +432,190 @@ def duplicate_ids(values: list[str]) -> list[str]:
     return sorted({value for value in values if values.count(value) > 1})
 
 
+def document_schema_version(
+    text: str,
+    marker: str,
+    supported_versions: set[int],
+    document_name: str,
+) -> tuple[int, list[str]]:
+    """Read one schema marker without silently downgrading malformed new documents."""
+    errors: list[str] = []
+    mentions = text.count(marker)
+    matches = re.findall(
+        rf"<!--\s*{re.escape(marker)}:\s*(\d+)\s*-->",
+        text,
+    )
+    if mentions == 0:
+        return 0, errors
+    if mentions != 1 or len(matches) != 1:
+        errors.append(f"{document_name} 的 {marker} 标记畸形或重复")
+        return -1, errors
+    version = int(matches[0])
+    if version not in supported_versions:
+        errors.append(f"{document_name} 使用不支持的 {marker}: {version}")
+    return version, errors
+
+
+def extract_line_value(text: str, label: str) -> str:
+    match = re.search(
+        rf"(?m)^\s*-\s*{re.escape(label)}[：:]\s*(.*?)\s*$",
+        text,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def extract_research_claim_ids(research_text: str) -> set[str]:
+    section = section_body(research_text, "## 10. 结论账本与证据索引")
+    _headers, rows = find_markdown_table(
+        section,
+        ("结论 ID", "结论", "证据 ID"),
+    )
+    return {
+        claim_id
+        for row in rows
+        for claim_id in referenced_ids(table_value(row, "结论 ID"), "C")
+    }
+
+
+def extract_design_decisions(
+    design_text: str,
+) -> tuple[dict[str, dict[str, str]], list[str]]:
+    section = section_body(design_text, "## 3. 设计原则与决策")
+    required_headers = (
+        "设计 ID",
+        "决策点",
+        "当前事实/约束",
+        "最小可行方案",
+        "更复杂备选",
+        "不采用原因",
+        "来源 Cxx",
+        "确认状态",
+        "结论",
+        "影响/代价",
+        "触发升级条件",
+        "验证方式",
+    )
+    headers, rows = find_markdown_table(section, required_headers)
+    errors: list[str] = []
+    if not headers:
+        return {}, ["02-design.md 缺少结构化设计决策表"]
+
+    decisions: dict[str, dict[str, str]] = {}
+    ids: list[str] = []
+    for row in rows:
+        design_id = table_value(row, "设计 ID")
+        if not re.fullmatch(r"D\d+", design_id):
+            errors.append(f"02-design.md 设计决策 ID 非法: {design_id or '空'}")
+            continue
+        ids.append(design_id)
+        if design_id not in decisions:
+            decisions[design_id] = row
+    for design_id in duplicate_ids(ids):
+        errors.append(f"02-design.md 设计决策 ID 重复: {design_id}")
+    if not decisions:
+        errors.append("02-design.md 至少需要一个已填写的 Dxx 设计决策")
+    return decisions, errors
+
+
+def extract_core_change_design_ids(design_text: str) -> set[str]:
+    section = section_body(design_text, "## 8. 代码改动落点")
+    _headers, rows = find_markdown_table(
+        section,
+        (
+            "设计 ID",
+            "项目/仓库",
+            "类型",
+            "文件/类/表/配置/Topic",
+            "符号/方法",
+            "改动类型",
+            "改动说明",
+            "来源 Cxx",
+        ),
+    )
+    return {
+        design_id
+        for row in rows
+        for design_id in referenced_ids(table_value(row, "设计 ID"), "D")
+    }
+
+
+def split_task_ids(value: str) -> set[str]:
+    return set(re.findall(r"\bT\d+\b", value))
+
+
+def normalized_task_id_list(value: str) -> set[str]:
+    if value.strip() in {"", "-", "无"}:
+        return set()
+    return split_task_ids(value)
+
+
+def task_detail_blocks(text: str) -> list[tuple[str, str]]:
+    detail = section_body(text, "## 3. 任务清单")
+    matches = list(re.finditer(r"(?m)^####\s+(T\d+)\b.*$", detail))
+    blocks: list[tuple[str, str]] = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(detail)
+        blocks.append((match.group(1), detail[match.start():end].strip()))
+    return blocks
+
+
+def task_detail_field(block: str, label: str) -> str:
+    match = re.search(
+        rf"(?ms)^-\s*{re.escape(label)}[：:]\s*(.*?)(?=^-\s*[^\n：:]+[：:]|\Z)",
+        block,
+    )
+    if not match:
+        return ""
+    lines = [
+        re.sub(r"^\s*-\s*", "", line).strip()
+        for line in match.group(1).splitlines()
+        if re.sub(r"^\s*-\s*", "", line).strip()
+    ]
+    return "\n".join(lines)
+
+
+def task_completion_value(block: str, label: str) -> str:
+    match = re.search(
+        rf"(?m)^\s{{2,}}-\s*{re.escape(label)}[：:]\s*(.*?)\s*$",
+        block,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def assert_task_dependency_graph(
+    task_ids: list[str],
+    dependencies: dict[str, set[str]],
+    errors: list[str],
+) -> None:
+    known = set(task_ids)
+    for task_id, refs in dependencies.items():
+        if task_id in refs:
+            errors.append(f"03-tasks.md {task_id} 不能依赖自身")
+        for ref in sorted(refs - known):
+            errors.append(f"03-tasks.md {task_id} 依赖不存在的任务: {ref}")
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(task_id: str, path: list[str]) -> None:
+        if task_id in visiting:
+            cycle_start = path.index(task_id) if task_id in path else 0
+            cycle = path[cycle_start:] + [task_id]
+            errors.append(f"03-tasks.md 任务依赖存在循环: {' -> '.join(cycle)}")
+            return
+        if task_id in visited:
+            return
+        visiting.add(task_id)
+        for dependency in sorted(dependencies.get(task_id, set())):
+            if dependency in known:
+                visit(dependency, path + [task_id])
+        visiting.remove(task_id)
+        visited.add(task_id)
+
+    for task_id in task_ids:
+        visit(task_id, [])
+
+
 def artifact_project_root(path: Path) -> Path | None:
     for parent in path.parents:
         if parent.name == ".zstt":
@@ -437,6 +630,36 @@ def is_meaningful_value(value: str) -> bool:
         and stripped.lower() not in {"pending", "todo", "tbd", "unknown", "未确认", "待确认"}
         and not PLACEHOLDER_PATTERN.search(stripped)
     )
+
+
+def is_substantive_value(value: str) -> bool:
+    normalized = re.sub(r"\s+", "", value.strip()).strip("`'\"")
+    return bool(
+        is_meaningful_value(value)
+        and normalized not in {
+            "无",
+            "完成",
+            "已完成",
+            "功能正常",
+            "测试通过",
+            "验证通过",
+            "同上",
+            "按需",
+            "具体原因",
+            "按方案实现",
+        }
+        and "具体测试资产＋授权来源" not in normalized
+        and "具体测试资产+授权来源" not in normalized
+    )
+
+
+def scaffold_has_nested_content(text: str, match: re.Match[str]) -> bool:
+    """A parent bullet with filled indented children is structured content, not empty."""
+    for line in text[match.end() :].splitlines():
+        if not line.strip():
+            continue
+        return bool(re.match(r"^\s{2,}[-*]\s+\S", line))
+    return False
 
 
 def section_has_substance(body: str) -> bool:
@@ -1193,6 +1416,702 @@ def validate_research_traceability(
     return errors
 
 
+def validate_design_schema_v1(path: Path, text: str) -> list[str]:
+    """Validate the task-bearing design contract instead of relying on global ID tokens."""
+    errors: list[str] = []
+    research_text = (
+        (path.parent / "01-research.md").read_text(encoding="utf-8")
+        if (path.parent / "01-research.md").is_file()
+        else ""
+    )
+    valid_claim_ids = extract_research_claim_ids(research_text)
+
+    input_section = section_body(text, "## 1. 输入与代码基线")
+    input_headers, input_rows = find_markdown_table(
+        input_section,
+        ("输入 ID", "处理方式", "对应 Dxx/章节或原因"),
+    )
+    if not input_headers:
+        errors.append("02-design.md 缺少设计输入去向表")
+    routed_claim_ids: list[str] = []
+    allowed_dispositions = {"进入设计", "仅作为风险", "不进入设计"}
+    for row in input_rows:
+        claim_id = table_value(row, "输入 ID")
+        disposition = table_value(row, "处理方式")
+        destination = table_value(row, "对应 Dxx/章节或原因")
+        if not re.fullmatch(r"C\d+", claim_id):
+            errors.append(f"02-design.md 设计输入 ID 非法: {claim_id or '空'}")
+            continue
+        routed_claim_ids.append(claim_id)
+        if disposition not in allowed_dispositions:
+            errors.append(f"02-design.md {claim_id} 处理方式非法: {disposition or '空'}")
+        if not is_substantive_value(destination):
+            errors.append(f"02-design.md {claim_id} 缺少明确设计去向或排除原因")
+        elif disposition == "进入设计" and not (
+            referenced_ids(destination, "D")
+            or re.search(r"(?:§|第)\s*\d+", destination)
+        ):
+            errors.append(f"02-design.md {claim_id} 进入设计但未指向 Dxx 或具体章节")
+        if valid_claim_ids and claim_id not in valid_claim_ids:
+            errors.append(f"02-design.md 设计输入引用了 Claim Ledger 中不存在的 {claim_id}")
+    for claim_id in duplicate_ids(routed_claim_ids):
+        errors.append(f"02-design.md 设计输入重复登记: {claim_id}")
+    if valid_claim_ids:
+        missing_claim_ids = sorted(valid_claim_ids - set(routed_claim_ids))
+        if missing_claim_ids:
+            errors.append(
+                "02-design.md 设计输入去向遗漏 Claim Ledger 结论: "
+                + ", ".join(missing_claim_ids)
+            )
+
+    decisions, decision_errors = extract_design_decisions(text)
+    errors.extend(decision_errors)
+    for design_id, row in decisions.items():
+        for header in (
+            "决策点",
+            "当前事实/约束",
+            "最小可行方案",
+            "更复杂备选",
+            "不采用原因",
+            "影响/代价",
+            "触发升级条件",
+            "验证方式",
+        ):
+            if not is_substantive_value(table_value(row, header)):
+                errors.append(f"02-design.md {design_id} 缺少实质字段: {header}")
+        source = table_value(row, "来源 Cxx")
+        claim_refs = referenced_ids(source, "C")
+        if not claim_refs:
+            errors.append(f"02-design.md {design_id} 缺少来源 Cxx")
+        for claim_id in sorted(claim_refs - valid_claim_ids):
+            errors.append(f"02-design.md {design_id} 引用了不存在的 {claim_id}")
+        confirmation_status = table_value(row, "确认状态")
+        conclusion = table_value(row, "结论")
+        if confirmation_status not in DESIGN_CONFIRMATION_STATUSES:
+            errors.append(
+                f"02-design.md {design_id} 确认状态必须是已确认/待确认"
+            )
+        elif confirmation_status != "已确认":
+            errors.append(f"02-design.md {design_id} 尚未确认，不能完成技术方案")
+        if conclusion not in DESIGN_CONCLUSIONS:
+            errors.append(f"02-design.md {design_id} 结论必须是采用/不采用/暂定")
+        elif conclusion == "暂定":
+            errors.append(f"02-design.md {design_id} 仍为暂定，不能完成技术方案")
+
+    identity_section = section_body(text, "## 4. 数据身份、状态与职责边界")
+    persistent_instance = extract_line_value(identity_section, "持久业务实例")
+    if not re.match(r"^(?:有(?:[：:].+)?|无[：:].+)$", persistent_instance):
+        errors.append(
+            "02-design.md 持久业务实例必须明确为“有”或“无：具体原因”"
+        )
+
+    contract_section = section_body(text, "## 6. 接口与契约设计")
+    contract_headers, contract_rows = find_markdown_table(
+        contract_section,
+        (
+            "设计 ID",
+            "调用方/触发事件",
+            "契约类型",
+            "契约标识",
+            "输入关键字段",
+            "后端推导字段/来源",
+            "禁止外部传字段",
+            "输出字段",
+            "副作用",
+            "权限/幂等/兼容",
+            "独立明细",
+            "来源 Cxx",
+        ),
+    )
+    if not contract_headers or not contract_rows:
+        errors.append("02-design.md 接口与契约设计缺少结构化契约行")
+    for row in contract_rows:
+        design_refs = referenced_ids(table_value(row, "设计 ID"), "D")
+        if len(design_refs) != 1:
+            errors.append("02-design.md 契约行必须引用且只引用一个 Dxx")
+            continue
+        design_id = next(iter(design_refs))
+        if design_id not in decisions:
+            errors.append(f"02-design.md 契约行引用了不存在的 {design_id}")
+        contract_type = table_value(row, "契约类型")
+        if contract_type not in CONTRACT_TYPES:
+            errors.append(
+                f"02-design.md {design_id} 契约类型非法: {contract_type or '空'}"
+            )
+        required_contract_fields = (
+            "调用方/触发事件",
+            "契约标识",
+            "输入关键字段",
+            "后端推导字段/来源",
+            "禁止外部传字段",
+            "输出字段",
+            "副作用",
+            "权限/幂等/兼容",
+            "独立明细",
+        )
+        for header in required_contract_fields:
+            if not is_substantive_value(table_value(row, header)):
+                errors.append(f"02-design.md {design_id} 契约缺少字段: {header}")
+        claim_refs = referenced_ids(table_value(row, "来源 Cxx"), "C")
+        if not claim_refs:
+            errors.append(f"02-design.md {design_id} 契约缺少来源 Cxx")
+        for claim_id in sorted(claim_refs - valid_claim_ids):
+            errors.append(f"02-design.md {design_id} 契约引用了不存在的 {claim_id}")
+        detail_ref = table_value(row, "独立明细")
+        if detail_ref.startswith("无需"):
+            continue
+        detail_match = re.search(
+            r"auxiliary[/\\]interface-details[/\\][^`|\s]+\.md",
+            detail_ref,
+        )
+        if not detail_match:
+            errors.append(
+                f"02-design.md {design_id} 独立明细必须写无需原因或合法相对路径"
+            )
+            continue
+        detail_path = (path.parent / Path(detail_match.group(0))).resolve()
+        feature_root = path.parent.resolve()
+        if not detail_path.is_relative_to(feature_root):
+            errors.append(f"02-design.md {design_id} 契约明细越出需求目录")
+            continue
+        if not detail_path.is_file():
+            errors.append(f"02-design.md {design_id} 契约明细不存在: {detail_match.group(0)}")
+            continue
+        detail_text = detail_path.read_text(encoding="utf-8")
+        detail_design_ids = referenced_ids(
+            extract_line_value(detail_text, "来源 Dxx"),
+            "D",
+        )
+        detail_claim_ids = referenced_ids(
+            extract_line_value(detail_text, "来源 Cxx"),
+            "C",
+        )
+        if detail_design_ids != design_refs:
+            errors.append(
+                f"{detail_match.group(0)} 的来源 Dxx 与 02-design.md 不一致"
+            )
+        if detail_claim_ids != claim_refs:
+            errors.append(
+                f"{detail_match.group(0)} 的来源 Cxx 与 02-design.md 不一致"
+            )
+        for main_header, detail_label in (
+            ("调用方/触发事件", "调用方/触发事件"),
+            ("契约类型", "契约类型"),
+            ("契约标识", "契约标识"),
+            ("输入关键字段", "输入关键字段"),
+            ("后端推导字段/来源", "后端推导字段/来源"),
+            ("禁止外部传字段", "禁止外部传字段"),
+            ("输出字段", "输出字段"),
+            ("副作用", "副作用"),
+            ("权限/幂等/兼容", "权限/幂等/兼容"),
+        ):
+            main_value = re.sub(r"\s+", " ", table_value(row, main_header)).strip()
+            detail_value = re.sub(
+                r"\s+",
+                " ",
+                extract_line_value(detail_text, detail_label),
+            ).strip()
+            if main_value != detail_value:
+                errors.append(
+                    f"{detail_match.group(0)} 的{detail_label}与 02-design.md 不一致"
+                )
+
+    change_section = section_body(text, "## 8. 代码改动落点")
+    change_headers, change_rows = find_markdown_table(
+        change_section,
+        (
+            "设计 ID",
+            "项目/仓库",
+            "类型",
+            "文件/类/表/配置/Topic",
+            "符号/方法",
+            "改动类型",
+            "改动说明",
+            "来源 Cxx",
+        ),
+    )
+    if not change_headers or not change_rows:
+        errors.append("02-design.md 代码改动落点缺少结构化核心改动")
+    core_design_ids: set[str] = set()
+    for row in change_rows:
+        design_refs = referenced_ids(table_value(row, "设计 ID"), "D")
+        if len(design_refs) != 1:
+            errors.append("02-design.md 核心改动行必须引用且只引用一个 Dxx")
+            continue
+        design_id = next(iter(design_refs))
+        core_design_ids.add(design_id)
+        decision = decisions.get(design_id)
+        if decision is None:
+            errors.append(f"02-design.md 核心改动引用了不存在的 {design_id}")
+        elif (
+            table_value(decision, "确认状态") != "已确认"
+            or table_value(decision, "结论") != "采用"
+        ):
+            errors.append(
+                f"02-design.md 核心改动 {design_id} 必须是已确认且结论为采用"
+            )
+        for header in (
+            "项目/仓库",
+            "类型",
+            "文件/类/表/配置/Topic",
+            "符号/方法",
+            "改动类型",
+            "改动说明",
+        ):
+            if not is_substantive_value(table_value(row, header)):
+                errors.append(f"02-design.md 核心改动 {design_id} 缺少字段: {header}")
+        claim_refs = referenced_ids(table_value(row, "来源 Cxx"), "C")
+        if not claim_refs:
+            errors.append(f"02-design.md 核心改动 {design_id} 缺少来源 Cxx")
+        for claim_id in sorted(claim_refs - valid_claim_ids):
+            errors.append(f"02-design.md 核心改动 {design_id} 引用了不存在的 {claim_id}")
+
+    handoff_section = section_body(text, "## 11. 风险、阻塞与任务交接")
+    handoff_ids = referenced_ids(
+        extract_line_value(handoff_section, "需任务承接的核心 Dxx"),
+        "D",
+    )
+    if handoff_ids != core_design_ids:
+        errors.append(
+            "02-design.md 任务交接的核心 Dxx 必须与代码改动落点完全一致"
+        )
+    return errors
+
+
+def validate_task_schema_v1(path: Path, text: str) -> list[str]:
+    """Validate every coding task, its Dxx source, graph and executable handoff."""
+    errors: list[str] = []
+    design_text = (
+        (path.parent / "02-design.md").read_text(encoding="utf-8")
+        if (path.parent / "02-design.md").is_file()
+        else ""
+    )
+    research_text = (
+        (path.parent / "01-research.md").read_text(encoding="utf-8")
+        if (path.parent / "01-research.md").is_file()
+        else ""
+    )
+    valid_design_ids = set(re.findall(r"\bD\d+\b", design_text))
+    core_design_ids = extract_core_change_design_ids(design_text)
+    valid_claim_ids = extract_research_claim_ids(research_text)
+    if not core_design_ids:
+        errors.append("03-tasks.md 无法读取 02-design.md 的核心改动 Dxx")
+
+    task_section = section_body(text, "## 3. 任务清单")
+    overview_headers, overview_rows = find_markdown_table(
+        task_section,
+        ("任务 ID", "开发任务", "所属项目", "状态", "依赖任务"),
+    )
+    if not overview_headers or not overview_rows:
+        return errors + ["03-tasks.md 缺少结构化任务总览"]
+
+    task_ids: list[str] = []
+    overview: dict[str, dict[str, str]] = {}
+    dependencies: dict[str, set[str]] = {}
+    forbidden_name_patterns = (
+        r"(?:执行|进行|安排|准备|检查|验证|监控).*(?:发布|上线|灰度|发布单|联调)",
+        r"(?:发布|上线|灰度|联调)(?:执行|协调|检查|验证|监控|准备|计划|操作)$",
+        r"回滚(?:准备|方案|检查|演练|验证)",
+        r"执行.*(?:DDL|SQL|数据回填)",
+        r"(?:执行|人工|手工).*(?:Nacos|环境).*(?:配置|准备|操作)",
+        r"执行.*(?:接口|回归|系统|验收|冒烟)?测试",
+        r"(?:接口|回归|系统|验收|冒烟)?测试(?:执行|验证|报告)$",
+    )
+    for row in overview_rows:
+        task_id = table_value(row, "任务 ID")
+        if not re.fullmatch(r"T\d+", task_id):
+            errors.append(f"03-tasks.md 任务 ID 非法: {task_id or '空'}")
+            continue
+        task_ids.append(task_id)
+        if task_id not in overview:
+            overview[task_id] = row
+        task_name = table_value(row, "开发任务")
+        project = table_value(row, "所属项目")
+        state = table_value(row, "状态")
+        dependency_value = table_value(row, "依赖任务")
+        if not is_substantive_value(task_name):
+            errors.append(f"03-tasks.md {task_id} 缺少具体开发任务")
+        if task_name in {"修改代码", "实现逻辑", "修改 Service", "补测试"}:
+            errors.append(f"03-tasks.md {task_id} 开发任务过于空泛: {task_name}")
+        if any(re.search(pattern, re.sub(r"\s+", "", task_name)) for pattern in forbidden_name_patterns):
+            errors.append(f"03-tasks.md {task_id} 不是仓库编码任务: {task_name}")
+        if not is_substantive_value(project):
+            errors.append(f"03-tasks.md {task_id} 缺少所属项目")
+        elif re.search(r"[,，、+＋\n]|\s和\s", project):
+            errors.append(f"03-tasks.md {task_id} 跨项目改动必须拆成独立任务")
+        if state not in TASK_INITIAL_STATUSES:
+            errors.append(f"03-tasks.md {task_id} 状态必须是 ready/pending/blocked")
+        dependency_ids = split_task_ids(dependency_value)
+        remaining = re.sub(r"\bT\d+\b", "", dependency_value)
+        remaining = re.sub(r"[\s,，、/;；-]", "", remaining)
+        if remaining:
+            errors.append(
+                f"03-tasks.md {task_id} 依赖任务只能填写 Txx 或 -: {dependency_value}"
+            )
+        if not dependency_ids and dependency_value.strip() != "-":
+            errors.append(f"03-tasks.md {task_id} 无依赖时必须填写 -")
+        if dependency_ids and state == "ready":
+            errors.append(
+                f"03-tasks.md {task_id} 仍依赖未完成 Txx，初始状态不能是 ready"
+            )
+        if not dependency_ids and state == "pending":
+            errors.append(
+                f"03-tasks.md {task_id} 无任务依赖，不应使用 pending 隐藏外部阻塞"
+            )
+        dependencies[task_id] = dependency_ids
+
+    for task_id in duplicate_ids(task_ids):
+        errors.append(f"03-tasks.md 任务 ID 重复: {task_id}")
+    assert_task_dependency_graph(task_ids, dependencies, errors)
+
+    blocks = task_detail_blocks(text)
+    detail_ids = [task_id for task_id, _block in blocks]
+    for task_id in duplicate_ids(detail_ids):
+        errors.append(f"03-tasks.md 任务详情 ID 重复: {task_id}")
+    missing_details = sorted(set(task_ids) - set(detail_ids))
+    extra_details = sorted(set(detail_ids) - set(task_ids))
+    if missing_details:
+        errors.append("03-tasks.md 任务详情缺少: " + ", ".join(missing_details))
+    if extra_details:
+        errors.append("03-tasks.md 任务详情存在额外任务: " + ", ".join(extra_details))
+
+    covered_design_ids: set[str] = set()
+    detail_validation: dict[str, dict[str, str]] = {}
+    for task_id, block in blocks:
+        source = extract_line_value(block, "来源依据")
+        source_design_ids = referenced_ids(source, "D")
+        if not source_design_ids:
+            errors.append(f"03-tasks.md {task_id} 来源必须引用核心 Dxx")
+        unknown_design_ids = sorted(source_design_ids - valid_design_ids)
+        if unknown_design_ids:
+            errors.append(
+                f"03-tasks.md {task_id} 引用了不存在的设计: "
+                + ", ".join(unknown_design_ids)
+            )
+        if core_design_ids and not (source_design_ids & core_design_ids):
+            errors.append(f"03-tasks.md {task_id} 未引用代码改动落点中的核心 Dxx")
+        covered_design_ids.update(source_design_ids & core_design_ids)
+        for claim_id in sorted(referenced_ids(source, "C") - valid_claim_ids):
+            errors.append(f"03-tasks.md {task_id} 引用了不存在的 {claim_id}")
+
+        files_and_symbols = task_detail_field(block, "预计修改文件/符号")
+        implementation = task_detail_field(block, "主要实现内容")
+        non_goals = task_detail_field(block, "明确不做事项")
+        detail_fields = {
+            "预计修改文件/符号": files_and_symbols,
+            "主要实现内容": implementation,
+            "明确不做事项": non_goals,
+        }
+        for label, value in detail_fields.items():
+            if not is_substantive_value(value):
+                errors.append(f"03-tasks.md {task_id} 缺少实质字段: {label}")
+        code_result = task_completion_value(block, "代码结果与关键行为")
+        test_code = task_completion_value(block, "测试代码")
+        command = task_completion_value(block, "精确验证命令")
+        expected = task_completion_value(block, "预期信号")
+        failure = task_completion_value(block, "失败信号")
+        for label, value in (
+            ("代码结果与关键行为", code_result),
+            ("测试代码", test_code),
+            ("精确验证命令", command),
+            ("预期信号", expected),
+            ("失败信号", failure),
+        ):
+            if not is_substantive_value(value):
+                errors.append(f"03-tasks.md {task_id} 完成标准缺少: {label}")
+        has_test_artifact = bool(
+            re.search(
+                r"(?:^|[/\\])(?:src[/\\]test|tests?)(?:[/\\]|$)|"
+                r"(?:Test|Tests|IT)\.(?:java|kt|groovy|py|ts|js)\b|"
+                r"\b(?:Fixture|TestData|测试桩|测试数据工厂)\b",
+                files_and_symbols,
+                re.IGNORECASE,
+            )
+        )
+        test_code_authorized = False
+        if test_code.startswith("默认不新增"):
+            if has_test_artifact:
+                errors.append(
+                    f"03-tasks.md {task_id} 声明默认不新增测试代码，但文件范围包含测试资产"
+                )
+        elif test_code.startswith("设计要求"):
+            test_design_ids = referenced_ids(test_code, "D")
+            if not test_design_ids or not test_design_ids.issubset(source_design_ids):
+                errors.append(
+                    f"03-tasks.md {task_id} 测试代码的设计要求必须引用本任务来源 Dxx"
+                )
+            test_code_authorized = True
+        elif test_code.startswith("用户明确要求"):
+            if not re.search(r"授权|用户消息|用户确认", test_code):
+                errors.append(
+                    f"03-tasks.md {task_id} 测试代码缺少可回查的用户授权来源"
+                )
+            test_code_authorized = True
+        else:
+            errors.append(
+                f"03-tasks.md {task_id} 测试代码必须声明默认不新增、设计要求或用户明确要求"
+            )
+        if test_code_authorized and not has_test_artifact:
+            errors.append(
+                f"03-tasks.md {task_id} 已授权测试代码，但预计修改文件未包含测试资产"
+            )
+        task_name = table_value(overview.get(task_id, {}), "开发任务")
+        if (
+            "测试" in task_name
+            and has_test_artifact
+            and not re.search(
+                r"至少两个|两个以上|跨模块|跨项目|复用方",
+                "\n".join((task_name, implementation, non_goals)),
+            )
+        ):
+            errors.append(
+                f"03-tasks.md {task_id} 不应单拆测试任务；独立测试能力必须写清复用范围"
+            )
+        if command in {"执行测试", "运行测试", "验证功能", "编译通过"}:
+            errors.append(f"03-tasks.md {task_id} 精确验证命令过于空泛")
+        detail_validation[task_id] = {
+            "精确验证命令": command,
+            "预期信号": expected,
+            "失败信号": failure,
+            "完成标准": code_result,
+        }
+
+    missing_core_design_ids = sorted(core_design_ids - covered_design_ids)
+    if missing_core_design_ids:
+        errors.append(
+            "03-tasks.md 遗漏核心改动 Dxx: " + ", ".join(missing_core_design_ids)
+        )
+
+    dependency_section = section_body(text, "## 2. 执行顺序与依赖")
+    _edge_headers, edge_rows = find_markdown_table(
+        dependency_section,
+        ("前置任务", "后续任务", "依赖原因", "契约/Schema/配置耦合"),
+    )
+    documented_edges: set[tuple[str, str]] = set()
+    for row in edge_rows:
+        before = table_value(row, "前置任务")
+        after = table_value(row, "后续任务")
+        if not re.fullmatch(r"T\d+", before) or not re.fullmatch(r"T\d+", after):
+            errors.append("03-tasks.md 依赖边必须使用已定义的单个 Txx")
+            continue
+        documented_edges.add((before, after))
+        if before not in overview or after not in overview:
+            errors.append(f"03-tasks.md 依赖边引用不存在任务: {before} -> {after}")
+        if not is_substantive_value(table_value(row, "依赖原因")):
+            errors.append(f"03-tasks.md 依赖边缺少原因: {before} -> {after}")
+        if not is_substantive_value(table_value(row, "契约/Schema/配置耦合")):
+            errors.append(f"03-tasks.md 依赖边缺少耦合判断: {before} -> {after}")
+    expected_edges = {
+        (dependency, task_id)
+        for task_id, refs in dependencies.items()
+        for dependency in refs
+    }
+    if documented_edges != expected_edges:
+        errors.append("03-tasks.md 依赖边必须与任务总览依赖完全一致")
+
+    _block_headers, blocker_rows = find_markdown_table(
+        dependency_section,
+        ("根因 ID", "阻塞任务", "原因", "责任方", "解除条件", "重新验证动作"),
+    )
+    documented_blocked = {
+        task_id
+        for row in blocker_rows
+        for task_id in split_task_ids(table_value(row, "阻塞任务"))
+    }
+    blocked_ids = {
+        task_id
+        for task_id, row in overview.items()
+        if table_value(row, "状态") == "blocked"
+    }
+    if blocked_ids - documented_blocked:
+        errors.append(
+            "03-tasks.md blocked 任务缺少阻塞根因记录: "
+            + ", ".join(sorted(blocked_ids - documented_blocked))
+        )
+    for row in blocker_rows:
+        for header in ("根因 ID", "原因", "责任方", "解除条件", "重新验证动作"):
+            if not is_substantive_value(table_value(row, header)):
+                errors.append(f"03-tasks.md 阻塞记录缺少字段: {header}")
+
+    ready_ids = {
+        task_id
+        for task_id, row in overview.items()
+        if table_value(row, "状态") == "ready"
+    }
+    prohibited_ids = set(task_ids) - ready_ids
+    executable = normalized_task_id_list(
+        extract_line_value(dependency_section, "当前可执行集合")
+    )
+    prohibited = normalized_task_id_list(
+        extract_line_value(dependency_section, "禁止提前执行集合")
+    )
+    if executable != ready_ids:
+        errors.append("03-tasks.md 当前可执行集合必须与 ready 任务完全一致")
+    if prohibited != prohibited_ids:
+        errors.append(
+            "03-tasks.md 禁止提前执行集合必须与 pending/blocked 任务完全一致"
+        )
+
+    safety_section = section_body(text, "## 4. 文件范围与并行安全")
+    _safety_headers, safety_rows = find_markdown_table(
+        safety_section,
+        (
+            "任务",
+            "并行组",
+            "允许修改",
+            "冲突文件",
+            "共享依赖",
+            "契约/SQL/配置影响",
+            "冲突结论",
+            "执行方式",
+        ),
+    )
+    safety_ids = [
+        table_value(row, "任务")
+        for row in safety_rows
+        if re.fullmatch(r"T\d+", table_value(row, "任务"))
+    ]
+    if set(safety_ids) != set(task_ids) or len(safety_ids) != len(task_ids):
+        errors.append("03-tasks.md 并行安全矩阵必须且只能覆盖全部 Txx")
+    for row in safety_rows:
+        task_id = table_value(row, "任务")
+        if not re.fullmatch(r"T\d+", task_id):
+            continue
+        for header in (
+            "并行组",
+            "允许修改",
+            "冲突文件",
+            "共享依赖",
+            "契约/SQL/配置影响",
+            "冲突结论",
+            "执行方式",
+        ):
+            if not is_substantive_value(table_value(row, header)):
+                errors.append(f"03-tasks.md {task_id} 并行安全缺少字段: {header}")
+
+    parallel_level = extract_line_value(
+        dependency_section,
+        "并行等级（L0/L1/L2）",
+    )
+    if parallel_level not in {"L0", "L1", "L2"}:
+        errors.append("03-tasks.md 并行等级必须是 L0/L1/L2")
+    if parallel_level == "L2":
+        _assignee_headers, assignee_rows = find_markdown_table(
+            safety_section,
+            (
+                "执行者",
+                "任务",
+                "允许修改",
+                "禁止修改",
+                "只读参考",
+                "依赖",
+                "合并顺序",
+                "验证命令",
+                "预期信号",
+            ),
+        )
+        if not assignee_rows:
+            errors.append("03-tasks.md L2 必须填写执行者分配表")
+        write_sets: dict[str, set[str]] = {}
+        for row in assignee_rows:
+            assignee = table_value(row, "执行者")
+            task_id = table_value(row, "任务")
+            if not is_substantive_value(assignee) or task_id not in overview:
+                errors.append("03-tasks.md L2 执行者分配引用无效任务或执行者")
+                continue
+            for header in (
+                "允许修改",
+                "禁止修改",
+                "只读参考",
+                "依赖",
+                "合并顺序",
+                "验证命令",
+                "预期信号",
+            ):
+                if not is_substantive_value(table_value(row, header)):
+                    errors.append(
+                        f"03-tasks.md L2 {assignee}/{task_id} 缺少字段: {header}"
+                    )
+            write_set = {
+                item.strip()
+                for item in re.split(r"[,，;；\n]", table_value(row, "允许修改"))
+                if item.strip()
+            }
+            if not write_set:
+                errors.append(f"03-tasks.md L2 {assignee}/{task_id} 缺少允许修改")
+            write_sets[f"{assignee}/{task_id}"] = write_set
+        assignments = list(write_sets.items())
+        for index, (left_name, left_set) in enumerate(assignments):
+            for right_name, right_set in assignments[index + 1 :]:
+                overlap = sorted(left_set & right_set)
+                if overlap:
+                    errors.append(
+                        "03-tasks.md L2 写集重叠: "
+                        f"{left_name} 与 {right_name}: {', '.join(overlap)}"
+                    )
+
+    validation_section = section_body(text, "## 5. 验证命令与完成标准")
+    _validation_headers, validation_rows = find_markdown_table(
+        validation_section,
+        ("任务", "精确验证命令", "预期信号", "失败信号", "完成标准"),
+    )
+    validation_ids: list[str] = []
+    for row in validation_rows:
+        task_id = table_value(row, "任务")
+        if not re.fullmatch(r"T\d+", task_id):
+            continue
+        validation_ids.append(task_id)
+        detail_values = detail_validation.get(task_id)
+        if detail_values is None:
+            continue
+        for header in ("精确验证命令", "预期信号", "失败信号", "完成标准"):
+            if table_value(row, header) != detail_values[header]:
+                errors.append(
+                    f"03-tasks.md {task_id} 的{header}在任务详情和验证表中不一致"
+                )
+    if set(validation_ids) != set(task_ids) or len(validation_ids) != len(task_ids):
+        errors.append("03-tasks.md 验证表必须且只能覆盖全部 Txx")
+
+    handoff_section = section_body(text, "## 6. 阻塞项与实现交接")
+    handoff_ready = normalized_task_id_list(
+        extract_line_value(handoff_section, "当前可执行任务")
+    )
+    handoff_prohibited = normalized_task_id_list(
+        extract_line_value(handoff_section, "当前禁止执行任务")
+    )
+    if handoff_ready != ready_ids or handoff_prohibited != prohibited_ids:
+        errors.append("03-tasks.md 实现阶段交接集合与任务状态不一致")
+
+    _handoff_headers, handoff_rows = find_markdown_table(
+        handoff_section,
+        (
+            "交接项 ID",
+            "类型",
+            "内容",
+            "前置条件",
+            "责任方",
+            "验证/完成信号",
+            "来源 Dxx",
+        ),
+    )
+    handoff_ids: list[str] = []
+    for row in handoff_rows:
+        handoff_id = table_value(row, "交接项 ID")
+        if not re.fullmatch(r"H\d+", handoff_id):
+            errors.append(f"03-tasks.md 非编码交接项 ID 非法: {handoff_id or '空'}")
+            continue
+        handoff_ids.append(handoff_id)
+        for header in ("类型", "内容", "前置条件", "责任方", "验证/完成信号"):
+            if not is_substantive_value(table_value(row, header)):
+                errors.append(f"03-tasks.md {handoff_id} 缺少字段: {header}")
+        source_design_ids = referenced_ids(table_value(row, "来源 Dxx"), "D")
+        if not source_design_ids or not source_design_ids.issubset(valid_design_ids):
+            errors.append(f"03-tasks.md {handoff_id} 来源 Dxx 无效")
+    for handoff_id in duplicate_ids(handoff_ids):
+        errors.append(f"03-tasks.md 非编码交接项 ID 重复: {handoff_id}")
+    return errors
+
+
 def validate_traceability(path: Path, mode: str, stage: str, text: str) -> list[str]:
     errors: list[str] = []
     for pattern, label in TRACEABILITY_PATTERNS.get((mode, stage), ()):
@@ -1231,11 +2150,38 @@ def validate_stage_document(
         errors.append("阶段产物包含 UTF-8 BOM")
 
     text = raw.decode("utf-8")
+    schema_version = 0
+    if mode == "full" and stage == "technical_design":
+        schema_version, schema_errors = document_schema_version(
+            text,
+            DESIGN_SCHEMA_MARKER,
+            SUPPORTED_DESIGN_SCHEMA_VERSIONS,
+            path.name,
+        )
+        errors.extend(schema_errors)
+        if schema_version == 0 and "### 设计输入去向" in text:
+            errors.append(f"{path.name} 使用新版结构但缺少 {DESIGN_SCHEMA_MARKER}")
+            schema_version = 1
+    elif mode == "full" and stage == "task_breakdown":
+        schema_version, schema_errors = document_schema_version(
+            text,
+            TASK_SCHEMA_MARKER,
+            SUPPORTED_TASK_SCHEMA_VERSIONS,
+            path.name,
+        )
+        errors.extend(schema_errors)
+        if schema_version == 0 and "### 任务总览" in text:
+            errors.append(f"{path.name} 使用新版结构但缺少 {TASK_SCHEMA_MARKER}")
+            schema_version = 1
     placeholders = sorted(set(PLACEHOLDER_PATTERN.findall(text)))
     if placeholders:
         errors.append("仍有未替换模板占位符: " + ", ".join(placeholders))
     empty_scaffolds = sorted(
-        {match.group(0).strip() for match in EMPTY_SCAFFOLD_PATTERN.finditer(text)}
+        {
+            match.group(0).strip()
+            for match in EMPTY_SCAFFOLD_PATTERN.finditer(text)
+            if not scaffold_has_nested_content(text, match)
+        }
     )
     if require_completed and empty_scaffolds:
         errors.append("仍有未填写模板项: " + ", ".join(empty_scaffolds))
@@ -1321,4 +2267,8 @@ def validate_stage_document(
             errors.extend(
                 validate_research_traceability(path, text, frontmatter)
             )
+        if mode == "full" and stage == "technical_design" and schema_version == 1:
+            errors.extend(validate_design_schema_v1(path, text))
+        if mode == "full" and stage == "task_breakdown" and schema_version == 1:
+            errors.extend(validate_task_schema_v1(path, text))
     return errors, frontmatter

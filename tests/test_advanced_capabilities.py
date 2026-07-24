@@ -284,6 +284,11 @@ class TechnicalDesignAdvancedCapabilityTest(unittest.TestCase):
             "附件索引",
             "扩展性与维护性",
             "性能、安全与质量",
+            "ZSTT_DESIGN_SCHEMA_VERSION",
+            "设计输入去向",
+            "后端推导字段/来源",
+            "禁止外部传字段",
+            "代码改动落点",
         ):
             self.assertIn(token, text)
 
@@ -322,6 +327,11 @@ class TaskBreakdownAdvancedCapabilityTest(unittest.TestCase):
             "允许修改",
             "禁止修改",
             "预期信号",
+            "ZSTT_TASK_SCHEMA_VERSION",
+            "任务总览",
+            "任务详情",
+            "当前可执行集合",
+            "非编码交接事项",
         ):
             self.assertIn(token, text)
 
@@ -587,6 +597,18 @@ class CodeSimplificationAdvancedCapabilityTest(unittest.TestCase):
             "不能只写“风险较高”",
             "### 4. 验证与边界",
             "只有既无自动修改项、也无有效推荐项",
+        ):
+            self.assertIn(token, text)
+
+    def test_design_contract_detail_template_keeps_one_contract_truth(self) -> None:
+        text = read_reference("zstt-technical-design", "contract-detail-template.md")
+        for token in (
+            "ZSTT_CONTRACT_DETAIL_VERSION",
+            "来源 Dxx",
+            "后端推导字段/来源",
+            "禁止外部传字段",
+            "权限/幂等/兼容",
+            "必须逐项一致",
         ):
             self.assertIn(token, text)
 
