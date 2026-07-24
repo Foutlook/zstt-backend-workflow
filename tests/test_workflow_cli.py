@@ -1119,10 +1119,10 @@ class RequirementResearchTraceabilityGateTest(unittest.TestCase):
             text = insert_markdown_row(
                 research.read_text(encoding="utf-8"),
                 "| 结论 ID | 结论 | 证据 ID | 证据等级 | 代码位置 | 反证 | 覆盖度 | 置信度 | 运行时缺口 | 待验证动作 |",
-                "| C01 | 重复结论 | E01 | Proven | src/Test.java:99 | 未发现 | 已覆盖 R01 | 高 | 无 | 无 |",
+                "| C01 | 重复结论 | E01 | Proven | src/ReportService.java:99 | 未发现 | 已覆盖 R01 | 高 | 无 | 无 |",
             ).replace(
-                "| E01 | 本地源码 | test-repo | src/Test.java | 1 |",
-                "| E01 | 本地源码 | test-repo | src/Test.java | 99 |",
+                "| E01 | 本地源码 | test-repo | src/ReportService.java | 1 |",
+                "| E01 | 本地源码 | test-repo | src/ReportService.java | 99 |",
                 1,
             )
             research.write_text(text, encoding="utf-8", newline="\n")
