@@ -50,7 +50,9 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
 
     def test_public_skills_load_dynamic_rules(self) -> None:
         for skill in (
+            "zstt-artifact-analysis",
             "zstt-requirement-clarification",
+            "zstt-requirement-checklist",
             "zstt-repo-research",
             "zstt-technical-design",
             "zstt-task-breakdown",

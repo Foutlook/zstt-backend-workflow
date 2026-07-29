@@ -103,6 +103,14 @@ class WorkflowContractsTest(unittest.TestCase):
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
         self.assertNotIn("zstt-bug-fix", fixed_skills)
 
+    def test_artifact_analysis_is_not_a_fixed_stage(self) -> None:
+        fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
+        self.assertNotIn("zstt-artifact-analysis", fixed_skills)
+
+    def test_requirement_checklist_is_not_a_fixed_stage(self) -> None:
+        fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
+        self.assertNotIn("zstt-requirement-checklist", fixed_skills)
+
     def test_unknown_stage_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "未知阶段"):
             get_contract("full", "unknown")

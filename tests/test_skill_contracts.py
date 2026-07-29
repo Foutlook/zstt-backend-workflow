@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
@@ -284,6 +285,110 @@ class SupportingSkillContractTest(unittest.TestCase):
             "06-test-report.md",
         ):
             self.assertIn(token, text)
+
+
+class ReadOnlyAnalysisSkillContractTest(unittest.TestCase):
+    SKILL_NAMES = (
+        "zstt-artifact-analysis",
+        "zstt-requirement-checklist",
+    )
+
+    def test_analysis_skills_are_explicit_read_only_and_phase_neutral(self) -> None:
+        for name in self.SKILL_NAMES:
+            with self.subTest(name=name):
+                text = read_skill(name)
+                self.assertEqual(name, frontmatter_value(text, "name"))
+                for token in (
+                    "仅当用户明确指定",
+                    "不属于 Full/Quick 固定阶段",
+                    "不修改 `.zstt/meta.json`",
+                    "只在聊天中输出",
+                    "不自动",
+                    "rule_resolver.py",
+                    "rulesetFingerprint",
+                ):
+                    self.assertIn(token, text)
+                self.assertLess(len(text.splitlines()), 500)
+
+    def test_artifact_analysis_covers_semantics_without_mutating_workflow(self) -> None:
+        text = read_skill("zstt-artifact-analysis")
+        for token in (
+            "task_breakdown",
+            "stale_stages",
+            "SQL Gate",
+            "validate --stage",
+            "prepare-stage",
+            "Rxx",
+            "Cxx/Exx/RQxx",
+            "Dxx",
+            "USxx",
+            "Txx",
+            "覆盖与范围",
+            "语义一致性",
+            "契约与数据",
+            "依赖与执行安全",
+            "项目规则对齐",
+            "覆盖摘要",
+            "COV-001",
+        ):
+            self.assertIn(token, text)
+
+    def test_requirement_checklist_tests_writing_not_implementation(self) -> None:
+        text = read_skill("zstt-requirement-checklist")
+        for token in (
+            "需求是否定义清楚",
+            "不是“代码是否工作”",
+            "完整性",
+            "清晰度",
+            "一致性",
+            "可度量性",
+            "量化阈值",
+            "观测口径",
+            "证据来源",
+            "追溯性",
+            "场景与非功能覆盖",
+            "至少 80%",
+            "CHK001",
+            "[Gap]",
+            "[Ambiguity]",
+            "Quick",
+            "不运行实现测试",
+        ):
+            self.assertIn(token, text)
+
+    def test_analysis_skills_include_behavior_prompts(self) -> None:
+        for name in self.SKILL_NAMES:
+            with self.subTest(name=name):
+                prompts_path = SKILLS / name / "test-prompts.json"
+                prompts = json.loads(prompts_path.read_text(encoding="utf-8"))
+                self.assertGreaterEqual(len(prompts), 3)
+                for prompt in prompts:
+                    self.assertIn(f"${name}", prompt["prompt"])
+                    self.assertTrue(prompt["expected"])
+
+    def test_requirement_checklist_forms_an_optional_correction_loop(self) -> None:
+        clarification = read_skill("zstt-requirement-clarification")
+        checklist = read_skill("zstt-requirement-checklist")
+
+        self.assertIn("把 `$zstt-repo-research` 作为固定下一阶段推荐", clarification)
+        self.assertIn("可显式调用只读的 `$zstt-requirement-checklist`", clarification)
+        self.assertIn(
+            "只能建议回到 `$zstt-requirement-clarification` 更新唯一权威需求",
+            checklist,
+        )
+        self.assertIn("### 规则快照", checklist)
+        self.assertIn("规则快照已填写", checklist)
+
+    def test_artifact_analysis_forms_an_optional_pre_implementation_gate(self) -> None:
+        task_breakdown = read_skill("zstt-task-breakdown")
+        artifact_analysis = read_skill("zstt-artifact-analysis")
+
+        self.assertIn("把 `$zstt-implementation` 作为固定下一阶段推荐", task_breakdown)
+        self.assertIn("可显式调用只读的 `$zstt-artifact-analysis`", task_breakdown)
+        self.assertIn("`implementation` 已完成时停止", artifact_analysis)
+        self.assertIn("已有任务执行、代码改动或验证记录", artifact_analysis)
+        self.assertIn("`$zstt-code-review`", artifact_analysis)
+        self.assertIn("### 规则快照", artifact_analysis)
 
 
 if __name__ == "__main__":
