@@ -19,7 +19,8 @@ description: ZSTT 仓库与代码调研阶段。仅当用户明确指定 $zstt-r
 4. 读取 `meta.json` 与 `00-requirement.md`；根据真实入口、调用链和数据源追加 `call-chain`、`data-source`、`data-access` 等已证明上下文并重新解析。类名和关键词不能替代代码证据。
 5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
 6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage repo_research --feature-dir <需求目录>`，让 CLI 重新校验需求产物。
-7. 如果 P0、文件缺失或结构校验失败，停止调研并报告上游修复点。
+7. Full 如果 `checklists/requirements.md` 不存在，Runtime 视为用户跳过可选检查；如果存在，则校验其结构、问题计数和 `00-requirement.md` 输入指纹。报告为 P0 阻塞、已过期或无效时停止调研，要求先修正权威需求并重新执行 `$zstt-requirement-checklist`；只有 P1/P2 时记录风险后继续。
+8. 如果上游 P0、文件缺失或结构校验失败，停止调研并报告上游修复点。
 
 ## 调研强度
 

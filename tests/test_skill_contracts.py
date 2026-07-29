@@ -303,13 +303,13 @@ class SupportingSkillContractTest(unittest.TestCase):
             self.assertIn(token, text)
 
 
-class ReadOnlyAnalysisSkillContractTest(unittest.TestCase):
+class PersistentQualityGateSkillContractTest(unittest.TestCase):
     SKILL_NAMES = (
         "zstt-artifact-analysis",
         "zstt-requirement-checklist",
     )
 
-    def test_analysis_skills_are_explicit_read_only_and_phase_neutral(self) -> None:
+    def test_analysis_skills_persist_only_their_derived_gate_report(self) -> None:
         for name in self.SKILL_NAMES:
             with self.subTest(name=name):
                 text = read_skill(name)
@@ -318,13 +318,23 @@ class ReadOnlyAnalysisSkillContractTest(unittest.TestCase):
                     "仅当用户明确指定",
                     "不属于 Full/Quick 固定阶段",
                     "不修改 `.zstt/meta.json`",
-                    "只在聊天中输出",
                     "不自动",
                     "rule_resolver.py",
                     "rulesetFingerprint",
+                    "prepare-quality-gate",
+                    "validate-quality-gate",
                 ):
                     self.assertIn(token, text)
+                self.assertNotIn("只在聊天中输出", text)
                 self.assertLess(len(text.splitlines()), 500)
+        self.assertIn(
+            "checklists/requirements.md",
+            read_skill("zstt-requirement-checklist"),
+        )
+        self.assertIn(
+            "analysis/artifact-analysis.md",
+            read_skill("zstt-artifact-analysis"),
+        )
 
     def test_artifact_analysis_covers_semantics_without_mutating_workflow(self) -> None:
         text = read_skill("zstt-artifact-analysis")
@@ -346,6 +356,7 @@ class ReadOnlyAnalysisSkillContractTest(unittest.TestCase):
             "项目规则对齐",
             "覆盖摘要",
             "COV-001",
+            "输入指纹",
         ):
             self.assertIn(token, text)
 
@@ -365,6 +376,8 @@ class ReadOnlyAnalysisSkillContractTest(unittest.TestCase):
             "场景与非功能覆盖",
             "至少 80%",
             "CHK001",
+            "[x]",
+            "证据：",
             "[Gap]",
             "[Ambiguity]",
             "Quick",
@@ -386,25 +399,30 @@ class ReadOnlyAnalysisSkillContractTest(unittest.TestCase):
         clarification = read_skill("zstt-requirement-clarification")
         checklist = read_skill("zstt-requirement-checklist")
 
-        self.assertIn("把 `$zstt-repo-research` 作为固定下一阶段推荐", clarification)
-        self.assertIn("可显式调用只读的 `$zstt-requirement-checklist`", clarification)
         self.assertIn(
-            "只能建议回到 `$zstt-requirement-clarification` 更新唯一权威需求",
+            "同时暴露可选的 `$zstt-requirement-checklist` 与固定下一阶段",
+            clarification,
+        )
+        self.assertIn(
+            "只能建议回到 `$zstt-requirement-clarification` 更新唯一权威",
             checklist,
         )
-        self.assertIn("### 规则快照", checklist)
-        self.assertIn("规则快照已填写", checklist)
+        self.assertIn("ruleset_fingerprint", checklist)
+        self.assertIn("frontmatter 状态", checklist)
 
     def test_artifact_analysis_forms_an_optional_pre_implementation_gate(self) -> None:
         task_breakdown = read_skill("zstt-task-breakdown")
         artifact_analysis = read_skill("zstt-artifact-analysis")
 
-        self.assertIn("把 `$zstt-implementation` 作为固定下一阶段推荐", task_breakdown)
-        self.assertIn("可显式调用只读的 `$zstt-artifact-analysis`", task_breakdown)
+        self.assertIn(
+            "同时暴露可选的 `$zstt-artifact-analysis` 与固定下一阶段",
+            task_breakdown,
+        )
         self.assertIn("`implementation` 已完成时停止", artifact_analysis)
         self.assertIn("已有任务执行、代码改动或验证记录", artifact_analysis)
         self.assertIn("`$zstt-code-review`", artifact_analysis)
-        self.assertIn("### 规则快照", artifact_analysis)
+        self.assertIn("ruleset_fingerprint", artifact_analysis)
+        self.assertIn("四个输入指纹", artifact_analysis)
 
 
 if __name__ == "__main__":

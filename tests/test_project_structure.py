@@ -88,9 +88,16 @@ class ProjectStructureTest(unittest.TestCase):
         self.assertFalse((SKILLS / "zstt-java-backend-standard").exists())
         self.assertTrue((RULES / "catalog.json").is_file())
         self.assertTrue((RUNTIME / "rule_resolver.py").is_file())
+        self.assertTrue((RUNTIME / "quality_gates.py").is_file())
         self.assertTrue((RUNTIME / "workflow_cli.py").is_file())
         self.assertTrue((RUNTIME / "with_env.py").is_file())
         self.assertTrue((TEMPLATES / "full" / "00-requirement.md").is_file())
+        self.assertTrue(
+            (TEMPLATES / "quality-gates" / "requirement-checklist.md").is_file()
+        )
+        self.assertTrue(
+            (TEMPLATES / "quality-gates" / "artifact-analysis.md").is_file()
+        )
         self.assertTrue((ENV_TEMPLATES / ".env.example").is_file())
         self.assertTrue((ENV_TEMPLATES / ".env.prod.example").is_file())
         self.assertFalse((ENV_TEMPLATES / ".env.local").exists())

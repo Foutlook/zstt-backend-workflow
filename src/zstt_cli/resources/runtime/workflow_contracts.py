@@ -129,6 +129,11 @@ def recommended_next_skills(
     if mode == "full":
         for stage in FULL_STAGES:
             if stage.key not in completed:
+                # 两个质量门禁是可选 handoff，不进入固定阶段；用户可直接选择固定下一阶段。
+                if stage.key == "repo_research":
+                    return ("zstt-requirement-checklist", stage.skill)
+                if stage.key == "implementation":
+                    return ("zstt-artifact-analysis", stage.skill)
                 return (stage.skill,)
         return ()
 

@@ -829,7 +829,7 @@ class WorkflowCliInitTest(unittest.TestCase):
                 migrated["feature_dir"],
             )
             self.assertEqual(
-                ["zstt-repo-research"],
+                ["zstt-requirement-checklist", "zstt-repo-research"],
                 migrated["recommended_next_skills"],
             )
 

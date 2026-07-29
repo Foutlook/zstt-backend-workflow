@@ -72,6 +72,30 @@ class WorkflowContractsTest(unittest.TestCase):
             ),
         )
 
+    def test_full_exposes_optional_quality_gates_at_the_two_handoffs(self) -> None:
+        self.assertEqual(
+            ("zstt-requirement-checklist", "zstt-repo-research"),
+            recommended_next_skills("full", ["requirement_clarification"]),
+        )
+        self.assertEqual(
+            ("zstt-artifact-analysis", "zstt-implementation"),
+            recommended_next_skills(
+                "full",
+                [
+                    "requirement_clarification",
+                    "repo_research",
+                    "technical_design",
+                    "task_breakdown",
+                ],
+            ),
+        )
+
+    def test_quick_default_chain_does_not_add_quality_gate_handoff(self) -> None:
+        self.assertEqual(
+            ("zstt-implementation",),
+            recommended_next_skills("quick", ["requirement_clarification"]),
+        )
+
     def test_quick_recommends_optional_review_and_test_after_implementation(self) -> None:
         completed = ["requirement_clarification", "implementation"]
 

@@ -12,6 +12,7 @@
 - 每次只完成当前阶段，并在业务仓库 `.zstt/` 生成一份唯一权威主产物。
 - 当前阶段结束后只推荐下一步；用户可先修改产物，也可暂时停止。
 - 用户调用下一阶段即表示同意推进，但上游产物必须重新校验且不存在 P0 阻塞。
+- 需求 Checklist 和实现前一致性分析是可选质量门禁：未执行即跳过，一旦执行就持久化，后续阶段必须消费已有结果。
 - 首版仅支持 Codex 和 Java 后端项目。
 - 流程止于测试验证完成，不自动 commit、push、合并或部署。
 
@@ -31,6 +32,8 @@ flowchart TB
     subgraph ANALYSIS["需求与方案"]
         direction LR
         RQ["01 需求澄清<br/>$zstt-requirement-clarification<br/>00-requirement.md"] --> RS["02 仓库调研<br/>$zstt-repo-research<br/>01-research.md"]
+        RQ -.-> RQC["可选需求质量门禁<br/>$zstt-requirement-checklist<br/>checklists/requirements.md"]
+        RQC --> RS
         RS --> DS["03 技术方案<br/>$zstt-technical-design<br/>02-design.md"] --> TB["04 任务拆分<br/>$zstt-task-breakdown<br/>03-tasks.md"]
     end
 
@@ -40,23 +43,27 @@ flowchart TB
     end
 
     TB --> IM
+    TB -.-> AA["可选一致性门禁<br/>$zstt-artifact-analysis<br/>analysis/artifact-analysis.md"]
+    AA --> IM
 
     classDef discovery fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
     classDef design fill:#ecfeff,stroke:#0891b2,color:#164e63
     classDef delivery fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    classDef gate fill:#f8fafc,stroke:#64748b,color:#1e293b,stroke-dasharray:5 5
     class RQ,RS discovery
     class DS,TB design
     class IM,CR,TV delivery
+    class RQC,AA gate
     style ANALYSIS fill:#fafafa,stroke:#cbd5e1
     style DELIVERY fill:#fafafa,stroke:#cbd5e1
 ```
 
 | 阶段 | 主要回答 | 唯一权威主产物 | 完成后 |
 | --- | --- | --- | --- |
-| 01 需求澄清 | 要做什么、边界和验收标准是什么，原始材料是否全部收口 | `00-requirement.md` | 推荐仓库调研 |
+| 01 需求澄清 | 要做什么、边界和验收标准是什么，原始材料是否全部收口 | `00-requirement.md` | 可选需求 Checklist；固定下一阶段为仓库调研 |
 | 02 仓库调研 | 每个 Rxx 的真实入口、调用链、数据源、仓库范围及共享语义/SQL 影响是什么 | `01-research.md` | 推荐技术方案 |
 | 03 技术方案 | 怎么改、为什么这样改、SQL 是否已确认、如何发布和回滚 | `02-design.md` | 推荐任务拆分 |
-| 04 任务拆分 | 改哪些文件、按什么顺序、如何验证 | `03-tasks.md` | 推荐编码实现 |
+| 04 任务拆分 | 改哪些文件、按什么顺序、如何验证 | `03-tasks.md` | 可选一致性分析；固定下一阶段为编码实现 |
 | 05 编码实现 | 实际改了什么、是否偏离方案、验证结果如何 | `04-implementation.md` | 推荐代码评审 |
 | 06 代码评审 | 实现是否正确、安全、可维护且与上游一致 | `05-code-review.md` | 推荐测试验证 |
 | 07 测试验证 | 需求是否闭环、差异来自哪里、能否交付 | `06-test-report.md` | 固定流程结束 |
@@ -81,7 +88,7 @@ flowchart LR
     class QC,QT optional
 ```
 
-`$zstt-artifact-analysis`、`$zstt-requirement-checklist`、`$zstt-bug-fix`、`$zstt-code-simplification` 和 `$zstt-module-refactor` 是按各自适用窗口显式调用的辅助 Skill，不属于固定流程，也不推进阶段状态。需求澄清可提示在调研前使用 `$zstt-requirement-checklist`；Full 任务拆分可提示在编码前使用 `$zstt-artifact-analysis`，但 Runtime 的固定下一阶段仍分别是仓库调研和编码实现。
+`$zstt-artifact-analysis`、`$zstt-requirement-checklist`、`$zstt-bug-fix`、`$zstt-code-simplification` 和 `$zstt-module-refactor` 是按各自适用窗口显式调用的辅助 Skill，不属于固定流程，也不推进阶段状态。需求澄清后 Full 同时暴露 `$zstt-requirement-checklist` 与仓库调研；任务拆分后同时暴露 `$zstt-artifact-analysis` 与编码实现。用户可以跳过质量门禁，但报告一旦存在，下游必须校验其状态和输入指纹。
 
 ## Skill 与 Rules 分工
 
@@ -108,7 +115,7 @@ flowchart LR
 
 仓库调研采用显式本地路径优先：用户给出仓库路径后，只读取指定 checkout，不检查或调用远程仓库 MCP；未给路径时，才检查本机受 Git 忽略的 `.zstt-kit/.env/.env.local` 私有配置，并确认当前会话确实暴露匹配的只读 MCP。配置缺失、工具未注册或调用失败时进入本地源码、CodeGraph、`rg` 和逐层阅读的默认降级。`.env.local` 不会自动注册 MCP，也不得把其中 URL 当普通 HTTP 接口请求。
 
-每个阶段仍只有一个唯一权威主产物。接口明细、Schema、Review 轮次、测试轮次和代码简化记录等细节可写入 `auxiliary/`，但必须由主产物索引，不能形成第二份当前结论。系统可以推荐下一步，但不会自动执行任何推荐的 Skill。
+每个阶段仍只有一个唯一权威主产物。接口明细、Schema、Review 轮次、测试轮次和代码简化记录等细节可写入 `auxiliary/`，但必须由主产物索引，不能形成第二份当前结论。`checklists/requirements.md` 和 `analysis/artifact-analysis.md` 是带输入指纹的派生质量报告，不替代 `00`–`03` 权威产物。系统可以推荐下一步，但不会自动执行任何推荐的 Skill。
 
 技术方案采用阶段内 SQL Gate：先完成业务、职责、主流程和接口设计，再判断 SQL 影响。无 SQL 变化时记录依据后继续；新增或修改查询、DML、DDL、索引或约束时，先在 `auxiliary/sql-design.sql` 给出精确语句并等待用户确认，确认前不继续方案后半段，也不能进入任务拆分。确认后 SQL 变化会自动使旧指纹失效。
 
@@ -260,11 +267,15 @@ $zstt-requirement-clarification
 Full 示例：
 
 ```text
+$zstt-requirement-checklist
+检查 .zstt/features/20260716-learning-report
+
+# 或跳过可选检查，直接进入固定下一阶段
 $zstt-repo-research
 继续处理 .zstt/features/20260716-learning-report
 ```
 
-后续阶段使用同一需求目录，并依次显式调用 `$zstt-technical-design`、`$zstt-task-breakdown`、`$zstt-implementation`、`$zstt-code-review` 和 `$zstt-test-verify`。
+后续阶段使用同一需求目录，并依次显式调用 `$zstt-technical-design`、`$zstt-task-breakdown`、`$zstt-implementation`、`$zstt-code-review` 和 `$zstt-test-verify`。任务拆分完成后可以先调用 `$zstt-artifact-analysis`；如果跳过，则直接实现。
 
 Quick 完成需求澄清后，直接显式调用实现阶段：
 
@@ -285,9 +296,13 @@ Quick 的代码评审和测试验证由用户根据风险决定是否调用。�
 .zstt/features/YYYYMMDD-feature-name/
 ├─ meta.json
 ├─ 00-requirement.md
+├─ checklists/
+│  └─ requirements.md          # 可选派生质量门禁
 ├─ 01-research.md
 ├─ 02-design.md
 ├─ 03-tasks.md
+├─ analysis/
+│  └─ artifact-analysis.md     # 可选派生质量门禁
 ├─ 04-implementation.md
 ├─ 05-code-review.md
 ├─ 06-test-report.md
@@ -302,13 +317,15 @@ Quick 的代码评审和测试验证由用户根据风险决定是否调用。�
 .zstt/quick/YYYYMMDD-quick-name/
 ├─ meta.json
 ├─ 00-requirement.md
+├─ checklists/
+│  └─ requirements.md          # 仅显式调用时创建
 ├─ 01-implementation.md
 ├─ 02-code-review.md
 ├─ 03-test-report.md
 └─ auxiliary/
 ```
 
-quick 必须先做轻量需求澄清。Review 和测试由用户决定是否调用；即使跳过 Review，测试报告仍固定使用 `03-test-report.md`。
+quick 必须先做轻量需求澄清，固定链路仍直接进入实现。用户显式执行需求 Checklist 时，已有报告会在实现前被校验；未执行时行为不变。Review 和测试由用户决定是否调用；即使跳过 Review，测试报告仍固定使用 `03-test-report.md`。
 
 ## 状态和门禁工具
 
@@ -326,6 +343,8 @@ python .zstt-kit/runtime/workflow_cli.py bind-branch --repo-root <repo> --featur
 python .zstt-kit/runtime/workflow_cli.py close --current --repo-root <repo>
 python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
 python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
+python .zstt-kit/runtime/workflow_cli.py prepare-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
+python .zstt-kit/runtime/workflow_cli.py validate-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
 ```
 
 Runtime 失败也提供稳定错误码。需要机器读取时，把 `--json` 放在子命令之前：
@@ -340,10 +359,13 @@ python .zstt-kit/runtime/workflow_cli.py --json prepare-stage --feature-dir <fea
 - `meta.json` 兼容性记录 `git_branch`、`workflow_status` 和 `skipped_stages`。Full 完成全部阶段、Quick 完成测试时自动关闭；Quick 跳过可选 Review/测试时通过 `close` 显式关闭。
 - 已关闭产物发生变化时，需求重新成为可恢复候选；重新准备或完成受影响阶段后刷新状态。
 - `prepare-stage` 在创建当前产物前重新校验上游，并对照内容指纹检测用户修改。
+- `prepare-quality-gate` 只在报告不存在时创建模板并返回当前输入指纹；`validate-quality-gate` 校验报告结构、问题计数、状态和输入新鲜度，不推进固定阶段。
+- `status` 动态输出 `quality_gates`。`skipped` 表示文件不存在；`passed/conditional/blocked/stale` 均来自固定路径上的当前报告，不写入 `completed_stages`。
+- 下游采用“存在即消费”：缺少报告表示跳过；已有报告为 P0、过期或无效时阻断，只有 P1/P2 时记录风险后继续。
 - `complete-stage` 除了校验状态、P0、章节和模板项，还会校验需求 `S/R/Q` 来源与验收覆盖、最终确认来源，以及调研 `R/C/E/RQ` 覆盖、仓库 ChangeScope、本地证据行号、共享语义和当前 SQL 事实，成功后记录新指纹。
 - 已完成产物发生变化时，该阶段及其下游完成状态自动撤销，但原产物文件保留；用户重新执行被修改阶段的 `complete-stage` 后才能继续。
 - `meta.json` 由工具维护，不要手工编辑。
-- `recommended_next_skill` 保留首个推荐以兼容旧调用方；新调用方应优先读取 `recommended_next_skills`，以支持 Quick 的并列可选分支。
+- `recommended_next_skill` 保留首个推荐以兼容旧调用方；新调用方应优先读取 `recommended_next_skills`，以支持 Full 的质量门禁 handoff 和 Quick 的并列可选分支。
 
 ## 错误恢复
 
@@ -357,9 +379,9 @@ python .zstt-kit/runtime/workflow_cli.py --json prepare-stage --feature-dir <fea
 
 ## 辅助 Skill
 
-`$zstt-artifact-analysis` 用于 Full 任务拆分完成后的实现前只读分析。它先确认四份上游主产物和 SQL Gate 仍然有效，再检查 `Rxx → Cxx → Dxx → Txx` 的语义覆盖、术语与数据身份一致性、契约/SQL 传递、任务依赖、并行冲突和项目规则对齐。实现已经完成时停止并推荐代码评审；实现阶段已经留下实际执行记录时不再冒充实现前分析。它只在聊天中输出规则快照、稳定问题 ID 和覆盖指标，不修改产物、`meta.json` 或业务代码；发现问题时指出最早应回写的权威阶段。
+`$zstt-artifact-analysis` 用于 Full 任务拆分完成后的实现前分析。它先确认四份上游主产物和 SQL Gate 仍然有效，再检查 `Rxx → Cxx → Dxx → Txx` 的语义覆盖、术语与数据身份一致性、契约/SQL 传递、任务依赖、并行冲突和项目规则对齐。结果写入 `analysis/artifact-analysis.md`，保存规则快照、四份输入指纹、稳定问题 ID 和覆盖指标；只允许修改这份派生报告，不修改权威产物、`meta.json` 或业务代码。实现已经完成或留下实际执行记录时停止并推荐代码评审。
 
-`$zstt-requirement-checklist` 把 full/quick 的 `00-requirement.md` 当作自然语言规格做只读质量检查，关注完整性、清晰度、一致性、可度量性、追溯性和场景覆盖。Checklist 检查“需求是否写清”，不检查实现是否工作；默认只在聊天中输出规则快照和检查项，不能替用户补写业务事实或完成需求阶段。发现缺口时由用户显式返回 `$zstt-requirement-clarification` 更新唯一权威需求。
+`$zstt-requirement-checklist` 把 full/quick 的 `00-requirement.md` 当作自然语言规格执行质量检查，关注完整性、清晰度、一致性、可度量性、追溯性和场景覆盖。结果写入 `checklists/requirements.md`：有文档证据的检查项标记 `[x]`，缺失、歧义或冲突项保留 `[ ]` 并记录证据、级别和建议回写位置。它不检查实现，也不能替用户补写业务事实或完成需求阶段；发现缺口时由用户显式返回 `$zstt-requirement-clarification` 更新唯一权威需求，再重新执行 Checklist。
 
 `$zstt-bug-fix` 用于 Java 后端 Bug、线上问题和偶现问题的证据化排查与最小修复。它先结合代码、Trace、日志、MySQL、ES 和时间线交付根因、影响与方案，只有用户看到结论后二次确认才修改代码。默认直接在当前任务中交付，不创建报告；只有用户明确要求保存文档时，独立记录才写入 `.zstt/bugs/`，关联需求时写入需求 `auxiliary/bugs/`。项目已注册只读 Observability MCP 时优先查询 Trace 和 SLS；未注册时输出精确降级查询条件。涉及新增能力、接口/消息契约、表结构、索引、SQL 口径、核心状态或权限变化时转入 Full/Quick 对应阶段，不借 Bug 修复绕过方案和 SQL Gate。
 
@@ -377,7 +399,7 @@ Java 开发规范、抽象、设计模式和 DDD 决策已经统一放入 `.zstt
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-验证脚本会运行仓库内 12 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、需求来源与验收覆盖、实现前跨产物分析、需求质量 Checklist、调研证据交叉引用、本地文件行号、共享语义/SQL 影响、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
+验证脚本会运行仓库内 12 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、需求来源与验收覆盖、持久化质量门禁、输入指纹失效、实现前跨产物分析、需求质量 Checklist、调研证据交叉引用、本地文件行号、共享语义/SQL 影响、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
 
 ## 非目标
 

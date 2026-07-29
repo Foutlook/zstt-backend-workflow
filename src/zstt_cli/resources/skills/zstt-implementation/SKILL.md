@@ -19,7 +19,8 @@ description: ZSTT Java 后端编码实现阶段。仅当用户明确指定 $zstt
 4. full 读取 `00`–`03` 主产物；quick 读取 `00-requirement.md`。根据任务、完整目标文件、真实调用链和最终数据源追加 `jackson`、`data-access`、`transaction`、`concurrency`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；不得只凭文件名选择规则。
 5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
 6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage implementation --feature-dir <需求目录>`，让 CLI 重新校验上游，并先在实现产物写简短执行计划。
-7. 记录会话基线：`git status --short`、目标文件定向 diff 和未跟踪状态；将开始前已有内容标为用户工作区基线，不把它归因于本轮，也不使用破坏性命令回滚。
+7. Runtime 按“存在即消费”处理可选质量门禁：Full 检查 `analysis/artifact-analysis.md`，Quick 检查 `checklists/requirements.md`；文件不存在表示用户跳过，存在 P0、输入指纹过期或报告无效时停止，只有 P1/P2 时记录风险后继续。不得删除报告来规避已经发现的问题。
+8. 记录会话基线：`git status --short`、目标文件定向 diff 和未跟踪状态；将开始前已有内容标为用户工作区基线，不把它归因于本轮，也不使用破坏性命令回滚。
 
 ## 实现顺序
 

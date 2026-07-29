@@ -1,22 +1,22 @@
 ---
 name: zstt-requirement-checklist
-description: ZSTT 需求文档质量检查辅助 Skill。仅当用户明确指定 $zstt-requirement-checklist，或明确要求按 ZSTT 以“需求文档单元测试”方式只读检查 full/quick 的 00-requirement.md 完整性、清晰度、一致性、可度量性、追溯性和场景覆盖时使用；不检查实现、不修改产物、不推进阶段。
+description: ZSTT 需求文档质量门禁辅助 Skill。仅当用户明确指定 $zstt-requirement-checklist，或明确要求按 ZSTT 以“需求文档单元测试”方式评估 full/quick 的 00-requirement.md 完整性、清晰度、一致性、可度量性、追溯性和场景覆盖时使用；把已执行检查及证据持久化到 checklists/requirements.md，不检查实现、不修改权威需求、不推进固定阶段。
 ---
 
 # ZSTT Requirement Checklist
 
 ## 定位
 
-把 `00-requirement.md` 当作“用自然语言编写的可执行规格”，生成一组检查需求写作质量的问题。
+把 `00-requirement.md` 当作“用自然语言编写的可执行规格”，执行一组检查需求写作质量的问题，并把判断、证据和未解决项保存为可跨上下文消费的质量门禁。
 
 检查的是“需求是否定义清楚”，不是“代码是否工作”。例如：
 
 - 正确：`R05 是否定义了重复请求的幂等判断键？[完整性]`
 - 错误：`验证接口重复调用时是否只写入一条记录。`
 
-本 Skill 不属于 Full/Quick 固定阶段，不修改 `.zstt/meta.json`。它可以在需求澄清过程中用于发现缺口，也可以在需求完成后用于只读复核；发现问题后只能建议回到 `$zstt-requirement-clarification` 更新唯一权威需求。
+本 Skill 不属于 Full/Quick 固定阶段，不修改 `.zstt/meta.json`。它可以在需求澄清过程中用于发现缺口，也可以在需求完成后用于复核；只创建或更新当前需求目录下的 `checklists/requirements.md`。该文件是派生检查产物，不是第二份权威需求；发现问题后只能建议回到 `$zstt-requirement-clarification` 更新唯一权威的 `00-requirement.md`。
 
-仅当用户明确指定本 Skill 时执行。不得自动修改需求、完成需求阶段、进入仓库调研或生成实现测试用例。
+仅当用户明确指定本 Skill 时执行。不得自动修改需求、完成需求阶段、进入仓库调研或生成实现测试用例。Full 会把本 Skill 和仓库调研作为并列 handoff；Quick 固定链路不增加阶段，用户显式调用时才产生本门禁。
 
 ## 开始前
 
@@ -25,19 +25,21 @@ description: ZSTT 需求文档质量检查辅助 Skill。仅当用户明确指�
 3. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因；解析失败或规则缺失时停止，并执行 `zstt check --here`。
 4. 确认用户给出的需求目录位于 `.zstt/features/` 或 `.zstt/quick/`。用户显式目录优先；未给目录时运行 `current --repo-root <业务仓库>`，只接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 并要求用户选择，不能按日期猜测。
 5. 运行只读 `status` 获取模式和当前状态。读取 `00-requirement.md`；如果文件不存在则停止并建议先调用 `$zstt-requirement-clarification`。
-6. 用户指定检查领域时以该领域为主；未指定时，根据需求中已确认的角色、状态、数据身份、契约、性能和风险选择 2–4 个高价值领域，说明选择依据。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-quality-gate --gate requirement_checklist --feature-dir <需求目录>`。读取命令返回的报告路径和 `requirement_clarification` 输入指纹；命令只会在文件不存在时创建模板，不覆盖既有检查结果。
+7. 如果 `checklists/requirements.md` 已存在，以 UTF-8 完整读取它。把旧结果作为对账输入，不因旧项存在就沿用结论；当前 `00-requirement.md` 才是判断依据。
+8. 用户指定检查领域时以该领域为主；未指定时，根据需求中已确认的角色、状态、数据身份、契约、性能和风险选择 2–4 个高价值领域，说明选择依据。
 
 需求仍是 draft 时允许分析未完成内容，但必须把“尚未填写”和“已填写但质量不足”分开。不要为了让 checklist 通过而替用户补写业务事实。
 
 ## 执行分流
 
-生成 Checklist 前，按以下顺序收敛检查范围：
+执行 Checklist 前，按以下顺序收敛检查范围：
 
 1. 从 `00-requirement.md` 提取用户指定的 `Rxx/Sxx/Qxx`、章节和已确认风险；用户在请求中列出的领域只是检查意图，不是这些领域一定适用的业务证据。
 2. 将候选领域分为“有文档证据且影响当前实现/验收”“信息不足，需要提出澄清问题”“与当前范围无关或已有具体不适用原因”。只为前两类生成高价值检查项。
 3. Quick 默认保持 Quick：只检查会改变当前小改动边界或验收的缺口。不得因为用户一次列出权限、状态、迁移、性能、安全等多个名词，就自动补齐全部 Full 维度或断言必须升级 Full。
 4. 只有文档证据表明权限、核心状态、数据身份、外部契约或验收无法在 Quick 范围闭环时，才增加一条“是否升级 Full”的待确认问题；升级是用户决策，不能替代本次 Quick Checklist。
-5. 无论用户是否要求“直接补写”或“完成阶段”，仍先输出符合本 Skill 契约的 Checklist，并在摘要中明确拒绝越权动作；不能只输出一段拒绝或升级建议。
+5. 无论用户是否要求“直接补写”或“完成阶段”，仍先完成并持久化符合本 Skill 契约的 Checklist，在摘要中明确拒绝越权动作；不能只输出一段拒绝或升级建议。
 
 ## 检查维度
 
@@ -84,7 +86,7 @@ description: ZSTT 需求文档质量检查辅助 Skill。仅当用户明确指�
 - 有状态写入时是否定义幂等、并发、事务外副作用和部分失败；
 - 跨项目契约是否定义兼容窗口、调用顺序和失败责任。
 
-## 生成规则
+## 执行与判定规则
 
 - 使用问题句检查文档是否定义某项要求，不使用实施验证动作。
 - 每项使用全局唯一 `CHK001` 起始的顺序 ID。
@@ -94,6 +96,9 @@ description: ZSTT 需求文档质量检查辅助 Skill。仅当用户明确指�
 - 原始候选超过 40 项时按风险合并和裁剪；相同问题不要因出现在多个章节而重复生成。
 - Quick 只检查会改变当前小改动实现或验收的高风险缺口，不机械扩展成 Full 清单。权限、核心状态、数据身份、外部契约或验收无法闭环时，可以建议升级 Full，但不得自动切换模式。
 - 文档没有给出状态码、阈值、超时时间、重试次数、退避策略或幂等键时，只能询问“是否定义”，不得用 `400`、`3 秒`、`重试 2 次` 等示例替用户生成候选事实。
+- 对每个适用问题执行判断：`00-requirement.md` 有具体证据时标记 `[x]`，证据不足、歧义或冲突仍存在时标记 `[ ]`。标记 `[x]` 是对现有文档的判断，不得通过推测事实让检查通过。
+- 每个检查项在同一行记录 `证据：`；满足项指向具体 `Rxx/Sxx/Qxx` 或章节，未满足项说明缺失或冲突位置。
+- 相同输入重复执行时保持检查范围、排序和 ID 稳定。需求变化后对同一份报告进行对账更新，不盲目追加旧项，也不创建 `requirements-v2.md`、`final.md` 等平行报告。
 
 ## 禁止模式
 
@@ -111,56 +116,72 @@ description: ZSTT 需求文档质量检查辅助 Skill。仅当用户明确指�
 - “是否明确重复提交的身份键、时间窗口和预期结果？[Gap]”
 - “R03 中的‘快速返回’是否量化为响应时间和统计口径？[Ambiguity, R03]”
 
-## 输出
+## 持久化产物
 
-只在聊天中输出，不创建或修改任何文件：
+更新 `<需求目录>/checklists/requirements.md`，使用 `prepare-quality-gate` 创建的模板和以下契约：
 
 ```markdown
-## ZSTT 需求质量 Checklist
+---
+quality_gate_schema_version: 1
+quality_gate: requirement_checklist
+mode: full / quick
+status: passed / conditional / blocked
+blocking_p0_count: 0
+open_p1_count: 0
+open_p2_count: 0
+ruleset_version: ""
+ruleset_fingerprint: ""
+requirement_fingerprint: ""
+---
 
-- 模式：full / quick
-- 检查范围：
-- 需求状态：draft / completed
+## 检查范围
 
-### 规则快照
-- rulesetVersion：
-- rulesetFingerprint：
-- 已加载规则及选择原因：
+## Checklist
 
-### 完整性
-- [ ] CHK001 [P0] 是否……？[Gap, R03]
+- [x] CHK001 [P1] R03 是否量化响应目标？[Clarity, R03] — 证据：R03 已给出阈值和统计口径
+- [ ] CHK002 [P0] 是否定义重复提交的业务身份键？[Gap] — 证据：R05 只定义结果，未定义身份键
 
-### 清晰度与可度量性
-- [ ] CHK002 [P1] 是否……？[Ambiguity, R07]
+## 级别摘要
 
-### 摘要
 | 级别 | 数量 | 主要影响 |
 |---|---:|---|
 
-### 建议回写
+## 建议回写
+
 | Checklist | 目标章节 | 建议澄清的问题 |
 |---|---|---|
+
+## 未覆盖领域
 ```
 
-Checklist 是审查问题，不是新的业务事实。不要把某项自动标记为完成；只有 `00-requirement.md` 的具体内容能证明它已经满足。
+`ruleset_version`、`ruleset_fingerprint` 和 `requirement_fingerprint` 必须填写本次真实值。正文未解决项决定 frontmatter：存在 P0 时为 `blocked`；P0 为 0 且存在 P1/P2 时为 `conditional`；全部解决时为 `passed`。
 
-没有质量问题时，明确报告检查范围、需求状态和未覆盖领域，不制造无关问题。
+写入后运行：
+
+```text
+python .zstt-kit/runtime/workflow_cli.py validate-quality-gate --gate requirement_checklist --feature-dir <需求目录>
+```
+
+结构、计数或输入指纹校验失败时修正报告，不能把失败报告说成可继续。没有质量问题时仍保留已执行且有证据的 `[x]` 检查项，明确检查范围和未覆盖领域，不制造无关问题。
+
+聊天交付只摘要报告路径、状态、P0/P1/P2、主要未解决项和下一步，不重复粘贴整份报告。P0 清零后，Full 可推荐 `$zstt-repo-research`，Quick 可推荐 `$zstt-implementation`，但不得自动调用。
 
 ### 交付前硬门禁
 
 输出前逐项自检；任一项不满足时先在内部重写，不能交付自由格式替代品：
 
-1. 标题、模式、检查范围、需求状态和规则快照已填写。
-2. 每个检查项都是问题句，并同时包含连续 `CHKxxx`、`P0/P1/P2` 和质量标签。
+1. 报告路径固定，frontmatter、检查范围、规则快照和当前输入指纹已填写。
+2. 每个检查项都是已执行的问题句，并同时包含 `[x]/[ ]`、连续 `CHKxxx`、`P0/P1/P2`、质量标签和同一行证据。
 3. 至少 80% 的检查项引用具体 `Rxx/Sxx/Qxx`、章节，或标记 `[Gap]/[Ambiguity]/[Conflict]/[Assumption]`。
-4. 输出包含级别摘要和建议回写表；即使因越权请求而拒绝修改，也不能省略这两部分。
-5. 没有补造状态码、阈值、时间、次数、算法或实现方案。
-6. Quick 只覆盖证据相关风险；“是否升级 Full”至多是一条待确认问题，不能成为整份输出的替代结论。
-7. 未修改文件、未推进阶段，也未声称 Checklist 已自动通过。
+4. 报告包含级别摘要、建议回写表和未覆盖领域；即使因越权请求而拒绝修改需求，也不能省略检查结果。
+5. frontmatter 状态和 P0/P1/P2 数量与正文未解决项完全一致。
+6. 没有补造状态码、阈值、时间、次数、算法或实现方案。
+7. Quick 只覆盖证据相关风险；“是否升级 Full”至多是一条待确认问题，不能成为整份输出的替代结论。
+8. `validate-quality-gate` 已通过；未修改权威产物、业务代码或阶段状态。
 
 ## 禁止事项
 
-- 不修改 `00-requirement.md`、其他阶段产物、附件或 `.zstt/meta.json`。
+- 除固定的 `checklists/requirements.md` 外，不修改 `00-requirement.md`、其他阶段产物、附件或 `.zstt/meta.json`。
 - 不把 Checklist 保存成第二份权威需求或阶段主产物。
 - 不替用户补写权限、状态、数据身份、契约、阈值或验收口径。
 - 不检查代码实现是否符合需求，不运行实现测试。
