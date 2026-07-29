@@ -20,6 +20,7 @@ REQUIRED_SUFFIXES = (
     "zstt_cli/resources/rules/java/design-patterns.md",
     "zstt_cli/resources/runtime/rule_resolver.py",
     "zstt_cli/resources/runtime/quality_gates.py",
+    "zstt_cli/resources/runtime/implementation_evidence.py",
     "zstt_cli/resources/runtime/with_env.py",
     "zstt_cli/resources/runtime/workflow_cli.py",
     "zstt_cli/resources/env/.env.example",

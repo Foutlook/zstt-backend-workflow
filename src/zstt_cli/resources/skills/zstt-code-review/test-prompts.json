@@ -8,5 +8,10 @@
     "id": 2,
     "prompt": "$zstt-code-review 评审一个范围很小、测试证据完整的 DTO 修复；如果没有明确问题就直接说明，不要给风格建议。",
     "expected": "完成必要的接口、Jackson、兼容和证据检查；无可操作问题时明确通过及未覆盖边界，不制造问题。"
+  },
+  {
+    "id": 3,
+    "prompt": "$zstt-code-review 实现证据把 Service.java 标为 changedFromBaseline；开始实现前这个文件已有用户改动，请确认哪些变化属于本轮。",
+    "expected": "读取 implementation-evidence.json 和完整 diff，把自动分类作为文件级范围线索而非归属结论；只有存在可核对的 patch、提交或实现记录时才区分 hunk，否则明确无法精确归属并阻塞通过。"
   }
 ]

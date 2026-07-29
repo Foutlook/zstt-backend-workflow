@@ -285,6 +285,8 @@ class SupportingSkillContractTest(unittest.TestCase):
             "最终数据源",
             "P0/P1/P2/P3",
             "05-code-review.md",
+            "implementation-evidence.json",
+            "changedFromBaseline",
         ):
             self.assertIn(token, text)
 
@@ -299,6 +301,8 @@ class SupportingSkillContractTest(unittest.TestCase):
             "覆盖不足",
             "证据链",
             "06-test-report.md",
+            "implementation-evidence.json",
+            "不能替代本测试阶段",
         ):
             self.assertIn(token, text)
 

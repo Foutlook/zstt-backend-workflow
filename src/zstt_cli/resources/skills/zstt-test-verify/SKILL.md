@@ -18,7 +18,7 @@ description: ZSTT Java 后端测试验证阶段。仅当用户明确指定 $zstt
 3. 完整读取 `references/advanced-playbook.md`，按其中的模式分流、能力探测、凭证安全、执行证据和差异归因规则工作。
 4. 盘点需求、方案、实现、测试用例、缺陷、环境、数据和运行证据；根据测试对象的真实接口、数据源和运行边界追加 `jackson`、`data-access`、`transaction`、`concurrency` 或 `smart-doc` 等上下文并重新解析。
 5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
-6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage test_verify --feature-dir <需求目录>`，重新校验必需上游。quick 可以不执行 Review；Review 产物一旦存在就必须通过校验。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage test_verify --feature-dir <需求目录>`，重新校验必需上游。Runtime 会先刷新 `auxiliary/implementation-evidence.json`；读取其中的准备阶段基线、当前变化分类和实现期验证记录。quick 可以不执行 Review；Review 产物一旦存在就必须通过校验。
 
 ## 验证模式
 
@@ -36,6 +36,8 @@ description: ZSTT Java 后端测试验证阶段。仅当用户明确指定 $zstt
 4. 对失败或高风险项追到直接失败点、真实调用链、最终数据源/计算点和关键参数。
 5. 执行与风险相称的编译、单测、接口、主链路、SQL、异步和回归验证。
 6. 每个未测场景写明原因；关键场景失败或未测时不得给出“通过”。
+
+实现证据只说明实现阶段执行过哪些命令、退出码及对应工作区指纹，不能替代本测试阶段的实际执行、输出、环境和断言。过期验证不能代表当前代码；`newlyChanged`、`changedFromBaseline` 等文件分类也不能单独证明代码归属或需求已实现。
 
 测试前先探测实际可用环境、token 角色、权限、前置数据和测试资产。工具或运行条件缺失时执行标准降级，保留未验证边界，不得伪造测试结果。
 

@@ -84,12 +84,10 @@ REQUIRED_HEADINGS: dict[tuple[str, str], tuple[str, ...]] = {
     ),
     ("quick", "requirement_clarification"): (
         "## 1. 输入与目标",
-        "## 2. 修改范围与不做事项",
-        "## 3. 关键规则与风险",
-        "## 4. 验收信号",
-        "## 5. 未决问题与阻塞项",
-        "## 6. 确认记录",
-        "## 7. 下游交接",
+        "## 2. 最小修改契约",
+        "## 3. 验收信号",
+        "## 4. 未决问题与阻塞项",
+        "## 5. 确认与实现交接",
     ),
     ("full", "repo_research"): (
         "## 1. 输入与调研范围",
@@ -129,20 +127,17 @@ REQUIRED_HEADINGS: dict[tuple[str, str], tuple[str, ...]] = {
     ),
     ("full", "implementation"): (
         "## 1. 实现前检查",
-        "## 2. 执行计划",
-        "## 3. 实际修改与任务状态",
-        "## 4. 设计偏差与回写",
-        "## 5. 质量自检",
-        "## 6. 验证命令与结果",
-        "## 7. Review 交接",
+        "## 2. 任务增量",
+        "## 3. 自动派生实现证据",
+        "## 4. 上游偏差与回写",
+        "## 5. 人工质量结论",
+        "## 6. Review 交接",
     ),
     ("quick", "implementation"): (
-        "## 1. 实现前检查",
-        "## 2. 简短执行计划",
-        "## 3. 实际修改",
-        "## 4. 边界偏差与风险",
-        "## 5. 验证结果",
-        "## 6. 下一步建议",
+        "## 1. 实现边界",
+        "## 2. 自动派生实现证据",
+        "## 3. 边界偏差与风险",
+        "## 4. 验证结论与下一步",
     ),
     ("full", "code_review"): (
         "## 1. 评审范围与输入",
@@ -176,6 +171,47 @@ REQUIRED_HEADINGS: dict[tuple[str, str], tuple[str, ...]] = {
         "## 4. 差异与风险",
         "## 5. 交付结论",
     ),
+}
+
+LEGACY_REQUIRED_HEADINGS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("quick", "requirement_clarification"): (
+        "## 1. 输入与目标",
+        "## 2. 修改范围与不做事项",
+        "## 3. 关键规则与风险",
+        "## 4. 验收信号",
+        "## 5. 未决问题与阻塞项",
+        "## 6. 确认记录",
+        "## 7. 下游交接",
+    ),
+    ("full", "implementation"): (
+        "## 1. 实现前检查",
+        "## 2. 执行计划",
+        "## 3. 实际修改与任务状态",
+        "## 4. 设计偏差与回写",
+        "## 5. 质量自检",
+        "## 6. 验证命令与结果",
+        "## 7. Review 交接",
+    ),
+    ("quick", "implementation"): (
+        "## 1. 实现前检查",
+        "## 2. 简短执行计划",
+        "## 3. 实际修改",
+        "## 4. 边界偏差与风险",
+        "## 5. 验证结果",
+        "## 6. 下一步建议",
+    ),
+}
+
+CURRENT_STRUCTURE_MARKERS: dict[tuple[str, str], str] = {
+    ("quick", "requirement_clarification"): "## 2. 最小修改契约",
+    ("full", "implementation"): "## 2. 任务增量",
+    ("quick", "implementation"): "## 1. 实现边界",
+}
+
+LEGACY_STRUCTURE_MARKERS: dict[tuple[str, str], str] = {
+    ("quick", "requirement_clarification"): "## 2. 修改范围与不做事项",
+    ("full", "implementation"): "## 2. 执行计划",
+    ("quick", "implementation"): "## 1. 实现前检查",
 }
 
 TECHNICAL_DESIGN_PRE_SQL_HEADINGS = REQUIRED_HEADINGS[("full", "technical_design")][:7]
@@ -748,6 +784,10 @@ def validate_requirement_traceability(
 ) -> list[str]:
     """Validate the Sxx -> Rxx/Qxx -> acceptance chain used as downstream truth."""
     errors: list[str] = []
+    current_quick_contract = (
+        mode == "quick"
+        and CURRENT_STRUCTURE_MARKERS[("quick", "requirement_clarification")] in text
+    )
 
     material_headers, material_rows = find_markdown_table(
         text,
@@ -821,6 +861,15 @@ def validate_requirement_traceability(
         )
         if not any(table_value(row, header) for header in conclusion_headers):
             errors.append(f"00-requirement.md {requirement_id} 缺少实质业务结论")
+        if current_quick_contract:
+            if not is_substantive_value(table_value(row, "允许修改")):
+                errors.append(
+                    f"00-requirement.md {requirement_id} 缺少实质允许修改范围"
+                )
+            if not is_substantive_value(table_value(row, "明确不做")):
+                errors.append(
+                    f"00-requirement.md {requirement_id} 缺少实质不做事项"
+                )
     for requirement_id in duplicate_ids(requirement_ids):
         errors.append(f"00-requirement.md 需求 ID 重复: {requirement_id}")
 
@@ -941,6 +990,21 @@ def validate_requirement_traceability(
         errors.append("00-requirement.md 未完成最终反向确认")
     if not is_meaningful_value(frontmatter.get("confirmation_source", "")):
         errors.append("00-requirement.md 缺少可回查的最终确认来源")
+    if current_quick_contract:
+        mode_assessment = extract_line_value(text, "模式评估")
+        user_mode_decision = extract_line_value(text, "用户模式决定")
+        mode_decision_source = extract_line_value(text, "模式决定来源")
+        if mode_assessment not in {"保持 Quick", "建议升级 Full"}:
+            errors.append(
+                "00-requirement.md 模式评估必须是保持 Quick 或建议升级 Full"
+            )
+        if user_mode_decision != "保持 Quick":
+            errors.append(
+                "00-requirement.md Quick 完成前必须记录用户决定保持 Quick；"
+                "建议或决定升级 Full 时保持 draft"
+            )
+        if not is_substantive_value(mode_decision_source):
+            errors.append("00-requirement.md 缺少可回查的模式决定来源")
     return errors
 
 
@@ -2243,9 +2307,10 @@ def validate_stage_document(
             ):
                 errors.append("frontmatter 缺少用户 SQL 确认来源")
 
+    required_headings = headings_for_document(text, mode, stage)
     missing_headings = [
         heading
-        for heading in REQUIRED_HEADINGS.get((mode, stage), ())
+        for heading in required_headings
         if heading not in text
     ]
     if missing_headings:
@@ -2253,7 +2318,7 @@ def validate_stage_document(
     if require_completed:
         empty_sections = [
             heading
-            for heading in REQUIRED_HEADINGS.get((mode, stage), ())
+            for heading in required_headings
             if heading in text and not section_has_substance(section_body(text, heading))
         ]
         if empty_sections:
@@ -2272,3 +2337,17 @@ def validate_stage_document(
         if mode == "full" and stage == "task_breakdown" and schema_version == 1:
             errors.extend(validate_task_schema_v1(path, text))
     return errors, frontmatter
+
+
+def headings_for_document(text: str, mode: str, stage: str) -> tuple[str, ...]:
+    """Keep active pre-upgrade artifacts valid while new artifacts use the slim schema."""
+    key = (mode, stage)
+    current = REQUIRED_HEADINGS.get(key, ())
+    legacy = LEGACY_REQUIRED_HEADINGS.get(key)
+    if not legacy:
+        return current
+    if CURRENT_STRUCTURE_MARKERS[key] in text:
+        return current
+    if LEGACY_STRUCTURE_MARKERS[key] in text:
+        return legacy
+    return current

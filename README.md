@@ -27,6 +27,8 @@
 - 每次只完成当前阶段，并在 `.zstt/` 保留一份唯一权威主产物。
 - 文档已生成不等于阶段完成；只有实质内容门禁通过、P0 清零并记录输入指纹后才能继续。
 - 需求 Checklist 和实现前一致性分析可以跳过；一旦执行就持久化，后续上下文会消费报告，不能只把问题留在对话里。
+- 下游采用增量写作：引用 `Rxx/Cxx/Dxx/Txx`，只记录本阶段新增事实、决策和偏差，不复制上游正文。
+- 实现阶段由 Runtime 自动保存 Git 基线、相对基线的文件变化和验证命令结果；既存用户改动不会仅因出现在最终 diff 中就自动归因于本轮实现。
 - 用户修改已完成产物后，Runtime 会重新校验并使该阶段及下游旧结论失效。
 - 工具不可用时允许标准降级，但不能伪造远程证据、运行结果或测试通过。
 - 固定流程止于测试验证，不自动 commit、push、合并、发布或部署。
@@ -132,7 +134,7 @@ flowchart LR
     class RC,CR,TV optional
 ```
 
-Quick 的固定链路仍是“需求澄清 → 实现”。需求 Checklist 不会被自动推荐或插入链路，但用户显式执行后，已有报告会在实现前校验。实现完成后，Runtime 同时推荐可选 Review 和测试；测试完成后流程结束，不会倒退推荐 Review。即使跳过 Review，测试报告仍固定为 `03-test-report.md`。
+Quick 的固定链路仍是“需求澄清 → 实现”。Quick 需求只写会改变实现或验收的最小契约，无关维度直接省略，并持久化模式评估、用户决定和决定来源；决定升级 Full 时保持 Quick 为 draft。实现记录引用需求 ID，不再复述整份需求。需求 Checklist 不会被自动推荐或插入链路，但用户显式执行后，已有报告会在实现前校验。实现完成后，Runtime 同时推荐可选 Review 和测试；测试完成后流程结束，不会倒退推荐 Review。即使跳过 Review，测试报告仍固定为 `03-test-report.md`。
 
 ## 12 个 Skill
 
@@ -146,7 +148,7 @@ Quick 的固定链路仍是“需求澄清 → 实现”。需求 Checklist 不�
 | `$zstt-technical-design` | 固定阶段；仅 Full | 代码事实已查清，需要形成可评审的最小技术方案时 | `02-design.md`；按需生成 `auxiliary/sql-design.sql` | 完成方案阶段 |
 | `$zstt-task-breakdown` | 固定阶段；仅 Full | 需要把设计拆成可执行、可追溯、可验证的编码任务时 | `03-tasks.md` | 完成任务阶段 |
 | `$zstt-artifact-analysis` | 可选质量门禁；仅 Full | 任务完成、编码前，横向检查 `Rxx → Cxx → Dxx → Txx` 和契约/数据/依赖一致性 | `analysis/artifact-analysis.md` | 不推进；存在即被实现消费 |
-| `$zstt-implementation` | 固定阶段；Full/Quick | 上游已就绪，需要按任务或 Quick 边界实施最小代码改动时 | Full `04-implementation.md`；Quick `01-implementation.md` | 完成实现阶段 |
+| `$zstt-implementation` | 固定阶段；Full/Quick | 上游已就绪，需要按任务或 Quick 边界实施最小代码改动时 | Full `04-implementation.md`；Quick `01-implementation.md`；自动证据 `auxiliary/implementation-evidence.json` | 完成实现阶段 |
 | `$zstt-code-review` | Full 固定；Quick 可选 | 实现后核对上游契约、真实 diff、正确性、安全性和可维护性 | Full `05-code-review.md`；Quick `02-code-review.md` | Full 必需；Quick 按需记录 |
 | `$zstt-test-verify` | Full 固定；Quick 可选 | 执行测试并区分需求、方案、实现、用例、环境/数据和覆盖差异时 | Full `06-test-report.md`；Quick `03-test-report.md` | Full 必需；Quick 按需记录 |
 | `$zstt-bug-fix` | 按需辅助 | Bug、线上/偶现问题、日志/Trace/MySQL/ES 数据异常排查 | 默认在当前任务交付；显式要求时写 `.zstt/bugs/` 或 `auxiliary/bugs/` | 不推进固定阶段 |
@@ -179,7 +181,8 @@ Quick 的固定链路仍是“需求澄清 → 实现”。需求 Checklist 不�
 ├─ 04-implementation.md
 ├─ 05-code-review.md
 ├─ 06-test-report.md
-└─ auxiliary/                  # 被主产物索引的明细与历史轮次
+└─ auxiliary/
+   └─ implementation-evidence.json  # Runtime 自动维护的 Git/验证证据
 ```
 
 ### Quick 产物
@@ -194,6 +197,7 @@ Quick 的固定链路仍是“需求澄清 → 实现”。需求 Checklist 不�
 ├─ 02-code-review.md           # 可选
 ├─ 03-test-report.md           # 可选，编号固定
 └─ auxiliary/
+   └─ implementation-evidence.json  # Runtime 自动维护的 Git/验证证据
 ```
 
 每个阶段只创建自己的产物，不提前生成后续空文档。不同文件的权威边界如下：
@@ -204,7 +208,7 @@ Quick 的固定链路仍是“需求澄清 → 实现”。需求 Checklist 不�
 | `meta.json` | Runtime 管理的模式、分支、阶段、指纹、推荐和关闭状态 | 否；不要手工编辑 |
 | `checklists/requirements.md` | 针对当前需求版本的派生质量报告 | 否；问题应回写 `00-requirement.md` |
 | `analysis/artifact-analysis.md` | 针对需求、调研、方案、任务当前版本的一致性报告 | 否；问题应回写对应权威产物 |
-| `auxiliary/` | 接口明细、Schema、SQL 草案、Review/Test 轮次等细节 | 否；必须被主产物索引 |
+| `auxiliary/` | 接口明细、Schema、SQL 草案、实现证据、Review/Test 轮次等细节 | 否；必须被主产物索引或由 Runtime 自动关联 |
 | `.zstt/bugs/`、`.zstt/refactors/` | 不隶属某个需求的独立 Bug/重构记录 | 不改变 Full/Quick 状态 |
 
 需求材料要点、正式需求和疑问分别使用 `Sxx`、`Rxx`、`Qxx`；调研结论、证据和代码事实问题使用 `Cxx`、`Exx`、`RQxx`；设计与任务使用 `Dxx`、`Txx`。Runtime 校验这些 ID 的唯一性、引用、来源、验收和覆盖关系，避免“文档很多但无法追到实现”。
@@ -232,6 +236,7 @@ Runtime 负责确定性状态和校验，Skill 负责分析与写作，两者分
 | 输入指纹 | 准备下游、查看状态时 | 用户修改已完成产物后，撤销该阶段及下游旧完成状态，但保留文件 |
 | 需求 Checklist | Full 调研前；Quick 实现前 | 缺失则跳过；已有报告必须有效、新鲜且无 P0 |
 | 产物一致性分析 | Full 实现前 | 校验四份上游产物、规则快照、覆盖、状态和输入指纹 |
+| 实现证据 | 准备/完成实现、进入 Review 或测试前 | 自动记录 Git 基线、相对变化和验证结果；至少一条成功验证必须匹配最终工作区快照，且同一快照不能仍有失败验证 |
 | SQL Gate | Full 技术方案内 | `none` 记录无影响；`query_dml`/`ddl` 必须提供精确 SQL 并由用户确认 |
 | 当前需求解析 | `current`、`--current` | 只按当前 Git 分支选择唯一活动需求，不按日期或最近修改时间猜测 |
 | 关闭与恢复 | 自动完成或 `close` | Full 完成测试、Quick 完成测试时自动关闭；已关闭产物变化后可重新恢复 |
@@ -411,6 +416,7 @@ zstt doctor --here --json
 | `workflow_cli.py validate` | 只校验指定阶段产物 |
 | `workflow_cli.py prepare-stage` | 重新校验上游并创建目标阶段模板 |
 | `workflow_cli.py complete-stage` | 校验当前产物并记录完成状态与指纹 |
+| `workflow_cli.py run-validation` | 执行实现验证命令，记录脱敏后的命令、退出码和耗时 |
 | `workflow_cli.py prepare-quality-gate` | 创建需求 Checklist 或产物分析模板及输入指纹 |
 | `workflow_cli.py validate-quality-gate` | 校验质量报告结构、计数、状态和输入新鲜度 |
 | `workflow_cli.py prepare-sql-gate` | 记录 `none/query_dml/ddl` SQL 影响 |
@@ -425,6 +431,7 @@ python .zstt-kit/runtime/workflow_cli.py current --repo-root <repo>
 python .zstt-kit/runtime/workflow_cli.py status --current --repo-root <repo>
 python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
 python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
+python .zstt-kit/runtime/workflow_cli.py run-validation --feature-dir <feature-dir> -- mvn test
 python .zstt-kit/runtime/workflow_cli.py prepare-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
 python .zstt-kit/runtime/workflow_cli.py validate-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
 python .zstt-kit/runtime/workflow_cli.py prepare-sql-gate --feature-dir <feature-dir> --impact query_dml
