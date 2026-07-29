@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "prompt": "$zstt-artifact-analysis 分析这个 full 需求；R07 要求 studentId+lessonId 隔离，D05 已确认联合唯一约束，但 T08 只按 studentId 更新。",
+    "expected": "在只读前置校验通过后，识别 R07、D05 与 T08 的核心数据身份语义冲突，给出稳定问题 ID、P0 级别、证据链和应回写的上游位置，不修改任何文件或阶段状态。"
+  },
+  {
+    "id": 2,
+    "prompt": "$zstt-artifact-analysis 任务拆分还没完成，先帮我看看已有需求和方案，顺便把问题直接修掉。",
+    "expected": "因 task_breakdown 未完成而停止正式横向分析，指出最早解锁阶段；拒绝修改产物、调用 prepare/complete 命令或开始实现。"
+  },
+  {
+    "id": 3,
+    "prompt": "$zstt-artifact-analysis 四份产物结构校验都通过；请检查 D07 无任务承接、T09 没有 Dxx 来源、T03/T04 修改同一 Mapper 却标记并行。",
+    "expected": "分别输出覆盖缺口、范围扩张和并行冲突，给出覆盖指标与稳定排序；报告级别不回写 meta.json 阻塞计数。"
+  },
+  {
+    "id": 4,
+    "prompt": "$zstt-artifact-analysis 当前 implementation 已经完成，04-implementation.md 也有代码改动和验证记录，再帮我做一次实现前分析。",
+    "expected": "识别实现前窗口已经关闭并停止，不把实现后检查伪装成实现前分析；推荐用户显式调用 zstt-code-review，不修改产物或回退阶段状态。"
+  }
+]

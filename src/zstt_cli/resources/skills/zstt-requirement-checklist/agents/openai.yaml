@@ -1,0 +1,7 @@
+interface:
+  display_name: "zstt-requirement-checklist"
+  short_description: "以需求文档单元测试方式检查完整性、清晰度、可度量性和场景覆盖"
+  default_prompt: "使用 $zstt-requirement-checklist 检查当前 ZSTT 需求文档的写作质量。"
+
+policy:
+  allow_implicit_invocation: false

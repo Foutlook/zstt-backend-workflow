@@ -98,6 +98,20 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".agents\skills\zstt-requirement-clarification\SKILL.md"))) {
         throw "Installed wheel did not initialize project-level ZSTT Skills"
     }
+    # Read-only auxiliary Skills require metadata and behavior prompts in the package.
+    $requiredAuxiliaryFiles = @(
+        ".agents\skills\zstt-requirement-checklist\SKILL.md",
+        ".agents\skills\zstt-requirement-checklist\agents\openai.yaml",
+        ".agents\skills\zstt-requirement-checklist\test-prompts.json",
+        ".agents\skills\zstt-artifact-analysis\SKILL.md",
+        ".agents\skills\zstt-artifact-analysis\agents\openai.yaml",
+        ".agents\skills\zstt-artifact-analysis\test-prompts.json"
+    )
+    foreach ($relativePath in $requiredAuxiliaryFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $smokeProject $relativePath))) {
+            throw "Installed wheel did not initialize $relativePath"
+        }
+    }
     if (-not (Test-Path -LiteralPath (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py"))) {
         throw "Installed wheel did not initialize ZSTT rules runtime"
     }
@@ -108,6 +122,12 @@ try {
     & $venvPython (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py") check
     if ($LASTEXITCODE -ne 0) {
         throw "Installed ZSTT rule resolver failed catalog validation with exit code $LASTEXITCODE"
+    }
+    foreach ($skill in @("zstt-requirement-checklist", "zstt-artifact-analysis")) {
+        & $venvPython (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py") resolve --skill $skill
+        if ($LASTEXITCODE -ne 0) {
+            throw "Installed ZSTT rule resolver failed to resolve $skill with exit code $LASTEXITCODE"
+        }
     }
 }
 finally {

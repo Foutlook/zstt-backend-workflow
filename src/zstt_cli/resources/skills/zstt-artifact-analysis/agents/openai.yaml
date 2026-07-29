@@ -1,0 +1,7 @@
+interface:
+  display_name: "zstt-artifact-analysis"
+  short_description: "只读分析需求、调研、方案与任务的语义一致性和覆盖缺口"
+  default_prompt: "使用 $zstt-artifact-analysis 对当前 ZSTT 需求做实现前只读一致性分析。"
+
+policy:
+  allow_implicit_invocation: false
