@@ -408,7 +408,11 @@ class ProjectInstallerTest(unittest.TestCase):
             for relative in changed_paths:
                 updated_resources[relative] = resources[relative] + b"\nrollback-test\n"
 
-            restore_target = project_root.joinpath(*changed_paths[0].split("/"))
+            # 安装器会规范化项目根路径；故障注入目标也必须使用相同路径，
+            # 避免 Windows 临时目录别名导致预期的回滚失败未被触发。
+            restore_target = project_root.resolve().joinpath(
+                *changed_paths[0].split("/")
+            )
             real_commit = installer_module._commit_staged_file
             real_atomic_write = installer_module._atomic_write
             commit_count = 0
