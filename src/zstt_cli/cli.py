@@ -39,9 +39,20 @@ def _add_project_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_json_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="输出机器可读的 JSON 结果",
+    )
+
+
 def _project_root(args: argparse.Namespace) -> Path:
     if args.here and args.path:
-        raise InstallationError("--here 不能与业务仓库路径同时使用")
+        raise InstallationError(
+            "--here 不能与业务仓库路径同时使用",
+            code="ZSTT_USAGE_INVALID",
+        )
     return Path.cwd() if args.here or not args.path else Path(args.path)
 
 
@@ -59,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="覆盖冲突的 ZSTT 受管 Skills 和 .zstt-kit 内容，不影响业务产物",
     )
+    _add_json_argument(init_parser)
 
     update_parser = subparsers.add_parser("update", help="更新项目级 ZSTT 工作流")
     _add_project_argument(update_parser)
@@ -67,9 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="覆盖冲突的 ZSTT 受管 Skills 和 .zstt-kit 内容，不影响业务产物",
     )
+    _add_json_argument(update_parser)
 
     check_parser = subparsers.add_parser("check", help="检查项目级安装状态")
     _add_project_argument(check_parser)
+    _add_json_argument(check_parser)
 
     doctor_parser = subparsers.add_parser(
         "doctor",
@@ -125,10 +139,29 @@ def _print_doctor_result(result: DoctorResult) -> None:
     print(f"诊断结果: {'正常' if data['healthy'] else '需要处理'}")
 
 
+def _error_payload(
+    operation: str,
+    error: InstallationError,
+    project_root: Path | None,
+) -> dict[str, object]:
+    return {
+        "status": "BLOCKED",
+        "operation": operation,
+        "projectRoot": str(project_root) if project_root else None,
+        "error": {
+            "code": error.code,
+            "message": str(error),
+            "details": error.details,
+        },
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     _configure_redirected_utf8()
     parser = build_parser()
     args = parser.parse_args(argv)
+    project_root: Path | None = None
+    layout_warnings: tuple[str, ...] = ()
 
     try:
         if args.command == "version":
@@ -137,14 +170,48 @@ def main(argv: list[str] | None = None) -> int:
 
         project_root = _project_root(args).resolve()
         if args.command == "init":
-            _print_layout_warnings(project_root)
+            layout_warnings = project_layout_warnings(project_root)
+            if not args.json:
+                _print_layout_warnings(project_root)
             result = init_project(project_root, force=args.force)
-            _print_install_result("初始化", project_root, result)
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "status": "PASS",
+                            "operation": "init",
+                            "projectRoot": str(project_root),
+                            "changes": result.as_dict(),
+                            "warnings": list(layout_warnings),
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            else:
+                _print_install_result("初始化", project_root, result)
             return 0
         if args.command == "update":
-            _print_layout_warnings(project_root)
+            layout_warnings = project_layout_warnings(project_root)
+            if not args.json:
+                _print_layout_warnings(project_root)
             result = update_project(project_root, force=args.force)
-            _print_install_result("更新", project_root, result)
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "status": "PASS",
+                            "operation": "update",
+                            "projectRoot": str(project_root),
+                            "changes": result.as_dict(),
+                            "warnings": list(layout_warnings),
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            else:
+                _print_install_result("更新", project_root, result)
             return 0
         if args.command == "doctor":
             result = diagnose_project(project_root)
@@ -153,8 +220,22 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 _print_doctor_result(result)
             return 0 if result.healthy else 1
-
         status = check_project(project_root)
+        if args.json:
+            healthy = not status.outdated and not status.modified and not status.missing
+            print(
+                json.dumps(
+                    {
+                        "status": "PASS" if healthy else "BLOCKED",
+                        "operation": "check",
+                        "projectRoot": str(project_root),
+                        "installation": status.as_dict(),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 0 if healthy else 1
         print(f"项目: {project_root}")
         print(f"CLI 版本: {__version__}")
         print(f"项目安装版本: {status.installed_version}")
@@ -174,13 +255,34 @@ def main(argv: list[str] | None = None) -> int:
             print("状态: 正常")
         return 1 if status.outdated or status.modified or status.missing else 0
     except ConflictError as exc:
-        print("检测到受管文件冲突，未写入任何文件：", file=sys.stderr)
-        for conflict in exc.conflicts:
-            print(f"  - {conflict}", file=sys.stderr)
-        print("请人工合并，或确认后使用 --force 覆盖 ZSTT 受管文件。", file=sys.stderr)
+        if getattr(args, "json", False):
+            print(
+                json.dumps(
+                    _error_payload(args.command, exc, project_root),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+        else:
+            print(
+                f"[{exc.code}] 检测到受管文件冲突，未写入任何文件：",
+                file=sys.stderr,
+            )
+            for conflict in exc.conflicts:
+                print(f"  - {conflict}", file=sys.stderr)
+            print(
+                "请人工合并，或确认后使用 --force 覆盖 ZSTT 受管文件。",
+                file=sys.stderr,
+            )
         return 2
     except InstallationError as exc:
-        print(f"错误: {exc}", file=sys.stderr)
+        if getattr(args, "json", False):
+            payload = _error_payload(args.command, exc, project_root)
+            if layout_warnings:
+                payload["warnings"] = list(layout_warnings)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print(f"[{exc.code}] {exc}", file=sys.stderr)
         return 1
 
 

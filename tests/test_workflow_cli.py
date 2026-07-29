@@ -443,6 +443,24 @@ class WorkflowCliInitTest(unittest.TestCase):
             self.assertNotEqual(0, second.returncode)
             self.assertIn("已存在", second.stderr)
 
+    def test_json_error_has_stable_code_and_operation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / ".zstt" / "features" / "missing"
+
+            completed = run_cli(
+                "--json",
+                "status",
+                "--feature-dir",
+                str(missing),
+            )
+
+            self.assertEqual(2, completed.returncode)
+            payload = json.loads(completed.stdout)
+            self.assertEqual("BLOCKED", payload["status"])
+            self.assertEqual("status", payload["operation"])
+            self.assertEqual("ZSTT_STATE_NOT_FOUND", payload["error"]["code"])
+            self.assertEqual("", completed.stderr)
+
     def test_status_outputs_machine_readable_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_cli(

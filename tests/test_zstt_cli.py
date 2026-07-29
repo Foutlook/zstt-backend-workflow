@@ -11,16 +11,19 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
+from zstt_cli import installer as installer_module  # noqa: E402
 from zstt_cli.cli import main  # noqa: E402
 from zstt_cli.installer import (  # noqa: E402
     ConflictError,
     InstallationError,
+    RollbackError,
     check_project,
     init_project,
     update_project,
@@ -274,6 +277,180 @@ class ProjectInstallerTest(unittest.TestCase):
                 (project_root / ".zstt-kit" / "manifest.json").read_bytes(),
             )
 
+    def test_update_rolls_back_every_file_when_commit_fails_midway(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            changed_paths = (
+                ".agents/skills/zstt-repo-research/SKILL.md",
+                ".zstt-kit/rules/workflow/protocol.md",
+            )
+            originals = {
+                relative: project_root.joinpath(*relative.split("/")).read_bytes()
+                for relative in changed_paths
+            }
+            manifest_before = (
+                project_root / ".zstt-kit" / "manifest.json"
+            ).read_bytes()
+            resources = installer_module._resource_files()
+            updated_resources = dict(resources)
+            for relative in changed_paths:
+                updated_resources[relative] = resources[relative] + b"\ntransaction-test\n"
+
+            real_commit = installer_module._commit_staged_file
+            commit_count = 0
+
+            def fail_on_second_commit(staged: Path, target: Path) -> None:
+                nonlocal commit_count
+                commit_count += 1
+                if commit_count == 2:
+                    raise OSError("injected commit failure")
+                real_commit(staged, target)
+
+            with (
+                patch.object(
+                    installer_module,
+                    "_resource_files",
+                    return_value=updated_resources,
+                ),
+                patch.object(
+                    installer_module,
+                    "_commit_staged_file",
+                    side_effect=fail_on_second_commit,
+                ),
+            ):
+                with self.assertRaises(InstallationError) as context:
+                    update_project(project_root)
+
+            self.assertEqual("ZSTT_INSTALL_APPLY_FAILED", context.exception.code)
+            for relative, original in originals.items():
+                self.assertEqual(
+                    original,
+                    project_root.joinpath(*relative.split("/")).read_bytes(),
+                )
+            self.assertEqual(
+                manifest_before,
+                (project_root / ".zstt-kit" / "manifest.json").read_bytes(),
+            )
+            self.assertFalse((project_root / ".zstt-kit" / ".install.lock").exists())
+            self.assertFalse((project_root / ".zstt-kit" / ".transactions").exists())
+
+    def test_init_rolls_back_created_files_when_commit_fails_midway(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            real_commit = installer_module._commit_staged_file
+            commit_count = 0
+
+            def fail_on_second_commit(staged: Path, target: Path) -> None:
+                nonlocal commit_count
+                commit_count += 1
+                if commit_count == 2:
+                    raise OSError("injected init failure")
+                real_commit(staged, target)
+
+            with patch.object(
+                installer_module,
+                "_commit_staged_file",
+                side_effect=fail_on_second_commit,
+            ):
+                with self.assertRaises(InstallationError) as context:
+                    init_project(project_root)
+
+            self.assertEqual("ZSTT_INSTALL_APPLY_FAILED", context.exception.code)
+            self.assertFalse((project_root / ".zstt-kit" / "manifest.json").exists())
+            self.assertFalse(
+                (
+                    project_root
+                    / ".agents"
+                    / "skills"
+                    / "zstt-repo-research"
+                    / "SKILL.md"
+                ).exists()
+            )
+            self.assertFalse(
+                (project_root / ".zstt-kit" / "project-databases.json").exists()
+            )
+            self.assertFalse((project_root / ".zstt-kit" / ".install.lock").exists())
+            self.assertFalse((project_root / ".zstt-kit" / ".transactions").exists())
+
+    def test_update_retains_transaction_when_rollback_also_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            changed_paths = (
+                ".agents/skills/zstt-repo-research/SKILL.md",
+                ".zstt-kit/rules/workflow/protocol.md",
+            )
+            resources = installer_module._resource_files()
+            updated_resources = dict(resources)
+            for relative in changed_paths:
+                updated_resources[relative] = resources[relative] + b"\nrollback-test\n"
+
+            restore_target = project_root.joinpath(*changed_paths[0].split("/"))
+            real_commit = installer_module._commit_staged_file
+            real_atomic_write = installer_module._atomic_write
+            commit_count = 0
+            apply_failed = False
+
+            def fail_on_second_commit(staged: Path, target: Path) -> None:
+                nonlocal commit_count, apply_failed
+                commit_count += 1
+                if commit_count == 2:
+                    apply_failed = True
+                    raise OSError("injected commit failure")
+                real_commit(staged, target)
+
+            def fail_one_restore(path: Path, content: bytes) -> None:
+                if apply_failed and path == restore_target:
+                    raise OSError("injected rollback failure")
+                real_atomic_write(path, content)
+
+            with (
+                patch.object(
+                    installer_module,
+                    "_resource_files",
+                    return_value=updated_resources,
+                ),
+                patch.object(
+                    installer_module,
+                    "_commit_staged_file",
+                    side_effect=fail_on_second_commit,
+                ),
+                patch.object(
+                    installer_module,
+                    "_atomic_write",
+                    side_effect=fail_one_restore,
+                ),
+            ):
+                with self.assertRaises(RollbackError) as context:
+                    update_project(project_root)
+
+            self.assertEqual("ZSTT_INSTALL_ROLLBACK_FAILED", context.exception.code)
+            transaction_path = Path(context.exception.details["transactionPath"])
+            self.assertTrue((transaction_path / "journal.json").is_file())
+            self.assertIn(
+                changed_paths[0],
+                "\n".join(context.exception.details["rollbackFailures"]),
+            )
+            self.assertFalse((project_root / ".zstt-kit" / ".install.lock").exists())
+
+    def test_update_rejects_a_live_install_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            lock = project_root / ".zstt-kit" / ".install.lock"
+            lock.write_text(
+                json.dumps({"pid": os.getpid(), "nonce": "test"}) + "\n",
+                encoding="utf-8",
+            )
+            try:
+                with self.assertRaises(InstallationError) as context:
+                    update_project(project_root)
+            finally:
+                lock.unlink(missing_ok=True)
+
+            self.assertEqual("ZSTT_INSTALL_LOCKED", context.exception.code)
+
     def test_force_only_overwrites_zstt_managed_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_root = Path(tmp)
@@ -450,6 +627,44 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, exit_code)
         self.assertIn("zstt-cli 0.4.0", stdout.getvalue())
 
+    def test_init_json_error_has_stable_code_and_details(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            stdout = StringIO()
+            stderr = StringIO()
+
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["init", str(project_root), "--json"])
+
+            self.assertEqual(1, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual("BLOCKED", payload["status"])
+            self.assertEqual("init", payload["operation"])
+            self.assertEqual("ZSTT_ALREADY_INITIALIZED", payload["error"]["code"])
+            self.assertEqual("", stderr.getvalue())
+
+    def test_update_json_conflict_lists_all_conflicting_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            relative = ".agents/skills/zstt-repo-research/SKILL.md"
+            project_root.joinpath(*relative.split("/")).write_text(
+                "local customization\n",
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["update", str(project_root), "--json"])
+
+            self.assertEqual(2, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual("ZSTT_INSTALL_CONFLICT", payload["error"]["code"])
+            self.assertEqual([relative], payload["error"]["details"]["conflicts"])
+            self.assertEqual("", stderr.getvalue())
+
     def test_redirected_cli_output_overrides_incompatible_cp1252(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_root = Path(tmp)
@@ -517,7 +732,7 @@ class CliTest(unittest.TestCase):
             self.assertTrue(result["healthy"])
             self.assertTrue(result["codexDiscoverable"])
             self.assertEqual("normal", result["installationStatus"])
-            self.assertEqual(10, len(result["expectedSkills"]))
+            self.assertEqual(12, len(result["expectedSkills"]))
             self.assertEqual([], result["missingSkills"])
 
     def test_doctor_uses_git_root_when_called_from_repository_subdirectory(self) -> None:

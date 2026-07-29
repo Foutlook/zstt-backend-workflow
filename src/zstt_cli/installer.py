@@ -3,10 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import tempfile
+import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from pathlib import Path, PurePosixPath
+from typing import Iterator
 
 from zstt_cli import __version__
 
@@ -22,6 +27,8 @@ MANAGED_ENV_ROOT = PurePosixPath(".zstt-kit/.env")
 PROJECT_DATABASES_RELATIVE_PATH = PurePosixPath(
     ".zstt-kit/project-databases.json"
 )
+INSTALL_LOCK_RELATIVE_PATH = PurePosixPath(".zstt-kit/.install.lock")
+TRANSACTION_ROOT_RELATIVE_PATH = PurePosixPath(".zstt-kit/.transactions")
 MANAGED_KIT_ROOTS = (
     MANAGED_RULES_ROOT,
     MANAGED_RUNTIME_ROOT,
@@ -45,11 +52,46 @@ TOOL_NAME = "zstt-cli"
 class InstallationError(RuntimeError):
     """Raised when a project-level installation cannot proceed safely."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "ZSTT_INSTALLATION_FAILED",
+        details: dict[str, object] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
 
 class ConflictError(InstallationError):
     def __init__(self, conflicts: list[str]) -> None:
-        super().__init__("受管文件存在本地修改")
+        super().__init__(
+            "受管文件存在本地修改",
+            code="ZSTT_INSTALL_CONFLICT",
+            details={"conflicts": conflicts},
+        )
         self.conflicts = conflicts
+
+
+class RollbackError(InstallationError):
+    """Raised when applying an install failed and the previous state was not restored."""
+
+    def __init__(
+        self,
+        transaction_path: Path,
+        apply_error: BaseException,
+        rollback_failures: list[str],
+    ) -> None:
+        super().__init__(
+            "安装失败且自动回滚未完整完成；请保留事务目录并人工恢复",
+            code="ZSTT_INSTALL_ROLLBACK_FAILED",
+            details={
+                "transactionPath": str(transaction_path),
+                "applyError": str(apply_error),
+                "rollbackFailures": rollback_failures,
+            },
+        )
 
 
 @dataclass(frozen=True)
@@ -59,6 +101,14 @@ class InstallResult:
     deleted: int
     unchanged: int
 
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "created": self.created,
+            "updated": self.updated,
+            "deleted": self.deleted,
+            "unchanged": self.unchanged,
+        }
+
 
 @dataclass(frozen=True)
 class CheckResult:
@@ -66,6 +116,24 @@ class CheckResult:
     modified: tuple[str, ...]
     missing: tuple[str, ...]
     outdated: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "installedVersion": self.installed_version,
+            "modified": list(self.modified),
+            "missing": list(self.missing),
+            "outdated": self.outdated,
+        }
+
+
+@dataclass(frozen=True)
+class _InstallAction:
+    kind: str
+    relative_path: str
+    target: Path
+    staged: Path | None
+    existed: bool
+    backup: Path | None
 
 
 def _sha256(content: bytes) -> str:
@@ -96,17 +164,28 @@ def _resource_files() -> dict[str, bytes]:
     for resource_name, target_root in RESOURCE_TARGETS.items():
         source = resource_root.joinpath(resource_name)
         if not source.is_dir():
-            raise InstallationError(f"ZSTT CLI 包中缺少资源目录: {resource_name}")
+            raise InstallationError(
+                f"ZSTT CLI 包中缺少资源目录: {resource_name}",
+                code="ZSTT_PACKAGE_INVALID",
+                details={"resource": resource_name},
+            )
         walk(source, (), target_root)
     if not result:
-        raise InstallationError("ZSTT CLI 包中没有可安装资源")
+        raise InstallationError(
+            "ZSTT CLI 包中没有可安装资源",
+            code="ZSTT_PACKAGE_INVALID",
+        )
     return result
 
 
 def _normalize_project_root(project_root: Path) -> Path:
     resolved = project_root.resolve()
     if not resolved.is_dir():
-        raise InstallationError(f"业务仓库目录不存在: {resolved}")
+        raise InstallationError(
+            f"业务仓库目录不存在: {resolved}",
+            code="ZSTT_PROJECT_ROOT_INVALID",
+            details={"projectRoot": str(resolved)},
+        )
     return resolved
 
 
@@ -134,7 +213,11 @@ def _validate_managed_path(relative_path: str) -> PurePosixPath:
         or ".." in parts
         or _managed_root(relative) is None
     ):
-        raise InstallationError(f"manifest 包含越界受管路径: {relative_path}")
+        raise InstallationError(
+            f"manifest 包含越界受管路径: {relative_path}",
+            code="ZSTT_MANAGED_PATH_INVALID",
+            details={"path": relative_path},
+        )
     return relative
 
 
@@ -142,40 +225,78 @@ def _target_path(project_root: Path, relative_path: str) -> Path:
     relative = _validate_managed_path(relative_path)
     target = project_root.joinpath(*relative.parts)
     if not target.resolve(strict=False).is_relative_to(project_root):
-        raise InstallationError(f"受管路径超出业务仓库: {relative_path}")
+        raise InstallationError(
+            f"受管路径超出业务仓库: {relative_path}",
+            code="ZSTT_MANAGED_PATH_INVALID",
+            details={"path": relative_path},
+        )
+    return target
+
+
+def _project_path(project_root: Path, relative: PurePosixPath) -> Path:
+    if relative.is_absolute() or ".." in relative.parts:
+        raise InstallationError(
+            f"项目路径无效: {relative.as_posix()}",
+            code="ZSTT_MANAGED_PATH_INVALID",
+            details={"path": relative.as_posix()},
+        )
+    target = project_root.joinpath(*relative.parts)
+    if not target.resolve(strict=False).is_relative_to(project_root):
+        raise InstallationError(
+            f"项目路径超出业务仓库: {relative.as_posix()}",
+            code="ZSTT_MANAGED_PATH_INVALID",
+            details={"path": relative.as_posix()},
+        )
     return target
 
 
 def _manifest_path(project_root: Path) -> Path:
-    path = project_root.joinpath(*MANIFEST_RELATIVE_PATH.parts)
-    if not path.resolve(strict=False).is_relative_to(project_root):
-        raise InstallationError(".zstt-kit/manifest.json 超出业务仓库")
-    return path
+    return _project_path(project_root, MANIFEST_RELATIVE_PATH)
 
 
 def _load_manifest(project_root: Path, required: bool) -> dict[str, object] | None:
     path = _manifest_path(project_root)
     if not path.is_file():
         if required:
-            raise InstallationError("项目尚未初始化，请先执行 zstt init --here")
+            raise InstallationError(
+                "项目尚未初始化，请先执行 zstt init --here",
+                code="ZSTT_NOT_INITIALIZED",
+            )
         return None
 
     try:
         manifest = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise InstallationError(f"无法读取安装清单: {path}") from exc
+        raise InstallationError(
+            f"无法读取安装清单: {path}",
+            code="ZSTT_MANIFEST_INVALID",
+            details={"path": str(path)},
+        ) from exc
 
     if manifest.get("schemaVersion") not in SUPPORTED_MANIFEST_SCHEMA_VERSIONS:
-        raise InstallationError("不支持的 .zstt-kit/manifest.json 版本")
+        raise InstallationError(
+            "不支持的 .zstt-kit/manifest.json 版本",
+            code="ZSTT_MANIFEST_INVALID",
+        )
     if manifest.get("tool") != TOOL_NAME:
-        raise InstallationError(".zstt-kit/manifest.json 不属于 zstt-cli")
+        raise InstallationError(
+            ".zstt-kit/manifest.json 不属于 zstt-cli",
+            code="ZSTT_MANIFEST_INVALID",
+        )
     managed_files = manifest.get("managedFiles")
     if not isinstance(managed_files, dict):
-        raise InstallationError("安装清单缺少 managedFiles")
+        raise InstallationError(
+            "安装清单缺少 managedFiles",
+            code="ZSTT_MANIFEST_INVALID",
+        )
     for relative_path, metadata in managed_files.items():
         _validate_managed_path(str(relative_path))
         if not isinstance(metadata, dict) or not isinstance(metadata.get("sha256"), str):
-            raise InstallationError(f"安装清单文件指纹无效: {relative_path}")
+            raise InstallationError(
+                f"安装清单文件指纹无效: {relative_path}",
+                code="ZSTT_MANIFEST_INVALID",
+                details={"path": str(relative_path)},
+            )
     return manifest
 
 
@@ -185,7 +306,7 @@ def _current_hash(path: Path) -> str | None:
 
 def _atomic_write(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.zstt-tmp")
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.zstt-tmp")
     try:
         temporary.write_bytes(content)
         os.replace(temporary, path)
@@ -194,7 +315,7 @@ def _atomic_write(path: Path, content: bytes) -> None:
             temporary.unlink()
 
 
-def _write_manifest(project_root: Path, resource_files: dict[str, bytes]) -> None:
+def _manifest_content(resource_files: dict[str, bytes]) -> bytes:
     manifest = {
         "schemaVersion": MANIFEST_SCHEMA_VERSION,
         "tool": TOOL_NAME,
@@ -205,16 +326,304 @@ def _write_manifest(project_root: Path, resource_files: dict[str, bytes]) -> Non
             for relative_path, content in sorted(resource_files.items())
         },
     }
-    content = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
-    _atomic_write(_manifest_path(project_root), content)
+    return json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
 
 
-def _ensure_project_databases_config(project_root: Path) -> bool:
-    path = project_root.joinpath(*PROJECT_DATABASES_RELATIVE_PATH.parts)
-    if path.exists():
+def _process_is_alive(pid: object) -> bool:
+    if not isinstance(pid, int) or pid <= 0:
         return False
-    _atomic_write(path, b"{}\n")
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
     return True
+
+
+def _remove_empty_upwards(path: Path, limit: Path) -> None:
+    current = path
+    while current != limit and current.is_relative_to(limit):
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
+
+
+@contextmanager
+def _installation_lock(project_root: Path) -> Iterator[None]:
+    lock_path = _project_path(project_root, INSTALL_LOCK_RELATIVE_PATH)
+    lock_parent_existed = lock_path.parent.exists()
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    for _attempt in range(2):
+        try:
+            descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                lock = json.loads(lock_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                lock = {}
+            if _process_is_alive(lock.get("pid")):
+                raise InstallationError(
+                    "另一个 ZSTT 安装或更新正在运行",
+                    code="ZSTT_INSTALL_LOCKED",
+                    details={"lockPath": str(lock_path), "pid": lock.get("pid")},
+                )
+            try:
+                lock_path.unlink()
+            except OSError as exc:
+                raise InstallationError(
+                    "无法清理失效的安装锁",
+                    code="ZSTT_INSTALL_LOCKED",
+                    details={"lockPath": str(lock_path)},
+                ) from exc
+            continue
+        else:
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+                json.dump(
+                    {"pid": os.getpid(), "nonce": uuid.uuid4().hex},
+                    handle,
+                    ensure_ascii=False,
+                )
+                handle.write("\n")
+            break
+    else:
+        raise InstallationError(
+            "无法获取 ZSTT 安装锁",
+            code="ZSTT_INSTALL_LOCKED",
+            details={"lockPath": str(lock_path)},
+        )
+
+    try:
+        yield
+    finally:
+        try:
+            lock_path.unlink(missing_ok=True)
+        finally:
+            if not lock_parent_existed:
+                _remove_empty_upwards(lock_path.parent, project_root)
+
+
+def _stage_path(stage_root: Path, relative_path: str) -> Path:
+    relative = PurePosixPath(relative_path)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise InstallationError(
+            f"暂存路径无效: {relative_path}",
+            code="ZSTT_MANAGED_PATH_INVALID",
+            details={"path": relative_path},
+        )
+    return stage_root.joinpath(*relative.parts)
+
+
+def _prepare_install_stage(
+    project_root: Path,
+    writes: dict[str, bytes],
+    resource_files: dict[str, bytes],
+    create_project_databases: bool,
+) -> Path:
+    stage_root = Path(
+        tempfile.mkdtemp(prefix=".zstt-stage-", dir=str(project_root.parent))
+    )
+    try:
+        for relative_path, content in sorted(writes.items()):
+            target = _stage_path(stage_root, relative_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+        if create_project_databases:
+            target = _stage_path(
+                stage_root,
+                PROJECT_DATABASES_RELATIVE_PATH.as_posix(),
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"{}\n")
+
+        manifest = _stage_path(stage_root, MANIFEST_RELATIVE_PATH.as_posix())
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_bytes(_manifest_content(resource_files))
+        parsed = json.loads(manifest.read_text(encoding="utf-8"))
+        expected = {
+            relative_path: {"sha256": _sha256(content)}
+            for relative_path, content in sorted(resource_files.items())
+        }
+        if parsed.get("managedFiles") != expected:
+            raise InstallationError(
+                "暂存安装清单与候选资源不一致",
+                code="ZSTT_INSTALL_STAGE_INVALID",
+            )
+        for relative_path, content in writes.items():
+            if _stage_path(stage_root, relative_path).read_bytes() != content:
+                raise InstallationError(
+                    f"暂存文件校验失败: {relative_path}",
+                    code="ZSTT_INSTALL_STAGE_INVALID",
+                    details={"path": relative_path},
+                )
+        return stage_root
+    except BaseException:
+        shutil.rmtree(stage_root, ignore_errors=True)
+        raise
+
+
+def _commit_staged_file(staged: Path, target: Path) -> None:
+    """Commit one prepared candidate; kept separate for fault-injection tests."""
+    _atomic_write(target, staged.read_bytes())
+
+
+def _missing_parent_paths(target: Path, project_root: Path) -> list[Path]:
+    missing: list[Path] = []
+    current = target.parent
+    while current != project_root and current.is_relative_to(project_root):
+        if current.exists():
+            break
+        missing.append(current)
+        current = current.parent
+    return missing
+
+
+def _transactional_commit(
+    project_root: Path,
+    stage_root: Path,
+    writes: dict[str, bytes],
+    deletes: list[str],
+    create_project_databases: bool,
+) -> None:
+    transaction_id = uuid.uuid4().hex
+    transaction_root = _project_path(project_root, TRANSACTION_ROOT_RELATIVE_PATH)
+    transaction_path = transaction_root / transaction_id
+    backup_root = transaction_path / "backup"
+    transaction_path.mkdir(parents=True, exist_ok=False)
+
+    action_specs: list[tuple[str, str, Path | None]] = []
+    for relative_path in sorted(deletes):
+        action_specs.append(("delete", relative_path, None))
+    for relative_path in sorted(writes):
+        action_specs.append(
+            ("write", relative_path, _stage_path(stage_root, relative_path))
+        )
+    if create_project_databases:
+        relative_path = PROJECT_DATABASES_RELATIVE_PATH.as_posix()
+        action_specs.append(
+            ("write", relative_path, _stage_path(stage_root, relative_path))
+        )
+    action_specs.append(
+        (
+            "write",
+            MANIFEST_RELATIVE_PATH.as_posix(),
+            _stage_path(stage_root, MANIFEST_RELATIVE_PATH.as_posix()),
+        )
+    )
+
+    actions: list[_InstallAction] = []
+    created_parent_candidates: set[Path] = set()
+    try:
+        for kind, relative_path, staged in action_specs:
+            relative = PurePosixPath(relative_path)
+            target = _project_path(project_root, relative)
+            if target.exists() and not target.is_file():
+                raise InstallationError(
+                    f"安装目标不是普通文件: {relative_path}",
+                    code="ZSTT_INSTALL_TARGET_INVALID",
+                    details={"path": relative_path},
+                )
+            created_parent_candidates.update(
+                _missing_parent_paths(target, project_root)
+            )
+            existed = target.is_file()
+            backup = backup_root.joinpath(*relative.parts)
+            if existed:
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(target, backup)
+            actions.append(
+                _InstallAction(
+                    kind=kind,
+                    relative_path=relative_path,
+                    target=target,
+                    staged=staged,
+                    existed=existed,
+                    backup=backup if existed else None,
+                )
+            )
+        journal = {
+            "schemaVersion": 1,
+            "transactionId": transaction_id,
+            "status": "prepared",
+            "actions": [
+                {
+                    "kind": action.kind,
+                    "relativePath": action.relative_path,
+                    "existed": action.existed,
+                }
+                for action in actions
+            ],
+        }
+        _atomic_write(
+            transaction_path / "journal.json",
+            json.dumps(journal, ensure_ascii=False, indent=2).encode("utf-8") + b"\n",
+        )
+    except BaseException:
+        shutil.rmtree(transaction_path, ignore_errors=True)
+        _remove_empty_upwards(transaction_root, project_root)
+        raise
+
+    try:
+        for action in actions:
+            if action.kind == "delete":
+                action.target.unlink(missing_ok=True)
+            else:
+                if action.staged is None:
+                    raise InstallationError(
+                        f"写入操作缺少暂存文件: {action.relative_path}",
+                        code="ZSTT_INSTALL_STAGE_INVALID",
+                        details={"path": action.relative_path},
+                    )
+                _commit_staged_file(action.staged, action.target)
+    except BaseException as apply_error:
+        rollback_failures: list[str] = []
+        for action in reversed(actions):
+            try:
+                if action.existed:
+                    if action.backup is None:
+                        raise OSError("缺少事务备份")
+                    _atomic_write(action.target, action.backup.read_bytes())
+                else:
+                    action.target.unlink(missing_ok=True)
+            except BaseException as rollback_error:
+                rollback_failures.append(
+                    f"{action.relative_path}: {rollback_error}"
+                )
+        for parent in sorted(
+            created_parent_candidates,
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
+            try:
+                parent.rmdir()
+            except OSError:
+                pass
+        if rollback_failures:
+            raise RollbackError(
+                transaction_path,
+                apply_error,
+                rollback_failures,
+            ) from apply_error
+        shutil.rmtree(transaction_path, ignore_errors=True)
+        _remove_empty_upwards(transaction_root, project_root)
+        raise InstallationError(
+            "安装提交失败，已恢复变更前状态",
+            code="ZSTT_INSTALL_APPLY_FAILED",
+            details={"cause": str(apply_error)},
+        ) from apply_error
+
+    for relative_path in deletes:
+        _remove_empty_parents(
+            _target_path(project_root, relative_path),
+            project_root,
+            relative_path,
+        )
+    shutil.rmtree(transaction_path, ignore_errors=True)
+    _remove_empty_upwards(transaction_root, project_root)
 
 
 def _remove_empty_parents(
@@ -287,14 +696,27 @@ def _apply_install(
     if conflicts:
         raise ConflictError(sorted(set(conflicts)))
 
-    for relative_path in deletes:
-        target = _target_path(project_root, relative_path)
-        target.unlink()
-        _remove_empty_parents(target, project_root, relative_path)
-    for relative_path, content in writes.items():
-        _atomic_write(_target_path(project_root, relative_path), content)
-    config_created = _ensure_project_databases_config(project_root)
-    _write_manifest(project_root, resource_files)
+    project_databases = _project_path(
+        project_root,
+        PROJECT_DATABASES_RELATIVE_PATH,
+    )
+    config_created = not project_databases.exists()
+    stage_root = _prepare_install_stage(
+        project_root,
+        writes,
+        resource_files,
+        config_created,
+    )
+    try:
+        _transactional_commit(
+            project_root,
+            stage_root,
+            writes,
+            deletes,
+            config_created,
+        )
+    finally:
+        shutil.rmtree(stage_root, ignore_errors=True)
 
     return InstallResult(
         created=created + int(config_created),
@@ -306,16 +728,21 @@ def _apply_install(
 
 def init_project(project_root: Path, force: bool = False) -> InstallResult:
     project_root = _normalize_project_root(project_root)
-    old_manifest = _load_manifest(project_root, required=False)
-    if old_manifest is not None and not force:
-        raise InstallationError("项目已初始化，请使用 zstt update --here")
-    return _apply_install(project_root, old_manifest, force=force)
+    with _installation_lock(project_root):
+        old_manifest = _load_manifest(project_root, required=False)
+        if old_manifest is not None and not force:
+            raise InstallationError(
+                "项目已初始化，请使用 zstt update --here",
+                code="ZSTT_ALREADY_INITIALIZED",
+            )
+        return _apply_install(project_root, old_manifest, force=force)
 
 
 def update_project(project_root: Path, force: bool = False) -> InstallResult:
     project_root = _normalize_project_root(project_root)
-    old_manifest = _load_manifest(project_root, required=True)
-    return _apply_install(project_root, old_manifest, force=force)
+    with _installation_lock(project_root):
+        old_manifest = _load_manifest(project_root, required=True)
+        return _apply_install(project_root, old_manifest, force=force)
 
 
 def check_project(project_root: Path) -> CheckResult:

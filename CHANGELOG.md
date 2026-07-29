@@ -6,6 +6,8 @@
 
 ### 变更
 
+- `zstt init/update` 增加项目级安装锁、候选文件暂存、事务日志、整批提交和失败回滚，避免安装内容处于半新半旧状态。
+- `zstt init/update/check` 和项目本地 Workflow Runtime 增加稳定错误码；机器调用可使用 `--json` 获取结构化失败详情。
 - `zstt-bug-fix` 默认在当前任务中交付排查结论，只有用户明确要求文档时才创建 Bug 报告。
 - `zstt-bug-fix` 增加 Trace/SLS 优先取证、双层 MCP 错误判断、脱敏和标准降级规则。
 - 安装资源增加测试/生产环境模板和按 Observability、MySQL、ES Scope 隔离凭据的跨平台启动器；本机 `*.local` 配置不进入安装清单。

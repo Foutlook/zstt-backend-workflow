@@ -183,6 +183,16 @@ zstt doctor --here
 
 如果受管 Skill、Rules、Runtime 或 Templates 被人工修改，`zstt update` 会在写文件前报告全部冲突并停止。人工合并后重试；只有明确接受覆盖时才使用 `zstt update --here --force`。`--force` 只作用于清单记录的 `.agents/skills/zstt-*`、`.zstt-kit/rules/`、`.zstt-kit/runtime/` 和 `.zstt-kit/templates/`，不能扩张到 `AGENTS.md`、`.zstt` 业务产物或其他 Skill。
 
+`zstt init/update` 使用项目级安装锁和整批事务：先暂存并校验全部候选文件，再备份旧文件、提交受管内容，最后更新安装清单。提交中途失败时自动恢复原状态；若回滚本身失败，会返回 `ZSTT_INSTALL_ROLLBACK_FAILED` 并保留错误详情中的事务目录供人工恢复。需要机器读取结果时可使用：
+
+```powershell
+zstt init --here --json
+zstt update --here --json
+zstt check --here --json
+```
+
+人类可读错误使用稳定的 `[ZSTT_...]` 错误码前缀；`--json` 模式输出 `status、operation、error.code、error.message、error.details`，失败时仍返回非零退出码。
+
 从 0.1.x 升级时，清单 v1 会被兼容读取并升级为 v2。未修改的 `zstt-workflow-shared` 和 `zstt-java-backend-standard` 旧目录会被移除；存在本地修改时升级停止并报告冲突。
 
 升级完成后新建 Codex 任务。
@@ -311,6 +321,13 @@ python .zstt-kit/runtime/workflow_cli.py init --repo-root <repo> --mode full --f
 python .zstt-kit/runtime/workflow_cli.py status --feature-dir <feature-dir>
 python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
 python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
+```
+
+Runtime 失败也提供稳定错误码。需要机器读取时，把 `--json` 放在子命令之前：
+
+```text
+python .zstt-kit/runtime/workflow_cli.py --json status --feature-dir <feature-dir>
+python .zstt-kit/runtime/workflow_cli.py --json prepare-stage --feature-dir <feature-dir> --stage repo_research
 ```
 
 - `prepare-stage` 在创建当前产物前重新校验上游，并对照内容指纹检测用户修改。
