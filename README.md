@@ -2,153 +2,337 @@
 
 [![CI](https://github.com/Foutlook/zstt-backend-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Foutlook/zstt-backend-workflow/actions/workflows/ci.yml)
 
-面向小组的 Codex Java 后端开发工作流。它统一了需求澄清、代码调研、技术方案、任务拆分、编码实现、代码评审和测试验证，同时保留 quick/full 两种处理强度。
+面向团队的 Codex Java 后端开发工作流套件。这个仓库不只提供一组提示词，而是把项目级 Skills（技能）、动态 Rules（规则）、确定性 Runtime（运行时）、产物 Templates（模板）和安全安装 CLI 组合成一套可提交、可恢复、可校验的工程工作流。
 
-**快速导航：** [工作流总览](#工作流总览) · [安装](#安装) · [工作流使用](#工作流使用) · [阶段产物](#full-产物) · [辅助 Skill](#辅助-skill)
+首版支持 Codex 与 Java 后端项目。流程覆盖需求澄清、仓库调研、技术方案、任务拆分、编码实现、代码评审和测试验证，并提供 Quick/Full 两种处理强度、两个可选质量门禁以及 Bug 排查、代码简化、模块重构等独立能力。
+
+**快速导航：** [5 分钟开始使用](#5-分钟开始使用) · [Full 与 Quick](#full-与-quick) · [12 个 Skill](#12-个-skill) · [产物与契约](#产物与契约) · [运行时与门禁](#运行时与门禁) · [安装和升级](#安装和升级) · [命令参考](#命令参考)
+
+## 仓库提供什么
+
+| 能力层 | 解决的问题 | 安装到业务仓库的位置 |
+| --- | --- | --- |
+| `zstt-cli` | 初始化、升级、完整性检查、Git/Codex 发现诊断 | 全局命令 `zstt` |
+| 12 个项目级 Skill | 告诉 Codex 当前阶段或辅助任务该如何执行 | `.agents/skills/zstt-*/` |
+| 动态 Rules | 按 Skill 和真实代码上下文加载工作流、Java、数据访问、并发等约束 | `.zstt-kit/rules/` |
+| Workflow Runtime | 管理需求状态、分支绑定、阶段顺序、内容校验、指纹失效和稳定错误码 | `.zstt-kit/runtime/` |
+| Full/Quick Templates | 为每个阶段和可选质量门禁提供固定结构 | `.zstt-kit/templates/` |
+| 环境隔离与集成约定 | 隔离测试/生产、后端/客户端、MySQL/ES/Observability 凭据范围 | `.zstt-kit/.env/`、`runtime/with_env.py` |
+| 验证与发布流水线 | 校验 Skill 契约、测试、UTF-8、Python、Wheel 内容和真实安装 | `scripts/`、`tests/`、GitHub Actions |
 
 ## 核心原则
 
-- 用户显式调用具体阶段 Skill，工作流不会自动串行执行。
-- 每次只完成当前阶段，并在业务仓库 `.zstt/` 生成一份唯一权威主产物。
-- 当前阶段结束后只推荐下一步；用户可先修改产物，也可暂时停止。
-- 用户调用下一阶段即表示同意推进，但上游产物必须重新校验且不存在 P0 阻塞。
-- 需求 Checklist 和实现前一致性分析是可选质量门禁：未执行即跳过，一旦执行就持久化，后续阶段必须消费已有结果。
-- 首版仅支持 Codex 和 Java 后端项目。
-- 流程止于测试验证完成，不自动 commit、push、合并或部署。
+- 行动前对齐目标，契约优先于实现；需求、代码事实、设计决策和实现任务必须可追溯。
+- 用户显式调用当前 Skill。系统可以推荐下一步，但不会自动执行任何推荐的 Skill。
+- 每次只完成当前阶段，并在 `.zstt/` 保留一份唯一权威主产物。
+- 文档已生成不等于阶段完成；只有实质内容门禁通过、P0 清零并记录输入指纹后才能继续。
+- 需求 Checklist 和实现前一致性分析可以跳过；一旦执行就持久化，后续上下文会消费报告，不能只把问题留在对话里。
+- 用户修改已完成产物后，Runtime 会重新校验并使该阶段及下游旧结论失效。
+- 工具不可用时允许标准降级，但不能伪造远程证据、运行结果或测试通过。
+- 固定流程止于测试验证，不自动 commit、push、合并、发布或部署。
 
-## 工作流总览
+## 5 分钟开始使用
 
-ZSTT 没有自动串行总入口。用户先选择处理模式，再显式调用当前阶段 Skill；图中的箭头表示推荐顺序，不表示系统会自动执行下一阶段。
+### 1. 管理员安装并初始化
+
+环境要求 Python 3.11+，推荐使用 `uv`：
+
+```powershell
+uv tool install zstt-cli --force --from "git+https://github.com/Foutlook/zstt-backend-workflow.git"
+cd C:\projects\learning-service
+zstt init --here
+zstt doctor --here
+```
+
+确认生成内容后，将 `.agents/skills/zstt-*` 和 `.zstt-kit/` 提交到业务仓库。`.agents/skills` 必须位于实际业务 Git 仓库内，不能只安装在包含多个子仓库的聚合目录。
+
+### 2. 团队成员拉取后新建 Codex 任务
+
+普通成员不需要重复安装 CLI。拉取管理员提交的文件，在业务仓库根目录新建 Codex 任务，然后显式调用第一个 Skill：
+
+```text
+$zstt-requirement-clarification
+请按 full 模式澄清这份需求：<PRD、截图、流程图、表格或口头说明>
+```
+
+小范围、低风险改动也可以选择 Quick：
+
+```text
+$zstt-requirement-clarification
+请按 quick 模式澄清这个小改动：<问题描述与验收标准>
+```
+
+未指定模式时，Skill 会给出 Quick/Full 推荐和依据；最终模式仍由用户选择，或由用户明确授权 AI 采用推荐。
+
+### 3. 审阅产物，再显式继续
+
+需求澄清会创建需求目录、`meta.json` 和 `00-requirement.md`。审阅并确认当前产物后，可以执行可选检查，也可以直接进入固定下一阶段：
+
+```text
+$zstt-requirement-checklist
+检查 .zstt/features/20260729-learning-report
+
+# 或跳过可选检查
+$zstt-repo-research
+继续处理 .zstt/features/20260729-learning-report
+```
+
+每个阶段完成后都遵循同一节奏：**审阅当前产物 → 需要时修正 → 显式调用下一 Skill**。关闭 Codex 任务不会丢失进度；后续新任务通过 `.zstt/` 产物、`meta.json` 和输入指纹恢复。
+
+## Full 与 Quick
 
 | 模式 | 适用场景 | 固定主产物 | 阶段要求 |
 | --- | --- | --- | --- |
-| **Full** | 正式需求、跨模块改动、接口或数据结构变化、高风险业务逻辑 | 7 份 | 依次完成需求、调研、方案、任务、实现、评审和测试 |
-| **Quick** | 范围明确、影响面小、风险较低且不需要独立方案评审的小改动 | 最多 4 份 | 需求澄清和实现必需；代码评审、测试验证按需调用 |
+| **Full** | 正式需求、跨模块改动、接口/消息/数据结构变化、SQL 变化、高风险业务逻辑 | 7 份 | 需求、调研、方案、任务、实现、评审、测试依次完成 |
+| **Quick** | 范围明确、影响面小、风险较低且不需要独立方案评审的小改动 | 最多 4 份 | 需求和实现必需；评审、测试按需调用 |
 
-### Full 固定阶段
-
-```mermaid
-flowchart TB
-    subgraph ANALYSIS["需求与方案"]
-        direction LR
-        RQ["01 需求澄清<br/>$zstt-requirement-clarification<br/>00-requirement.md"] --> RS["02 仓库调研<br/>$zstt-repo-research<br/>01-research.md"]
-        RQ -.-> RQC["可选需求质量门禁<br/>$zstt-requirement-checklist<br/>checklists/requirements.md"]
-        RQC --> RS
-        RS --> DS["03 技术方案<br/>$zstt-technical-design<br/>02-design.md"] --> TB["04 任务拆分<br/>$zstt-task-breakdown<br/>03-tasks.md"]
-    end
-
-    subgraph DELIVERY["实现与验证"]
-        direction LR
-        IM["05 编码实现<br/>$zstt-implementation<br/>04-implementation.md"] --> CR["06 代码评审<br/>$zstt-code-review<br/>05-code-review.md"] --> TV["07 测试验证<br/>$zstt-test-verify<br/>06-test-report.md"]
-    end
-
-    TB --> IM
-    TB -.-> AA["可选一致性门禁<br/>$zstt-artifact-analysis<br/>analysis/artifact-analysis.md"]
-    AA --> IM
-
-    classDef discovery fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
-    classDef design fill:#ecfeff,stroke:#0891b2,color:#164e63
-    classDef delivery fill:#f0fdf4,stroke:#16a34a,color:#14532d
-    classDef gate fill:#f8fafc,stroke:#64748b,color:#1e293b,stroke-dasharray:5 5
-    class RQ,RS discovery
-    class DS,TB design
-    class IM,CR,TV delivery
-    class RQC,AA gate
-    style ANALYSIS fill:#fafafa,stroke:#cbd5e1
-    style DELIVERY fill:#fafafa,stroke:#cbd5e1
-```
-
-| 阶段 | 主要回答 | 唯一权威主产物 | 完成后 |
-| --- | --- | --- | --- |
-| 01 需求澄清 | 要做什么、边界和验收标准是什么，原始材料是否全部收口 | `00-requirement.md` | 可选需求 Checklist；固定下一阶段为仓库调研 |
-| 02 仓库调研 | 每个 Rxx 的真实入口、调用链、数据源、仓库范围及共享语义/SQL 影响是什么 | `01-research.md` | 推荐技术方案 |
-| 03 技术方案 | 怎么改、为什么这样改、SQL 是否已确认、如何发布和回滚 | `02-design.md` | 推荐任务拆分 |
-| 04 任务拆分 | 改哪些文件、按什么顺序、如何验证 | `03-tasks.md` | 可选一致性分析；固定下一阶段为编码实现 |
-| 05 编码实现 | 实际改了什么、是否偏离方案、验证结果如何 | `04-implementation.md` | 推荐代码评审 |
-| 06 代码评审 | 实现是否正确、安全、可维护且与上游一致 | `05-code-review.md` | 推荐测试验证 |
-| 07 测试验证 | 需求是否闭环、差异来自哪里、能否交付 | `06-test-report.md` | 固定流程结束 |
-
-### Quick 轻量路径
+### Full 固定链路
 
 ```mermaid
 flowchart LR
-    QR["01 轻量需求澄清<br/>$zstt-requirement-clarification<br/>00-requirement.md"]
-    QI["02 编码实现<br/>$zstt-implementation<br/>01-implementation.md"]
-    QC["03 代码评审（可选）<br/>$zstt-code-review<br/>02-code-review.md"]
-    QT["04 测试验证（可选）<br/>$zstt-test-verify<br/>03-test-report.md"]
+    RQ["需求澄清<br/>00-requirement.md"] --> RS["仓库调研<br/>01-research.md"]
+    RQ -.-> RC["可选：需求 Checklist<br/>checklists/requirements.md"]
+    RC --> RS
+    RS --> DS["技术方案<br/>02-design.md"]
+    DS --> TB["任务拆分<br/>03-tasks.md"]
+    TB --> IM["编码实现<br/>04-implementation.md"]
+    TB -.-> AA["可选：一致性分析<br/>analysis/artifact-analysis.md"]
+    AA --> IM
+    IM --> CR["代码评审<br/>05-code-review.md"]
+    CR --> TV["测试验证<br/>06-test-report.md"]
 
-    QR --> QI
-    QI -.-> QC
-    QI -.-> QT
-    QC -.-> QT
+    classDef gate fill:#f8fafc,stroke:#64748b,color:#1e293b,stroke-dasharray:5 5
+    class RC,AA gate
+```
+
+| 阶段 | 主要回答 | 固定 Skill |
+| --- | --- | --- |
+| 需求澄清 | 要做什么、边界和验收是什么，原始材料是否全部收口 | `$zstt-requirement-clarification` |
+| 仓库调研 | 真实入口、调用链、数据源、关键参数、仓库范围和副作用是什么 | `$zstt-repo-research` |
+| 技术方案 | 怎么改、为什么、契约和 SQL 如何处理、怎样发布和回滚 | `$zstt-technical-design` |
+| 任务拆分 | 改哪些文件、依赖顺序、完成标准和验证信号是什么 | `$zstt-task-breakdown` |
+| 编码实现 | 实际改了什么、是否偏离方案、验证结果如何 | `$zstt-implementation` |
+| 代码评审 | 实现是否正确、安全、可维护且与上游一致 | `$zstt-code-review` |
+| 测试验证 | 需求是否闭环、差异来自哪里、能否交付 | `$zstt-test-verify` |
+
+### Quick 轻量链路
+
+```mermaid
+flowchart LR
+    RQ["需求澄清<br/>00-requirement.md"] --> IM["编码实现<br/>01-implementation.md"]
+    RQ -.-> RC["可选：需求 Checklist<br/>checklists/requirements.md"]
+    RC --> IM
+    IM -.-> CR["可选：代码评审<br/>02-code-review.md"]
+    IM -.-> TV["可选：测试验证<br/>03-test-report.md"]
+    CR -.-> TV
 
     classDef required fill:#fff7ed,stroke:#ea580c,color:#7c2d12
     classDef optional fill:#f8fafc,stroke:#64748b,color:#1e293b,stroke-dasharray:5 5
-    class QR,QI required
-    class QC,QT optional
+    class RQ,IM required
+    class RC,CR,TV optional
 ```
 
-`$zstt-artifact-analysis`、`$zstt-requirement-checklist`、`$zstt-bug-fix`、`$zstt-code-simplification` 和 `$zstt-module-refactor` 是按各自适用窗口显式调用的辅助 Skill，不属于固定流程，也不推进阶段状态。需求澄清后 Full 同时暴露 `$zstt-requirement-checklist` 与仓库调研；任务拆分后同时暴露 `$zstt-artifact-analysis` 与编码实现。用户可以跳过质量门禁，但报告一旦存在，下游必须校验其状态和输入指纹。
+Quick 的固定链路仍是“需求澄清 → 实现”。需求 Checklist 不会被自动推荐或插入链路，但用户显式执行后，已有报告会在实现前校验。实现完成后，Runtime 同时推荐可选 Review 和测试；测试完成后流程结束，不会倒退推荐 Review。即使跳过 Review，测试报告仍固定为 `03-test-report.md`。
 
-## Skill 与 Rules 分工
+## 12 个 Skill
 
-- Skill（技能）由用户显式选择，负责当前阶段或辅助任务的执行流程。
-- Rules（规则）放在 `.zstt-kit/rules/`，由当前 Skill 在执行时动态读取，不作为用户可调用 Skill。
-- Runtime（运行时）放在 `.zstt-kit/runtime/`，负责规则解析、阶段状态和确定性门禁。
-- Templates（模板）放在 `.zstt-kit/templates/`，负责生成 `.zstt/` 阶段产物。
+所有 Skill 都由用户显式调用。固定阶段会推进 Full/Quick 状态；质量门禁与其他辅助 Skill 不进入固定阶段。
 
-规则分为四类：`constraint`（强约束）、`decision`（条件决策）、`checklist`（检查表）和 `reference`（参考资料）。每个 Skill 先加载固定 profile（规则画像），再根据已经核实的真实代码范围追加上下文标签。例如，实现涉及 Jackson DTO 和批量查询时追加 `jackson`、`data-access`；只有出现真实变化轴或模式压力时才追加 `abstraction`、`design-patterns`。
+| Skill | 类型与模式 | 何时使用 | 主要产物 | 对阶段状态的影响 |
+| --- | --- | --- | --- | --- |
+| `$zstt-requirement-clarification` | 固定阶段；Full/Quick | 材料尚未形成明确范围、业务口径和验收标准时 | Full/Quick `00-requirement.md` | 完成需求阶段 |
+| `$zstt-requirement-checklist` | 可选质量门禁；Full/Quick | 调研或 Quick 实现前检查需求完整性、清晰度、一致性、可度量性和可追溯性 | `checklists/requirements.md` | 不推进；存在即被下游消费 |
+| `$zstt-repo-research` | 固定阶段；仅 Full | 需要用真实源码、查询、RPC/MQ 和配置定位执行链与数据源时 | `01-research.md` | 完成调研阶段 |
+| `$zstt-technical-design` | 固定阶段；仅 Full | 代码事实已查清，需要形成可评审的最小技术方案时 | `02-design.md`；按需生成 `auxiliary/sql-design.sql` | 完成方案阶段 |
+| `$zstt-task-breakdown` | 固定阶段；仅 Full | 需要把设计拆成可执行、可追溯、可验证的编码任务时 | `03-tasks.md` | 完成任务阶段 |
+| `$zstt-artifact-analysis` | 可选质量门禁；仅 Full | 任务完成、编码前，横向检查 `Rxx → Cxx → Dxx → Txx` 和契约/数据/依赖一致性 | `analysis/artifact-analysis.md` | 不推进；存在即被实现消费 |
+| `$zstt-implementation` | 固定阶段；Full/Quick | 上游已就绪，需要按任务或 Quick 边界实施最小代码改动时 | Full `04-implementation.md`；Quick `01-implementation.md` | 完成实现阶段 |
+| `$zstt-code-review` | Full 固定；Quick 可选 | 实现后核对上游契约、真实 diff、正确性、安全性和可维护性 | Full `05-code-review.md`；Quick `02-code-review.md` | Full 必需；Quick 按需记录 |
+| `$zstt-test-verify` | Full 固定；Quick 可选 | 执行测试并区分需求、方案、实现、用例、环境/数据和覆盖差异时 | Full `06-test-report.md`；Quick `03-test-report.md` | Full 必需；Quick 按需记录 |
+| `$zstt-bug-fix` | 按需辅助 | Bug、线上/偶现问题、日志/Trace/MySQL/ES 数据异常排查 | 默认在当前任务交付；显式要求时写 `.zstt/bugs/` 或 `auxiliary/bugs/` | 不推进固定阶段 |
+| `$zstt-code-simplification` | 按需辅助 | 当前 diff、提交、文件或符号功能正确，但可在行为不变前提下简化 | 代码 diff；关联需求时可写 `auxiliary/` | 不推进固定阶段 |
+| `$zstt-module-refactor` | 审批型辅助 | 多文件职责拆分、模块/DDD 边界调整，或有证据的性能、并发、资源治理 | `.zstt/refactors/` 或 `auxiliary/refactors/` | 不推进；重大或行为变化方案先审批 |
 
-上下文不能只凭文件名、类名或关键词推断。Skill 必须读取完整目标代码、真实调用链和最终数据源后再选择规则。解析结果包含规则集版本、规则 ID、选择原因和 SHA-256 指纹，工作范围扩大后必须重新解析。
+### 选择入口
 
-## 高级能力
+- 新需求或需求口径不清：从 `$zstt-requirement-clarification` 开始。
+- 上一步已完成，想在行动前再次对齐契约：需求后用 `$zstt-requirement-checklist`，Full 任务后用 `$zstt-artifact-analysis`。
+- 已知是故障或数据异常：先用 `$zstt-bug-fix` 定位根因；若最终涉及新增能力、契约、SQL、核心状态或权限变化，再进入 Full/Quick。
+- 已有明确任务并准备改代码：用 `$zstt-implementation`；实现后的静态评审与实际验证分别用 `$zstt-code-review`、`$zstt-test-verify`。
+- 只做行为保持型整理：用 `$zstt-code-simplification`；涉及多文件职责或架构边界时用 `$zstt-module-refactor`。
 
-本项目不是把两套旧 Skill 改名后照搬，而是融合了 `agent-skills` 的证据化需求、方案、验收和代码简化能力，以及 `ggg-backend-skills` 的阶段门禁、跨仓库调研、任务编排、实现、评审和环境化测试能力。逐项来源和适配状态见 [高级能力融合矩阵](docs/advanced-capability-matrix.md)。
+## 产物与契约
 
-每个阶段都会先做能力探测，并记录三类结果：
-
-- `增强路径`：远程仓库、CodeGraph、PDF/图像解析、运行环境或测试通道可用时，使用对应高级能力；
-- `标准降级`：工具不可用时回退到本地源码、`rg`、静态证据或可执行的局部验证，并明确证据置信度和未验证边界；
-- `阻塞`：缺少的环境、token、权限或前置数据会影响关键结论时，停止给出完成/通过结论。
-
-工具不可用不等于可以省略能力目标，也不会成为伪造远程证据、运行结果或测试通过的理由。可选并行能力仅在用户明确要求或批准、且当前显式阶段证明安全时使用；主上下文负责去重、复核和最终写入。
-
-仓库调研采用显式本地路径优先：用户给出仓库路径后，只读取指定 checkout，不检查或调用远程仓库 MCP；未给路径时，才检查本机受 Git 忽略的 `.zstt-kit/.env/.env.local` 私有配置，并确认当前会话确实暴露匹配的只读 MCP。配置缺失、工具未注册或调用失败时进入本地源码、CodeGraph、`rg` 和逐层阅读的默认降级。`.env.local` 不会自动注册 MCP，也不得把其中 URL 当普通 HTTP 接口请求。
-
-每个阶段仍只有一个唯一权威主产物。接口明细、Schema、Review 轮次、测试轮次和代码简化记录等细节可写入 `auxiliary/`，但必须由主产物索引，不能形成第二份当前结论。`checklists/requirements.md` 和 `analysis/artifact-analysis.md` 是带输入指纹的派生质量报告，不替代 `00`–`03` 权威产物。系统可以推荐下一步，但不会自动执行任何推荐的 Skill。
-
-技术方案采用阶段内 SQL Gate：先完成业务、职责、主流程和接口设计，再判断 SQL 影响。无 SQL 变化时记录依据后继续；新增或修改查询、DML、DDL、索引或约束时，先在 `auxiliary/sql-design.sql` 给出精确语句并等待用户确认，确认前不继续方案后半段，也不能进入任务拆分。确认后 SQL 变化会自动使旧指纹失效。
-
-## 产物目录
-
-full 正式需求写入：
+### Full 产物
 
 ```text
 .zstt/features/YYYYMMDD-feature-name/
+├─ meta.json
+├─ 00-requirement.md
+├─ checklists/
+│  └─ requirements.md          # 可选需求质量门禁
+├─ 01-research.md
+├─ 02-design.md
+├─ 03-tasks.md
+├─ analysis/
+│  └─ artifact-analysis.md     # 可选实现前一致性门禁
+├─ 04-implementation.md
+├─ 05-code-review.md
+├─ 06-test-report.md
+└─ auxiliary/                  # 被主产物索引的明细与历史轮次
 ```
 
-quick 小需求写入：
+### Quick 产物
 
 ```text
 .zstt/quick/YYYYMMDD-quick-name/
+├─ meta.json
+├─ 00-requirement.md
+├─ checklists/
+│  └─ requirements.md          # 仅显式调用时创建
+├─ 01-implementation.md
+├─ 02-code-review.md           # 可选
+├─ 03-test-report.md           # 可选，编号固定
+└─ auxiliary/
 ```
 
-## 安装
+每个阶段只创建自己的产物，不提前生成后续空文档。不同文件的权威边界如下：
 
-ZSTT 使用与 Spec Kit 类似的项目初始化方式，不依赖 Codex 插件或 Marketplace。项目管理员安装 `zstt-cli`，把 Codex 项目级 Skills 写入业务仓库并随代码提交；普通成员拉取仓库后即可使用。
+| 产物类型 | 作用 | 能否替代上游结论 |
+| --- | --- | --- |
+| `00`–`06` 主产物 | 当前阶段唯一权威结论 | 是该阶段的权威来源 |
+| `meta.json` | Runtime 管理的模式、分支、阶段、指纹、推荐和关闭状态 | 否；不要手工编辑 |
+| `checklists/requirements.md` | 针对当前需求版本的派生质量报告 | 否；问题应回写 `00-requirement.md` |
+| `analysis/artifact-analysis.md` | 针对需求、调研、方案、任务当前版本的一致性报告 | 否；问题应回写对应权威产物 |
+| `auxiliary/` | 接口明细、Schema、SQL 草案、Review/Test 轮次等细节 | 否；必须被主产物索引 |
+| `.zstt/bugs/`、`.zstt/refactors/` | 不隶属某个需求的独立 Bug/重构记录 | 不改变 Full/Quick 状态 |
 
-运行环境要求 Python 3.11+，推荐使用 `uv` 管理命令行工具。直接执行以下命令，默认从 GitHub `main` 分支安装最新版本：
+需求材料要点、正式需求和疑问分别使用 `Sxx`、`Rxx`、`Qxx`；调研结论、证据和代码事实问题使用 `Cxx`、`Exx`、`RQxx`；设计与任务使用 `Dxx`、`Txx`。Runtime 校验这些 ID 的唯一性、引用、来源、验收和覆盖关系，避免“文档很多但无法追到实现”。
+
+### 两个可选质量门禁的纠正闭环
+
+质量报告不是聊天摘要，而是带输入 SHA-256 指纹的持久化派生产物：
+
+1. Skill 读取当前权威产物并创建报告；
+2. `passed` 表示无未解决项，`conditional` 表示只有 P1/P2 风险，`blocked` 表示存在 P0 或报告无效；
+3. 发现问题时，返回对应阶段更新权威主产物，而不是只改报告或把结论留在对话中；
+4. 上游一旦改变，旧报告自动成为 `stale`（过期）；
+5. 重新运行质量 Skill，基于新输入生成或更新报告，再进入下游。
+
+报告不存在等于显式跳过，原链路不受影响；报告一旦存在，下游采用“存在即消费”。P0、无效或过期报告会阻断；只有 P1/P2 时记录风险后允许继续。
+
+## 运行时与门禁
+
+Runtime 负责确定性状态和校验，Skill 负责分析与写作，两者分工如下：
+
+| 门禁 | 触发点 | 行为 |
+| --- | --- | --- |
+| 阶段顺序 | `prepare-stage`、`complete-stage` | Full 不可跳过固定阶段；Quick 保持固定编号和可选分支 |
+| 实质内容 | 完成阶段时 | 校验状态、必需章节、模板占位、P0、追溯 ID 和阶段专属矩阵 |
+| 输入指纹 | 准备下游、查看状态时 | 用户修改已完成产物后，撤销该阶段及下游旧完成状态，但保留文件 |
+| 需求 Checklist | Full 调研前；Quick 实现前 | 缺失则跳过；已有报告必须有效、新鲜且无 P0 |
+| 产物一致性分析 | Full 实现前 | 校验四份上游产物、规则快照、覆盖、状态和输入指纹 |
+| SQL Gate | Full 技术方案内 | `none` 记录无影响；`query_dml`/`ddl` 必须提供精确 SQL 并由用户确认 |
+| 当前需求解析 | `current`、`--current` | 只按当前 Git 分支选择唯一活动需求，不按日期或最近修改时间猜测 |
+| 关闭与恢复 | 自动完成或 `close` | Full 完成测试、Quick 完成测试时自动关闭；已关闭产物变化后可重新恢复 |
+
+技术方案的 SQL Gate 分两步：先用 `prepare-sql-gate` 记录 `none/query_dml/ddl`；涉及 SQL 时在 `auxiliary/sql-design.sql` 给出精确语句，再由用户明确确认并运行 `confirm-sql` 锁定指纹。确认前不能完成技术方案或进入任务拆分；确认后的 SQL 再变化会使门禁过期。
+
+`meta.json` v3 使用 `.zstt/...` 相对路径，避免提交某个成员的本机绝对路径。旧 v2 状态可以读取，并在下一次成功写入时迁移；没有分支信息的历史需求需要显式 `bind-branch`。
+
+## Skill、Rules、Runtime 和 Templates
+
+初始化后的业务仓库结构：
+
+```text
+.agents/
+└─ skills/
+   └─ zstt-*/                  # 12 个用户可调用 Skill
+.zstt-kit/
+├─ manifest.json               # CLI 版本与受管文件 SHA-256
+├─ project-databases.json      # 用户维护的项目/数据库与日志映射，不受 update 覆盖
+├─ rules/
+│  ├─ catalog.json
+│  ├─ workflow/
+│  └─ java/
+├─ runtime/
+│  ├─ workflow_cli.py
+│  ├─ workflow_contracts.py
+│  ├─ workflow_validation.py
+│  ├─ quality_gates.py
+│  ├─ rule_resolver.py
+│  └─ with_env.py
+├─ templates/
+│  ├─ full/
+│  ├─ quick/
+│  └─ quality-gates/
+└─ .env/
+   ├─ .env.example
+   ├─ .env.prod.example
+   └─ .gitignore
+```
+
+- **Skill（技能）**：用户显式选择的当前执行流程。
+- **Rules（规则）**：不作为 Skill 暴露，由当前 Skill 动态读取。
+- **Runtime（运行时）**：维护状态、路径、契约、指纹和确定性门禁。
+- **Templates（模板）**：定义主产物和质量报告结构。
+
+Rules 分为 `constraint`（硬约束）、`decision`（证据满足时采用的决策）、`checklist`（检查表）和 `reference`（按需参考）。每个 Skill 先加载固定 profile（规则画像），再根据已经读过的真实代码、调用链和数据源追加上下文，例如 `jackson`、`data-access`、`concurrency`、`transaction`、`ddd`。不能只凭文件名或关键词推断上下文。
+
+规则解析结果包含规则集版本、规则 ID、选择原因、各文件 SHA-256 和整体 `rulesetFingerprint`。工作范围扩大后重新解析，确保新上下文加载正确规则。
+
+## 高级能力与外部集成
+
+每个阶段先做能力探测，并明确记录：
+
+- **增强路径**：远程仓库、CodeGraph、PDF/图像解析、运行环境或测试通道可用时，使用对应能力；
+- **标准降级**：工具不可用时回到本地源码、`rg`、静态证据或局部验证，同时记录证据置信度和未验证边界；
+- **阻塞**：缺少权限、环境、前置数据或关键证据会影响结论时，不输出伪完成或伪通过。
+
+仓库调研采用显式本地路径优先。用户给出 checkout 后，只读取这些路径，不探测或切换远程来源；未给路径时，才检查本机受 Git 忽略的私有配置和当前会话是否真实暴露匹配的只读仓库 MCP。`.env.local` 不会自动注册 MCP，其中的 URL 也不是可直接请求的普通 HTTP 接口。
+
+Bug 排查可以结合代码、Trace、SLS 日志、MySQL、ES 和时间线。已注册 Observability MCP 时优先做收敛的只读取证；不可用时输出精确查询条件，等待用户回传脱敏结果。`$zstt-bug-fix` 默认先交付根因、影响和方案，开发角色只有在用户看到结论并二次确认后才执行最小修复。ZSTT 不打包 MCP Server 二进制或凭据。
+
+高级能力的来源、融合位置、边界和验证索引见 [高级能力融合矩阵](docs/advanced-capability-matrix.md)。
+
+### 本机环境与凭据隔离
+
+首次初始化会创建示例文件和空的 `project-databases.json`：
+
+```powershell
+Copy-Item .zstt-kit\.env\.env.example .zstt-kit\.env\.env.local
+Copy-Item .zstt-kit\.env\.env.prod.example .zstt-kit\.env\.env.prod.local
+```
+
+真实 `*.local` 文件受 Git 忽略，不进入安装清单，`zstt update` 不读取或覆盖。生产配置缺失时禁止回退到测试环境。需要让本地只读工具临时使用凭据时，通过范围启动器执行：
+
+```text
+python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client|mysql|es> -- <command> [args...]
+```
+
+| Scope | 只注入 |
+| --- | --- |
+| `observability` | 当前环境的后端 `ALIBABA_CLOUD_*` |
+| `observability-client` | 当前环境的客户端 AK，并临时映射为标准 `ALIBABA_CLOUD_*` |
+| `mysql` | `ZSTT_MYSQL_*` |
+| `es` | `ZSTT_ES_*` |
+
+启动器会先清除其他 ZSTT 受管凭据，再向子进程注入当前环境与当前 Scope 所需变量，避免后端/客户端、测试/生产或 MySQL/ES 凭据串用。
+
+## 安装和升级
+
+### 安装方式
+
+ZSTT 使用项目初始化方式，不依赖 Codex 插件或 Marketplace。默认从 GitHub `main` 安装最新版本：
 
 ```powershell
 uv tool install zstt-cli --force --from "git+https://github.com/Foutlook/zstt-backend-workflow.git"
 zstt version
 ```
 
-私有仓库使用团队已有的 HTTPS 凭证或 SSH Key，不要把 token 写入命令或脚本。
+私有仓库使用团队已有的 HTTPS 凭证或 SSH Key，不要把 token 写进命令、脚本或 README。
 
-### 项目管理员首次初始化
-
-进入业务仓库执行：
+### 初始化边界
 
 ```powershell
 cd C:\projects\learning-service
@@ -156,28 +340,21 @@ zstt init --here
 zstt doctor --here
 ```
 
-初始化写入下列工具文件：
+`zstt doctor` 检查安装清单、12 个 Skill、Git 根目录、父级错误安装、嵌套仓库和 Codex 发现边界。若聚合目录下有多个独立 Git 仓库，应分别进入每个真实仓库初始化。
 
-```text
-.agents/skills/zstt-*/
-.zstt-kit/rules/
-.zstt-kit/runtime/
-.zstt-kit/templates/
-.zstt-kit/manifest.json
-```
+CLI 只管理清单记录的以下内容：
 
-`.zstt-kit/manifest.json` 记录 CLI 版本和受管文件 SHA-256。CLI 不覆盖 `AGENTS.md`、其他项目级 Skill、业务源码或 `.zstt/features`、`.zstt/quick` 下的需求产物。初始化完成后新建 Codex 任务，让 Codex 加载 `$zstt-*` Skills。
+- `.agents/skills/zstt-*/`
+- `.zstt-kit/rules/`
+- `.zstt-kit/runtime/`
+- `.zstt-kit/templates/`
+- `.zstt-kit/.env/` 中的示例文件与 `.gitignore`
 
-`zstt doctor --here` 会同时检查安装清单、12 个项目级 Skill、Git 仓库根目录和 Codex 发现边界。出现 `Codex 可发现: 否` 时，应按诊断提示修复目录或重新初始化，再新建 Codex 任务。
+它不会接管 `AGENTS.md`、其他项目级 Skill、业务源码、`.zstt/` 业务产物、本机 `.env*.local` 或用户维护的 `project-databases.json`。
 
-> [!WARNING]
-> `.agents/skills` 必须位于实际业务 Git 仓库内。若 `C:\idea_workspace_tob` 只是聚合目录，下面的 `jzx`、`backend-a` 等才是独立 Git 仓库，就要分别进入每个仓库执行 `zstt init --here`。Codex 从当前目录向上扫描到当前 Git 根目录，不会跨越子仓库边界读取聚合目录中的 Skills。
+### 升级
 
-确认生成内容后，把 `.agents/skills/zstt-*` 和 `.zstt-kit/` 提交到业务仓库。普通团队成员只需拉取代码并新建 Codex 任务，不需要重复执行 `zstt init`；只有新项目初始化和工作流升级需要安装 `zstt-cli`。
-
-### 项目工作流升级
-
-先升级全局 CLI，再在每个业务仓库刷新受管文件：
+先升级全局 CLI，再刷新每个业务仓库：
 
 ```powershell
 uv tool install zstt-cli --force --from "git+https://github.com/Foutlook/zstt-backend-workflow.git"
@@ -188,25 +365,109 @@ zstt update --here
 zstt doctor --here
 ```
 
-如果受管 Skill、Rules、Runtime 或 Templates 被人工修改，`zstt update` 会在写文件前报告全部冲突并停止。人工合并后重试；只有明确接受覆盖时才使用 `zstt update --here --force`。`--force` 只作用于清单记录的 `.agents/skills/zstt-*`、`.zstt-kit/rules/`、`.zstt-kit/runtime/` 和 `.zstt-kit/templates/`，不能扩张到 `AGENTS.md`、`.zstt` 业务产物或其他 Skill。
+如果受管文件被人工修改，`zstt update` 会在写入前一次性报告全部冲突并停止。人工合并后重试；只有明确接受覆盖时才使用 `zstt update --here --force`。`--force` 仍受清单和受管根目录限制，不会扩张到业务文件或用户配置。
 
-`zstt init/update` 使用项目级安装锁和整批事务：先暂存并校验全部候选文件，再备份旧文件、提交受管内容，最后更新安装清单。提交中途失败时自动恢复原状态；若回滚本身失败，会返回 `ZSTT_INSTALL_ROLLBACK_FAILED` 并保留错误详情中的事务目录供人工恢复。需要机器读取结果时可使用：
+`init/update` 使用项目级安装锁和整批事务：暂存并校验全部候选文件，备份旧文件，提交受管内容，最后更新清单。中途失败会自动恢复；若回滚本身失败，返回 `ZSTT_INSTALL_ROLLBACK_FAILED` 并保留错误详情中的事务目录供人工恢复。
+
+从 0.1.x 升级时，manifest v1 会兼容迁移到 v2。未修改的旧内部 Skill 会被清理；存在本地修改时升级停止并报告冲突。升级后评审 Git diff、提交生成文件，并新建 Codex 任务加载新版 Skill。
+
+## 命令参考
+
+### `zstt` CLI
+
+所有项目命令都支持位置路径或 `--here`；`--here` 不能与路径同时使用。
+
+| 命令 | 用途 | 常用选项 |
+| --- | --- | --- |
+| `zstt version` | 显示 CLI 版本 | — |
+| `zstt init [path]` | 首次安装项目级工作流 | `--here`、`--force`、`--json` |
+| `zstt update [path]` | 按当前 CLI 刷新受管文件 | `--here`、`--force`、`--json` |
+| `zstt check [path]` | 检查版本、缺失和本地修改 | `--here`、`--json` |
+| `zstt doctor [path]` | 诊断 Git 根、嵌套仓库、Skill 数量和 Codex 可发现性 | `--here`、`--json` |
+
+机器调用示例：
 
 ```powershell
 zstt init --here --json
 zstt update --here --json
 zstt check --here --json
+zstt doctor --here --json
 ```
 
-人类可读错误使用稳定的 `[ZSTT_...]` 错误码前缀；`--json` 模式输出 `status、operation、error.code、error.message、error.details`，失败时仍返回非零退出码。
+失败返回非零退出码。人类可读错误带稳定的 `[ZSTT_...]` 前缀；JSON 错误包含 `status`、`operation`、`error.code`、`error.message` 和 `error.details`。
 
-从 0.1.x 升级时，清单 v1 会被兼容读取并升级为 v2。未修改的 `zstt-workflow-shared` 和 `zstt-java-backend-standard` 旧目录会被移除；存在本地修改时升级停止并报告冲突。
+### Workflow Runtime
 
-升级完成后新建 Codex 任务。
+正常使用时由 Skill 调用 Runtime；维护、调试或自动化时可以直接运行：
 
-升级者应评审生成文件的 Git diff 并提交。其他成员拉取该提交后自动获得同一版本的项目级 Skills。CI 也可以安装清单记录的 CLI 版本后执行 `zstt check --here`，检测受管文件缺失、人工修改或版本未同步。
+| 命令 | 用途 |
+| --- | --- |
+| `workflow_cli.py init` | 初始化 Full/Quick 需求目录、首份模板和 `meta.json` |
+| `workflow_cli.py list` | 只读列出仓库内有效需求 |
+| `workflow_cli.py current` | 按当前 Git 分支解析唯一活动需求 |
+| `workflow_cli.py status` | 输出阶段、推荐、指纹、SQL 与质量门禁状态 |
+| `workflow_cli.py bind-branch` | 将没有分支信息的历史需求绑定到当前分支 |
+| `workflow_cli.py close` | 完成必需阶段后显式关闭，主要用于跳过 Quick 可选阶段 |
+| `workflow_cli.py validate` | 只校验指定阶段产物 |
+| `workflow_cli.py prepare-stage` | 重新校验上游并创建目标阶段模板 |
+| `workflow_cli.py complete-stage` | 校验当前产物并记录完成状态与指纹 |
+| `workflow_cli.py prepare-quality-gate` | 创建需求 Checklist 或产物分析模板及输入指纹 |
+| `workflow_cli.py validate-quality-gate` | 校验质量报告结构、计数、状态和输入新鲜度 |
+| `workflow_cli.py prepare-sql-gate` | 记录 `none/query_dml/ddl` SQL 影响 |
+| `workflow_cli.py confirm-sql` | 用户确认后锁定当前 SQL 指纹 |
 
-### 维护者本地开发
+常用示例：
+
+```text
+python .zstt-kit/runtime/workflow_cli.py init --repo-root <repo> --mode full --feature-name <name>
+python .zstt-kit/runtime/workflow_cli.py list --repo-root <repo>
+python .zstt-kit/runtime/workflow_cli.py current --repo-root <repo>
+python .zstt-kit/runtime/workflow_cli.py status --current --repo-root <repo>
+python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
+python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
+python .zstt-kit/runtime/workflow_cli.py prepare-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
+python .zstt-kit/runtime/workflow_cli.py validate-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
+python .zstt-kit/runtime/workflow_cli.py prepare-sql-gate --feature-dir <feature-dir> --impact query_dml
+python .zstt-kit/runtime/workflow_cli.py confirm-sql --feature-dir <feature-dir> --source <用户确认来源>
+```
+
+Runtime 的 `--json` 是全局选项，必须放在子命令前：
+
+```text
+python .zstt-kit/runtime/workflow_cli.py --json status --feature-dir <feature-dir>
+```
+
+显式 `--feature-dir` 的优先级高于 `--current`。`current` 遇到 0 个、多个、损坏或未绑定分支的候选时会返回稳定错误码，不使用“最近修改”兜底。
+
+### Rule Resolver
+
+```text
+python .zstt-kit/runtime/rule_resolver.py check
+python .zstt-kit/runtime/rule_resolver.py list-contexts
+python .zstt-kit/runtime/rule_resolver.py resolve --skill zstt-implementation --context jackson --context data-access
+```
+
+`check` 校验 catalog、规则路径、UTF-8 和 profile；`resolve` 输出实际选中的规则、选择原因和确定性指纹。
+
+## 错误恢复
+
+| 现象 | 处理方式 |
+| --- | --- |
+| Codex 找不到 `$zstt-*` | 在当前业务 Git 仓库运行 `zstt doctor --here`；修复仓库边界后重新初始化并新建 Codex 任务 |
+| `current` 找不到或匹配多个需求 | 用 `list` 查看候选；显式传 `--feature-dir`，或关闭/绑定不正确的需求 |
+| 历史需求没有分支 | 确认目标后运行 `bind-branch`，不要按时间猜测 |
+| 缺少上游文件 | 回到对应 Skill 补齐，不手工创建后续空文档 |
+| 用户修改已完成产物 | 核对影响并重新完成被修改阶段；Runtime 会重新校验并撤销下游旧状态 |
+| Checklist/分析报告为 `stale` | 先确认上游修正，再重新执行对应质量 Skill |
+| SQL 确认后又修改草案 | 重新执行 `prepare-sql-gate` 并请求用户再次确认 |
+| 内容门禁失败 | 按错误补齐实质章节、ID、引用、来源、验收或矩阵；不要只改 `status` 和计数字段 |
+| Quick 影响面扩大 | 重新执行需求澄清并由用户确认升级 Full，不自动改模式 |
+| 安装冲突 | 人工评审全部冲突；确认覆盖受管文件时才使用 `--force` |
+| `ZSTT_INSTALL_LOCKED` | 确认没有其他安装进程；不要直接删除仍被活动进程持有的锁 |
+| `ZSTT_INSTALL_ROLLBACK_FAILED` | 保留错误中给出的事务目录，按备份和 journal 人工恢复 |
+| 生产环境配置缺失 | 补齐 `.env.prod.local` 或停止；不得回退测试凭据 |
+
+## 维护者开发与验证
 
 在本仓库安装当前工作区版本：
 
@@ -215,195 +476,28 @@ uv tool install zstt-cli --force .
 zstt version
 ```
 
-再进入一个测试业务仓库执行 `zstt init --here` 或 `zstt update --here`。正式发布前运行：
+完整验证：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 ```
 
-验证脚本运行全部测试、编译 Python 源码、构建 Wheel，并检查 Wheel 包含完整 Skill、Rules、Runtime 和 Templates，且不包含 Codex 插件元数据。脚本不会自动 commit、push、合并或发布。
+验证脚本会：
 
-版本遵循语义化版本，发布变化记录在 [`CHANGELOG.md`](CHANGELOG.md)。README 中的安装命令默认继续安装 GitHub `main` 分支最新版本。
+1. 校验 12 个 Skill 的 frontmatter、元数据、引用与行为测试提示；
+2. 运行全部单元、契约和 Full/Quick 端到端测试；
+3. 编译 Python 源码并检查文本为 UTF-8 无 BOM；
+4. 构建 Wheel，验证 Skill、Rules、Runtime、Templates 和环境示例完整，且不包含 Codex 插件元数据；
+5. 在临时虚拟环境安装 Wheel，执行 `zstt version/init/doctor` 和规则解析烟测。
 
-## 工作流使用
-
-### 1. 进入业务仓库并新建 Codex 任务
-
-项目管理员完成 `zstt init --here` 并提交生成文件后，团队成员只需拉取业务仓库，在仓库根目录新建 Codex 任务。不要在工作流项目目录中执行业务需求，也不需要普通成员重复初始化。
-
-### 2. 显式发起需求澄清
-
-Full 正式需求：
-
-```text
-$zstt-requirement-clarification
-请按 full 模式澄清这份需求：<PRD、截图、流程图或口头说明>
-```
-
-Quick 小改动：
-
-```text
-$zstt-requirement-clarification
-请按 quick 模式澄清这个小改动：<问题描述与验收标准>
-```
-
-用户未指定模式时，Skill 会根据范围、状态、权限、数据身份、旧链路副作用和关键契约给出 quick/full 推荐及依据；最终模式仍由用户选择，或由用户明确授权 AI 采用推荐。确认模式后，需求澄清会创建对应目录、`meta.json` 和 `00-requirement.md`。
-
-需求材料中的独立要点使用 `Sxx`，正式需求使用 `Rxx`，疑问使用 `Qxx`。每个 `Sxx` 必须形成需求、形成疑问或明确不适用；每个 `Rxx` 必须有来源和验收覆盖。系统完成当前阶段后只推荐下一步，不会自动执行推荐的 Skill。`meta.json` v3 使用 `.zstt/...` 相对目录，避免把某个成员的本机绝对路径提交到仓库；读取旧 v2 状态后，会在下一次成功写入时自动迁移。
-
-### 3. 审阅当前阶段产物
-
-每个阶段结束时，Codex 应交付当前主产物路径、校验结论、开放问题和推荐 Skill。用户可以自由选择：
-
-1. **继续**：显式调用推荐 Skill；
-2. **修改**：直接编辑当前 `.zstt/` 主产物，再重新确认该阶段；
-3. **暂停**：保留现有产物，之后从同一需求目录继续。
-
-> [!IMPORTANT]
-> `meta.json` 由 Runtime 维护，不要手工编辑。用户修改已完成主产物后，该阶段及其下游完成状态会失效；继续前必须重新校验修改后的权威内容，不能沿用旧结论。
-
-### 4. 显式调用下一阶段
-
-Full 示例：
-
-```text
-$zstt-requirement-checklist
-检查 .zstt/features/20260716-learning-report
-
-# 或跳过可选检查，直接进入固定下一阶段
-$zstt-repo-research
-继续处理 .zstt/features/20260716-learning-report
-```
-
-后续阶段使用同一需求目录，并依次显式调用 `$zstt-technical-design`、`$zstt-task-breakdown`、`$zstt-implementation`、`$zstt-code-review` 和 `$zstt-test-verify`。任务拆分完成后可以先调用 `$zstt-artifact-analysis`；如果跳过，则直接实现。
-
-Quick 完成需求澄清后，直接显式调用实现阶段：
-
-```text
-$zstt-implementation
-继续处理 .zstt/quick/20260716-fix-learning-report
-```
-
-Quick 的代码评审和测试验证由用户根据风险决定是否调用。实现完成后，状态会同时给出 `$zstt-code-review` 和 `$zstt-test-verify` 两个可选推荐；用户若直接完成测试，Quick 流程结束，不会再倒退推荐代码评审。即使跳过代码评审，测试报告仍固定使用 `03-test-report.md`。
-
-### 5. 识别阶段是否真正完成
-
-文档已经生成不等于阶段已经完成。只有内容门禁通过、P0 阻塞清零，并由 Runtime 成功记录产物指纹后，才可以继续下游。固定流程没有统一自动入口，也不会自动 commit、push、合并或部署。
-
-## Full 产物
-
-```text
-.zstt/features/YYYYMMDD-feature-name/
-├─ meta.json
-├─ 00-requirement.md
-├─ checklists/
-│  └─ requirements.md          # 可选派生质量门禁
-├─ 01-research.md
-├─ 02-design.md
-├─ 03-tasks.md
-├─ analysis/
-│  └─ artifact-analysis.md     # 可选派生质量门禁
-├─ 04-implementation.md
-├─ 05-code-review.md
-├─ 06-test-report.md
-└─ auxiliary/
-```
-
-每个阶段只生成自己的主产物，不提前创建后续空文档。
-
-## Quick 产物
-
-```text
-.zstt/quick/YYYYMMDD-quick-name/
-├─ meta.json
-├─ 00-requirement.md
-├─ checklists/
-│  └─ requirements.md          # 仅显式调用时创建
-├─ 01-implementation.md
-├─ 02-code-review.md
-├─ 03-test-report.md
-└─ auxiliary/
-```
-
-quick 必须先做轻量需求澄清，固定链路仍直接进入实现。用户显式执行需求 Checklist 时，已有报告会在实现前被校验；未执行时行为不变。Review 和测试由用户决定是否调用；即使跳过 Review，测试报告仍固定使用 `03-test-report.md`。
-
-## 状态和门禁工具
-
-正常使用时由阶段 Skill 调用 Rules 和 Runtime。维护或排查时可以直接运行：
-
-```text
-python .zstt-kit/runtime/rule_resolver.py list-contexts
-python .zstt-kit/runtime/rule_resolver.py resolve --skill zstt-implementation --context jackson --context data-access
-python .zstt-kit/runtime/workflow_cli.py init --repo-root <repo> --mode full --feature-name <name>
-python .zstt-kit/runtime/workflow_cli.py list --repo-root <repo>
-python .zstt-kit/runtime/workflow_cli.py current --repo-root <repo>
-python .zstt-kit/runtime/workflow_cli.py status --current --repo-root <repo>
-python .zstt-kit/runtime/workflow_cli.py status --feature-dir <feature-dir>
-python .zstt-kit/runtime/workflow_cli.py bind-branch --repo-root <repo> --feature-dir <feature-dir>
-python .zstt-kit/runtime/workflow_cli.py close --current --repo-root <repo>
-python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
-python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
-python .zstt-kit/runtime/workflow_cli.py prepare-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
-python .zstt-kit/runtime/workflow_cli.py validate-quality-gate --feature-dir <feature-dir> --gate requirement_checklist
-```
-
-Runtime 失败也提供稳定错误码。需要机器读取时，把 `--json` 放在子命令之前：
-
-```text
-python .zstt-kit/runtime/workflow_cli.py --json status --feature-dir <feature-dir>
-python .zstt-kit/runtime/workflow_cli.py --json prepare-stage --feature-dir <feature-dir> --stage repo_research
-```
-
-- 显式 `--feature-dir` 的优先级始终高于 `--current`。
-- `current` 只匹配当前 Git 分支上的唯一活动需求；0 个或多个候选、损坏状态、未绑定分支的历史活动需求都会返回稳定错误码，绝不按日期、编号或最近修改时间兜底。
-- `meta.json` 兼容性记录 `git_branch`、`workflow_status` 和 `skipped_stages`。Full 完成全部阶段、Quick 完成测试时自动关闭；Quick 跳过可选 Review/测试时通过 `close` 显式关闭。
-- 已关闭产物发生变化时，需求重新成为可恢复候选；重新准备或完成受影响阶段后刷新状态。
-- `prepare-stage` 在创建当前产物前重新校验上游，并对照内容指纹检测用户修改。
-- `prepare-quality-gate` 只在报告不存在时创建模板并返回当前输入指纹；`validate-quality-gate` 校验报告结构、问题计数、状态和输入新鲜度，不推进固定阶段。
-- `status` 动态输出 `quality_gates`。`skipped` 表示文件不存在；`passed/conditional/blocked/stale` 均来自固定路径上的当前报告，不写入 `completed_stages`。
-- 下游采用“存在即消费”：缺少报告表示跳过；已有报告为 P0、过期或无效时阻断，只有 P1/P2 时记录风险后继续。
-- `complete-stage` 除了校验状态、P0、章节和模板项，还会校验需求 `S/R/Q` 来源与验收覆盖、最终确认来源，以及调研 `R/C/E/RQ` 覆盖、仓库 ChangeScope、本地证据行号、共享语义和当前 SQL 事实，成功后记录新指纹。
-- 已完成产物发生变化时，该阶段及其下游完成状态自动撤销，但原产物文件保留；用户重新执行被修改阶段的 `complete-stage` 后才能继续。
-- `meta.json` 由工具维护，不要手工编辑。
-- `recommended_next_skill` 保留首个推荐以兼容旧调用方；新调用方应优先读取 `recommended_next_skills`，以支持 Full 的质量门禁 handoff 和 Quick 的并列可选分支。
-
-## 错误恢复
-
-- Codex 找不到 `$zstt-*`：在当前业务 Git 仓库执行 `zstt doctor --here`；若提示 Skills 位于仓库边界外，则在当前仓库重新执行 `zstt init --here`，提交生成文件并新建 Codex 任务。
-- 缺少上游文件：回到对应阶段 Skill 补齐，不手工创建后续文档。
-- P0 阻塞：在上游权威产物完成确认并清零，再重新调用当前阶段。
-- 用户修改已完成产物：系统撤销该阶段及下游完成状态；先核对修改影响，再重新完成被修改阶段。
-- 内容门禁失败：按错误补齐 `Sxx/Rxx/Qxx/Cxx/Exx/RQxx/Dxx/Txx` 定义、引用、验收或影响矩阵后重试，不用只改 `status` 或数量字段绕过。
-- 运行时证据不足：在调研、方案或测试产物中记录缺口和验证动作，不把静态推断写成事实。
-- quick 影响面扩大：建议重新执行需求澄清并升级 full，不自动改变模式。
-
-## 辅助 Skill
-
-`$zstt-artifact-analysis` 用于 Full 任务拆分完成后的实现前分析。它先确认四份上游主产物和 SQL Gate 仍然有效，再检查 `Rxx → Cxx → Dxx → Txx` 的语义覆盖、术语与数据身份一致性、契约/SQL 传递、任务依赖、并行冲突和项目规则对齐。结果写入 `analysis/artifact-analysis.md`，保存规则快照、四份输入指纹、稳定问题 ID 和覆盖指标；只允许修改这份派生报告，不修改权威产物、`meta.json` 或业务代码。实现已经完成或留下实际执行记录时停止并推荐代码评审。
-
-`$zstt-requirement-checklist` 把 full/quick 的 `00-requirement.md` 当作自然语言规格执行质量检查，关注完整性、清晰度、一致性、可度量性、追溯性和场景覆盖。结果写入 `checklists/requirements.md`：有文档证据的检查项标记 `[x]`，缺失、歧义或冲突项保留 `[ ]` 并记录证据、级别和建议回写位置。它不检查实现，也不能替用户补写业务事实或完成需求阶段；发现缺口时由用户显式返回 `$zstt-requirement-clarification` 更新唯一权威需求，再重新执行 Checklist。
-
-`$zstt-bug-fix` 用于 Java 后端 Bug、线上问题和偶现问题的证据化排查与最小修复。它先结合代码、Trace、日志、MySQL、ES 和时间线交付根因、影响与方案，只有用户看到结论后二次确认才修改代码。默认直接在当前任务中交付，不创建报告；只有用户明确要求保存文档时，独立记录才写入 `.zstt/bugs/`，关联需求时写入需求 `auxiliary/bugs/`。项目已注册只读 Observability MCP 时优先查询 Trace 和 SLS；未注册时输出精确降级查询条件。涉及新增能力、接口/消息契约、表结构、索引、SQL 口径、核心状态或权限变化时转入 Full/Quick 对应阶段，不借 Bug 修复绕过方案和 SQL Gate。
-
-`zstt init/update` 会安装 `.zstt-kit/.env/.env.example`、`.env.prod.example` 和跨平台的 `runtime/with_env.py`。真实 `*.local` 配置始终由项目本机维护，不进入安装清单，安装和更新流程不会读取、覆盖或提交；生产配置缺失时禁止回退到测试环境。私有仓库 MCP 的真实服务名、传输类型、URL 和鉴权信息也只保存在本机 `.env.local`，不写入 Skill、代码、README、示例模板或阶段产物。ZSTT 不打包任何 MCP Server 二进制或凭据。
-
-`$zstt-code-simplification` 可在任何时间对当前 diff、指定提交、文件或符号做行为保持型简化。它不属于固定流程，不修改阶段状态；关联需求时可在 `auxiliary/` 下记录结果。
-
-`$zstt-module-refactor` 用于多文件职责拆分、模块化、DDD 边界和有证据的性能、并发、锁、内存/GC、资源生命周期治理。它不属于固定流程，不修改阶段状态；重大重构先生成 `.zstt/refactors/` 或需求 `auxiliary/refactors/` 下的计划并等待用户审批，可能改变业务行为的部分必须单独审批。
-
-Java 开发规范、抽象、设计模式和 DDD 决策已经统一放入 `.zstt-kit/rules/java/`。它们由当前 Skill 动态读取，不再作为独立 Skill 暴露。
-
-## 验证
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
-```
-
-验证脚本会运行仓库内 12 个 Skill 契约校验、全部测试、CLI 编译和 Wheel 内容校验。项目测试覆盖项目级 Skill/Rules/Runtime/Templates 安装、安全更新、v1→v2 升级、Git/Codex 发现诊断、规则动态选择与指纹、冲突保护、阶段顺序、meta v2→v3 迁移、路径安全、UTF-8 无 BOM、实质内容门禁、需求来源与验收覆盖、持久化质量门禁、输入指纹失效、实现前跨产物分析、需求质量 Checklist、调研证据交叉引用、本地文件行号、共享语义/SQL 影响、内容指纹、上游失效、P0 阻断、Codex 元数据、quick 可选阶段和 full/quick 端到端流程。相同验证也会在 GitHub Actions 中对 `main`、版本标签和 Pull Request 自动执行。
+GitHub Actions 在 Pull Request、`main`、版本标签和手工触发时运行相同验证。版本遵循语义化版本，发布记录见 [CHANGELOG.md](CHANGELOG.md)；能力来源与适配状态见 [高级能力融合矩阵](docs/advanced-capability-matrix.md)。
 
 ## 非目标
 
 - 不自动串行执行阶段。
-- 不在缺少用户选择或明确授权时自动选择 quick/full；允许先给出推荐和依据。
-- 首版不支持非 Java 技术栈或自动多 Agent 编码。
+- 不在缺少用户选择或明确授权时自动决定 Quick/Full。
+- 不支持非 Java 技术栈。
+- 不把辅助报告变成第二份权威需求、方案或实现结论。
+- 不打包 MCP Server、私有连接信息或凭据。
+- 不自动多 Agent 编码；并行能力只在用户明确要求或批准、当前阶段边界清楚且可证明无冲突时使用。
 - 不自动 commit、push、合并、发布或部署。
