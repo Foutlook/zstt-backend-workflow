@@ -6,6 +6,8 @@
 
 ### 变更
 
+- 需求 Checklist 和实现前一致性分析改为可持久化质量门禁：固定报告路径保存规则快照、输入指纹和问题状态；下游按“缺失即跳过、存在即消费”校验，Quick 固定阶段链路不变。
+- Full 在需求完成后同时推荐需求 Checklist 与仓库调研，在任务拆分后同时推荐一致性分析与编码实现；两个辅助 Skill 仍不进入 `completed_stages`。
 - `zstt init/update` 增加项目级安装锁、候选文件暂存、事务日志、整批提交和失败回滚，避免安装内容处于半新半旧状态。
 - `zstt init/update/check` 和项目本地 Workflow Runtime 增加稳定错误码；机器调用可使用 `--json` 获取结构化失败详情。
 - Workflow Runtime 增加 `list/current/status --current/bind-branch/close`，按当前 Git 分支安全定位唯一活动需求，不再按日期猜测。

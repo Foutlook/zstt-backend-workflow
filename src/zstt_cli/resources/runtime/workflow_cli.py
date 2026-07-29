@@ -8,6 +8,16 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path, PurePosixPath
 
+from quality_gates import (
+    get_quality_gate,
+    quality_gate_report_path,
+    quality_gate_source_fingerprints,
+    quality_gate_summaries,
+    quality_gate_summary,
+    quality_gate_template_values,
+    quality_gates_before_stage,
+    validate_quality_gate_document,
+)
 from workflow_contracts import (
     get_contract,
     recommended_next_skills,
@@ -214,10 +224,11 @@ def feature_summary(
     meta: dict[str, object],
 ) -> dict[str, object]:
     stale_stages = changed_completed_stages(feature_dir, meta)
+    mode = str(meta.get("mode", ""))
     return {
         "feature_dir": str(meta["feature_dir"]),
         "absolute_path": str(feature_dir.resolve()),
-        "mode": str(meta.get("mode", "")),
+        "mode": mode,
         "feature_name": str(meta.get("feature_name", "")),
         "git_branch": meta.get("git_branch"),
         "workflow_status": meta.get("workflow_status"),
@@ -227,6 +238,7 @@ def feature_summary(
         "stale_stages": stale_stages,
         "completed": feature_is_completed(feature_dir, meta, stale_stages),
         "recommended_next_skills": list(meta.get("recommended_next_skills", [])),
+        "quality_gates": quality_gate_summaries(feature_dir, mode),
     }
 
 
@@ -526,7 +538,9 @@ def show_status(args: argparse.Namespace) -> int:
         )
     status = dict(meta)
     status["stale_stages"] = changed_completed_stages(feature_dir, meta)
-    if str(meta.get("mode")) == "full":
+    mode = str(meta.get("mode"))
+    status["quality_gates"] = quality_gate_summaries(feature_dir, mode)
+    if mode == "full":
         gate = sql_gate_from_meta(meta)
         gate["effective_status"] = (
             "stale" if sql_gate_is_stale(feature_dir, meta) else gate["status"]
@@ -839,6 +853,11 @@ def complete_stage(args: argparse.Namespace) -> int:
                 "missingStages": missing_predecessors,
             },
         )
+    quality_gate_results = validate_quality_gates_before_stage(
+        feature_dir,
+        mode,
+        contract.key,
+    )
 
     errors, frontmatter = validate_stage_document(
         feature_dir / contract.artifact,
@@ -864,7 +883,11 @@ def complete_stage(args: argparse.Namespace) -> int:
         "p1": int(frontmatter["open_p1_count"]),
         "p2": int(frontmatter["open_p2_count"]),
     }
-    meta["last_validation"] = {"stage": contract.key, "valid": True}
+    meta["last_validation"] = {
+        "stage": contract.key,
+        "valid": True,
+        "quality_gates": quality_gate_results,
+    }
     skipped = [
         stage
         for stage in list(meta.get("skipped_stages", []))
@@ -901,7 +924,7 @@ def validate_predecessors(
     feature_dir: Path,
     meta: dict[str, object],
     target_stage: str,
-) -> None:
+) -> dict[str, dict[str, object]]:
     mode = str(meta["mode"])
     completed = list(meta.get("completed_stages", []))
     predecessors = required_predecessors(mode, target_stage)
@@ -933,6 +956,33 @@ def validate_predecessors(
             errors, _ = validate_stage_document(review_path, mode, review.key)
             if errors:
                 raise ValueError("可选 Review 已存在但未通过校验: " + "；".join(errors))
+    return validate_quality_gates_before_stage(feature_dir, mode, target_stage)
+
+
+def validate_quality_gates_before_stage(
+    feature_dir: Path,
+    mode: str,
+    target_stage: str,
+) -> dict[str, dict[str, object]]:
+    results: dict[str, dict[str, object]] = {}
+    for gate_key in quality_gates_before_stage(mode, target_stage):
+        summary = quality_gate_summary(feature_dir, mode, gate_key)
+        results[gate_key] = summary
+        if summary["state"] in {"skipped", "passed", "conditional"}:
+            continue
+        raise WorkflowError(
+            "ZSTT_QUALITY_GATE_BLOCKED",
+            (
+                f"可选质量门禁 {gate_key} 已存在但状态为 "
+                f"{summary['state']}；请修正权威产物并重新执行对应 Skill"
+            ),
+            {
+                "stage": target_stage,
+                "qualityGate": gate_key,
+                "summary": summary,
+            },
+        )
+    return results
 
 
 def prepare_stage(args: argparse.Namespace) -> int:
@@ -951,7 +1001,7 @@ def prepare_stage(args: argparse.Namespace) -> int:
         stage_order = [stage.key for stage in stages_for(mode)]
         if stage_order.index(earliest_changed) <= stage_order.index(contract.key):
             raise changed_stage_error(feature_dir, meta, earliest_changed, invalidated)
-    validate_predecessors(feature_dir, meta, contract.key)
+    quality_gate_results = validate_predecessors(feature_dir, meta, contract.key)
 
     target = feature_dir / contract.artifact
     if not target.exists():
@@ -985,9 +1035,114 @@ def prepare_stage(args: argparse.Namespace) -> int:
         "stage": contract.key,
         "valid": True,
         "kind": "predecessors",
+        "quality_gates": quality_gate_results,
     }
     write_meta(feature_dir, meta)
     print(str(target))
+    return 0
+
+
+def prepare_quality_gate(args: argparse.Namespace) -> int:
+    feature_dir = Path(args.feature_dir).resolve()
+    meta = read_meta(feature_dir)
+    mode = str(meta["mode"])
+    gate = get_quality_gate(args.gate)
+    if mode not in gate.modes:
+        raise WorkflowError(
+            "ZSTT_QUALITY_GATE_UNSUPPORTED",
+            f"{gate.key} 不支持 {mode} 模式",
+            {"qualityGate": gate.key, "mode": mode},
+        )
+
+    if gate.key == "artifact_analysis":
+        completed = set(meta.get("completed_stages", []))
+        missing = [stage for stage in gate.source_stages if stage not in completed]
+        if missing:
+            raise WorkflowError(
+                "ZSTT_PREDECESSOR_NOT_READY",
+                "实现前一致性分析的前置阶段尚未完成: " + ", ".join(missing),
+                {"qualityGate": gate.key, "missingStages": missing},
+            )
+        stale = changed_completed_stages(feature_dir, meta)
+        if stale:
+            raise WorkflowError(
+                "ZSTT_ARTIFACT_CHANGED",
+                "实现前一致性分析存在失效输入: " + ", ".join(stale),
+                {"qualityGate": gate.key, "staleStages": stale},
+            )
+        for stage_key in gate.source_stages:
+            contract = get_contract(mode, stage_key)
+            errors, _ = validate_stage_document(
+                feature_dir / contract.artifact,
+                mode,
+                stage_key,
+            )
+            raise_for_errors(errors)
+        gate_state = sql_gate_from_meta(meta)
+        if gate_state.get("status") not in {"not_involved", "confirmed"}:
+            raise WorkflowError(
+                "ZSTT_SQL_GATE_BLOCKED",
+                "实现前一致性分析要求 SQL Gate 为 not_involved 或 confirmed",
+                {"sqlGate": gate_state},
+            )
+        if sql_gate_is_stale(feature_dir, meta):
+            raise WorkflowError(
+                "ZSTT_SQL_GATE_BLOCKED",
+                "实现前一致性分析的 SQL Gate 已失效",
+                {"sqlGate": gate_state},
+            )
+
+    values = quality_gate_template_values(feature_dir, mode, gate.key)
+    values.update(
+        {
+            "FEATURE_NAME": str(meta["feature_name"]),
+            "CREATED_DATE": date.today().isoformat(),
+        }
+    )
+    report_path = quality_gate_report_path(feature_dir, gate.key)
+    created = not report_path.exists()
+    if created:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        template_path = TEMPLATE_ROOT / "quality-gates" / f"{gate.key.replace('_', '-')}.md"
+        content = render_template(template_path, values)
+        report_path.write_text(content, encoding="utf-8", newline="\n")
+
+    print(
+        json.dumps(
+            {
+                "quality_gate": gate.key,
+                "path": str(report_path),
+                "created": created,
+                "input_fingerprints": quality_gate_source_fingerprints(
+                    feature_dir,
+                    mode,
+                    gate.key,
+                ),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def validate_quality_gate(args: argparse.Namespace) -> int:
+    feature_dir = Path(args.feature_dir).resolve()
+    meta = read_meta(feature_dir)
+    mode = str(meta["mode"])
+    errors, _frontmatter = validate_quality_gate_document(
+        feature_dir,
+        mode,
+        args.gate,
+    )
+    raise_for_errors(errors)
+    print(
+        json.dumps(
+            quality_gate_summary(feature_dir, mode, args.gate),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 
@@ -1202,6 +1357,30 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--stage", required=True)
     prepare_parser.set_defaults(handler=prepare_stage)
 
+    quality_prepare_parser = subparsers.add_parser(
+        "prepare-quality-gate",
+        help="准备可选质量门禁产物，不推进固定阶段",
+    )
+    quality_prepare_parser.add_argument("--feature-dir", required=True)
+    quality_prepare_parser.add_argument(
+        "--gate",
+        required=True,
+        choices=("requirement_checklist", "artifact_analysis"),
+    )
+    quality_prepare_parser.set_defaults(handler=prepare_quality_gate)
+
+    quality_validate_parser = subparsers.add_parser(
+        "validate-quality-gate",
+        help="校验可选质量门禁的结构、计数和输入指纹",
+    )
+    quality_validate_parser.add_argument("--feature-dir", required=True)
+    quality_validate_parser.add_argument(
+        "--gate",
+        required=True,
+        choices=("requirement_checklist", "artifact_analysis"),
+    )
+    quality_validate_parser.set_defaults(handler=validate_quality_gate)
+
     sql_prepare_parser = subparsers.add_parser(
         "prepare-sql-gate",
         help="记录技术方案 SQL 影响；涉及 SQL 时生成待用户确认门禁",
@@ -1257,6 +1436,8 @@ def operation_error(
         "validate": "ZSTT_ARTIFACT_INVALID",
         "complete-stage": "ZSTT_STAGE_COMPLETION_BLOCKED",
         "prepare-stage": "ZSTT_STAGE_PREPARATION_BLOCKED",
+        "prepare-quality-gate": "ZSTT_QUALITY_GATE_PREPARATION_BLOCKED",
+        "validate-quality-gate": "ZSTT_QUALITY_GATE_INVALID",
         "prepare-sql-gate": "ZSTT_SQL_GATE_PREPARATION_BLOCKED",
         "confirm-sql": "ZSTT_SQL_CONFIRMATION_BLOCKED",
     }

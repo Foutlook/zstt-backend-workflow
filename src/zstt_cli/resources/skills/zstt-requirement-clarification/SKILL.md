@@ -74,7 +74,7 @@ quick 按以下顺序收敛，不复刻 full 的逐项访谈：
 3. 仅当 P0 清零、所有 `Rxx` 有来源和验收覆盖、原始材料要点全部收口，且 `confirmation_status: confirmed`、`confirmation_source` 可回查时，才把 `status` 更新为 `completed`。
 4. 运行 `complete-stage --stage requirement_clarification`。
 5. CLI 失败时继续澄清或修正文档，不手改 `meta.json`。
-6. 仅在 CLI 成功后交付 `00-requirement.md` 路径、澄清结论、开放风险，并把 `$zstt-repo-research` 作为固定下一阶段推荐。若用户希望在调研前复核需求写作质量，同时说明可显式调用只读的 `$zstt-requirement-checklist`；它不是固定阶段，不得自动执行，也不得替代当前完成门禁。
+6. 仅在 CLI 成功后交付 `00-requirement.md` 路径、澄清结论和开放风险。Full Runtime 同时暴露可选的 `$zstt-requirement-checklist` 与固定下一阶段 `$zstt-repo-research`：前者把实际检查结果保存到 `checklists/requirements.md`，用户也可以跳过并直接调研。Quick 固定链路仍推荐 `$zstt-implementation`，用户显式调用 Checklist 时才创建可选门禁。不得自动执行任何推荐，也不得用 Checklist 替代当前完成门禁。
 7. P0 阻塞或 CLI 失败时，交付当前文档路径、真实状态、阻塞或失败原因和解锁动作，不推荐执行下游阶段。
 
 ## 禁止事项

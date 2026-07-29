@@ -19,12 +19,15 @@ REQUIRED_SUFFIXES = (
     "zstt_cli/resources/rules/catalog.json",
     "zstt_cli/resources/rules/java/design-patterns.md",
     "zstt_cli/resources/runtime/rule_resolver.py",
+    "zstt_cli/resources/runtime/quality_gates.py",
     "zstt_cli/resources/runtime/with_env.py",
     "zstt_cli/resources/runtime/workflow_cli.py",
     "zstt_cli/resources/env/.env.example",
     "zstt_cli/resources/env/.env.prod.example",
     "zstt_cli/resources/env/.gitignore",
     "zstt_cli/resources/templates/full/00-requirement.md",
+    "zstt_cli/resources/templates/quality-gates/requirement-checklist.md",
+    "zstt_cli/resources/templates/quality-gates/artifact-analysis.md",
 )
 
 FORBIDDEN_SUFFIXES = (

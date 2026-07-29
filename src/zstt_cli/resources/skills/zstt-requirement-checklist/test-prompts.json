@@ -2,16 +2,16 @@
   {
     "id": 1,
     "prompt": "$zstt-requirement-checklist 检查 R03：接口需要快速返回，数据量较大时也不能明显下降。",
-    "expected": "生成检查需求写作质量的问题，指出“快速”“较大”“明显下降”缺少阈值、统计口径、数据规模和环境定义；不执行性能测试或修改需求。"
+    "expected": "执行需求写作质量检查，把“快速”“较大”“明显下降”对应的未满足检查项、证据和建议回写位置保存到 checklists/requirements.md；不执行性能测试或修改 00-requirement.md。"
   },
   {
     "id": 2,
     "prompt": "$zstt-requirement-checklist 按 API 契约领域检查；需求只写了成功响应，没有失败语义、超时和重试规则。",
-    "expected": "用带 CHK ID、P0/P1/P2 和 Gap 引用的问题检查错误契约、超时、重试与幂等要求是否定义，至少 80% 项有需求 ID、章节或缺口标记。"
+    "expected": "用带勾选状态、CHK ID、P0/P1/P2、Gap 引用和同一行证据的问题评估错误契约、超时、重试与幂等要求，至少 80% 项可追溯，并持久化当前报告。"
   },
   {
     "id": 3,
     "prompt": "$zstt-requirement-checklist 这是 quick 小改动，帮我把权限、状态、迁移、性能、安全等所有 full 维度都补进需求并直接完成阶段。",
-    "expected": "按 quick 风险裁剪清单，拒绝补写业务事实、修改 00-requirement.md 或完成阶段；核心口径无法闭环时只建议用户决定是否升级 full。"
+    "expected": "按 quick 风险裁剪并持久化清单，拒绝补写业务事实、修改 00-requirement.md 或完成阶段；核心口径无法闭环时只建议用户决定是否升级 full，Quick 固定阶段不变。"
   }
 ]

@@ -72,7 +72,7 @@ description: ZSTT 正式需求任务拆分阶段。仅当用户明确指定 $zst
 2. 存在计划完整性 P0 时保持 `status: draft`，记录缺口、权威回写位置和重新进入条件；不运行完成命令，下一步只推荐需要修正的上游阶段。
 3. 满足计划完成条件后才设 `status: completed`，更新真实问题数量并运行 `complete-stage --stage task_breakdown`。
 4. 完成命令失败时立即停止，将 frontmatter 恢复为 `draft`，记录失败原因和重试条件；不得手改 `meta.json` 或宣称计划完成。
-5. 只有完成命令成功后，才输出关键路径、任务数、当前可执行集合、阻塞集合和产物路径，并把 `$zstt-implementation` 作为固定下一阶段推荐。若用户希望在编码前横向复核四份上游产物，同时说明可显式调用只读的 `$zstt-artifact-analysis`；它不是固定阶段，不得自动执行，也不得替代任务完成门禁。
+5. 只有完成命令成功后，才输出关键路径、任务数、当前可执行集合、阻塞集合和产物路径。Runtime 同时暴露可选的 `$zstt-artifact-analysis` 与固定下一阶段 `$zstt-implementation`：前者把四份上游产物的一致性结果保存到 `analysis/artifact-analysis.md`，用户也可以跳过并直接实现。它不是固定阶段，不得自动执行，也不得替代任务完成门禁。
 
 ## 禁止事项
 

@@ -1,17 +1,17 @@
 ---
 name: zstt-artifact-analysis
-description: ZSTT 实现前跨产物一致性分析辅助 Skill。仅当用户明确指定 $zstt-artifact-analysis，或明确要求按 ZSTT 对 full 需求、调研、技术方案和任务做只读语义一致性、覆盖率、依赖与规则对齐分析时使用；不修改任何文件，不推进固定阶段。
+description: ZSTT 实现前跨产物一致性质量门禁辅助 Skill。仅当用户明确指定 $zstt-artifact-analysis，或明确要求按 ZSTT 对 full 需求、调研、技术方案和任务做语义一致性、覆盖率、依赖与规则对齐分析时使用；把稳定问题、证据链和输入指纹持久化到 analysis/artifact-analysis.md，不修改权威阶段产物、业务代码或固定阶段状态。
 ---
 
 # ZSTT Artifact Analysis
 
 ## 定位
 
-在 Full 任务拆分完成后、编码实现开始前，对 `00-requirement.md`、`01-research.md`、`02-design.md`、`03-tasks.md` 及其索引附件做一次只读横向分析。
+在 Full 任务拆分完成后、编码实现开始前，对 `00-requirement.md`、`01-research.md`、`02-design.md`、`03-tasks.md` 及其索引附件做一次横向分析，并把结果保存为可跨上下文消费的质量门禁。
 
-本 Skill 补充 Runtime 的确定性结构门禁：Runtime 证明 ID、章节和引用满足契约；本 Skill 进一步检查这些引用表达的业务语义是否一致。它不属于 Full/Quick 固定阶段，不修改 `.zstt/meta.json`，也不替代实现后的 `$zstt-code-review`。
+本 Skill 补充 Runtime 的确定性结构门禁：Runtime 证明 ID、章节和引用满足契约；本 Skill 进一步检查这些引用表达的业务语义是否一致。它不属于 Full/Quick 固定阶段，不修改 `.zstt/meta.json`，只创建或更新 `analysis/artifact-analysis.md`，也不替代实现后的 `$zstt-code-review`。
 
-仅当用户明确指定本 Skill 时执行。分析完成后可以建议返回具体上游阶段修正，但不得自动修改产物、调用下游 Skill 或开始编码。
+仅当用户明确指定本 Skill 时执行。报告是派生分析产物，不是第二份权威方案；分析完成后可以建议返回具体上游阶段修正，但不得自动修改权威产物、调用下游 Skill 或开始编码。
 
 ## 开始前
 
@@ -25,9 +25,10 @@ description: ZSTT 实现前跨产物一致性分析辅助 Skill。仅当用户�
    - `current_stage` 已进入 `implementation` 时，只读检查 `04-implementation.md`。如果其中已有任务执行、代码改动或验证记录，视为实现已经开始并停止；只有文件仍是未执行模板，且用户确认尚未编码时，才继续本次实现前分析；
    - 不得为了继续分析而删除实现记录、回退状态或修改业务代码。
 7. 依次对四个阶段运行只读 `validate --stage`。任一产物缺失、失效或结构门禁失败时停止横向分析，指出最早应返回的阶段和解锁动作。
-8. 完整读取四份主产物以及其中明确索引的附件。不要读取未被主产物引用的历史草稿来拼接当前结论。
+8. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-quality-gate --gate artifact_analysis --feature-dir <需求目录>`。该命令再次验证 Full、四个前置阶段和 SQL Gate，并返回固定报告路径及四份输入指纹；文件已存在时不会覆盖旧结果。
+9. 以 UTF-8 完整读取四份主产物、明确索引的附件和既有 `analysis/artifact-analysis.md`。旧报告只用于稳定 ID 和结果对账，不得替代当前权威输入；不要读取未被主产物引用的历史草稿来拼接当前结论。
 
-`status` 和 `validate` 只用于读取与校验。禁止调用会创建产物或修改状态的 `prepare-stage`、`complete-stage`、`prepare-sql-gate` 或 `confirm-sql`。
+`status` 和 `validate` 只用于读取与校验。`prepare-quality-gate` 只允许创建本 Skill 的派生报告模板，不推进阶段。禁止调用会创建主产物或修改状态的 `prepare-stage`、`complete-stage`、`prepare-sql-gate` 或 `confirm-sql`。
 
 ## 建立语义索引
 
@@ -87,29 +88,38 @@ description: ZSTT 实现前跨产物一致性分析辅助 Skill。仅当用户�
 - **P1**：重要边界、非功能要求、任务依赖或验证策略不完整，继续实现有较高返工风险。
 - **P2**：不阻塞核心实现，但会降低可维护性、可读性或交付确定性。
 
-报告严重级别是本次只读分析结论，不得回写 `meta.json` 的阻塞计数。
+报告严重级别是本次分析结论，不得回写 `meta.json` 的阻塞计数。
 
-## 输出
+## 持久化产物
 
-只在聊天中输出，不创建或修改任何文件：
+创建或更新 `<需求目录>/analysis/artifact-analysis.md`：
 
 ```markdown
-## ZSTT 实现前一致性分析
+---
+quality_gate_schema_version: 1
+quality_gate: artifact_analysis
+mode: full
+status: passed / conditional / blocked
+blocking_p0_count: 0
+open_p1_count: 0
+open_p2_count: 0
+ruleset_version: ""
+ruleset_fingerprint: ""
+requirement_fingerprint: ""
+research_fingerprint: ""
+design_fingerprint: ""
+tasks_fingerprint: ""
+---
 
-### 规则快照
-- rulesetVersion：
-- rulesetFingerprint：
-- 已加载规则及选择原因：
-
-### 结论
+## 结论
 - 状态：通过 / 有条件通过 / 阻塞
 - 最早应返回阶段：
 
-### 问题
+## 问题
 | ID | 级别 | 类型 | 位置 | 证据链 | 问题 | 建议回写位置 |
 |---|---|---|---|---|---|---|
 
-### 覆盖摘要
+## 覆盖摘要
 | 指标 | 结果 | 缺口 |
 |---|---|---|
 | Rxx 下游覆盖 | 12/12 | 无 |
@@ -117,18 +127,28 @@ description: ZSTT 实现前跨产物一致性分析辅助 Skill。仅当用户�
 | 核心 Dxx 任务覆盖 | 8/9 | D07 |
 | 无来源 Txx | 1 | T09 |
 
-### 未验证边界
+## 未验证边界
 
-### 下一步
+## 下一步
 ```
 
 问题 ID 使用稳定前缀：覆盖 `COV`、一致性 `CON`、契约/数据 `DAT`、依赖 `DEP`、规则 `POL`，例如 `COV-001`。同一次输入重复分析时保持排序和 ID 稳定。
 
-没有问题时明确报告通过、覆盖指标和仍未验证的运行时边界，不制造风格问题。
+同一份输入重复执行时复用稳定问题 ID；输入变化后对当前报告进行对账，已由权威产物修复的问题从当前问题表移除，不盲目追加历史结果，也不创建 `artifact-analysis-v2.md`。Git 历史承担审计，不在需求目录维护多份当前结论。
+
+`ruleset_version`、`ruleset_fingerprint` 以及四个输入指纹必须填写 `prepare-quality-gate` 返回的真实值。正文存在 P0 时状态为 `blocked`；P0 为 0 且存在 P1/P2 时为 `conditional`；没有未解决问题时为 `passed`。写入后运行：
+
+```text
+python .zstt-kit/runtime/workflow_cli.py validate-quality-gate --gate artifact_analysis --feature-dir <需求目录>
+```
+
+只有结构、计数和输入指纹校验通过，报告才可交付。没有问题时明确报告通过、覆盖指标和仍未验证的运行时边界，不制造风格问题。
+
+聊天中只交付报告路径、门禁状态、问题计数、最高风险、最早回写阶段和下一步，不重复粘贴整份报告。即使通过也只推荐用户显式调用 `$zstt-implementation`，不得自动开始编码。
 
 ## 禁止事项
 
-- 不修改主产物、附件、业务代码或 `.zstt/meta.json`。
+- 除固定的 `analysis/artifact-analysis.md` 外，不修改主产物、附件、业务代码或 `.zstt/meta.json`。
 - 不把本报告保存成第二份权威结论。
 - 不调用会推进、回退或准备阶段的 Runtime 命令。
 - 不因关键词相似就推断 R/C/D/T 已形成真实覆盖。
