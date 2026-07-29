@@ -32,6 +32,20 @@ META_SCHEMA_VERSION = 3
 SUPPORTED_META_SCHEMA_VERSIONS = {2, META_SCHEMA_VERSION}
 
 
+class WorkflowError(ValueError):
+    """Stable workflow failure used by Skills, CI and human-facing CLI output."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        details: dict[str, object] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
 def feature_relative_path(feature_dir: Path) -> str:
     resolved = feature_dir.resolve()
     indexes = [
@@ -40,10 +54,18 @@ def feature_relative_path(feature_dir: Path) -> str:
         if part == ".zstt"
     ]
     if not indexes:
-        raise ValueError(f"需求目录不在 .zstt 下: {resolved}")
+        raise WorkflowError(
+            "ZSTT_FEATURE_PATH_INVALID",
+            f"需求目录不在 .zstt 下: {resolved}",
+            {"featureDir": str(resolved)},
+        )
     relative = PurePosixPath(*resolved.parts[indexes[-1] :])
     if len(relative.parts) < 3 or relative.parts[1] not in {"features", "quick"}:
-        raise ValueError(f"需求目录必须位于 .zstt/features 或 .zstt/quick: {resolved}")
+        raise WorkflowError(
+            "ZSTT_FEATURE_PATH_INVALID",
+            f"需求目录必须位于 .zstt/features 或 .zstt/quick: {resolved}",
+            {"featureDir": str(resolved)},
+        )
     return relative.as_posix()
 
 
@@ -57,10 +79,14 @@ def normalize_meta(
     meta: object,
 ) -> dict[str, object]:
     if not isinstance(meta, dict):
-        raise ValueError("meta.json 顶层必须是对象")
+        raise WorkflowError("ZSTT_STATE_INVALID", "meta.json 顶层必须是对象")
     version = meta.get("version")
     if version not in SUPPORTED_META_SCHEMA_VERSIONS:
-        raise ValueError(f"不支持的 meta.json 版本: {version}")
+        raise WorkflowError(
+            "ZSTT_STATE_INVALID",
+            f"不支持的 meta.json 版本: {version}",
+            {"version": version},
+        )
 
     normalized = dict(meta)
     mode = str(normalized.get("mode", ""))
@@ -68,7 +94,10 @@ def normalize_meta(
     if not isinstance(completed_value, list) or not all(
         isinstance(stage, str) for stage in completed_value
     ):
-        raise ValueError("meta.json 的 completed_stages 必须是字符串数组")
+        raise WorkflowError(
+            "ZSTT_STATE_INVALID",
+            "meta.json 的 completed_stages 必须是字符串数组",
+        )
     current_stage = str(normalized.get("current_stage", ""))
     if current_stage and current_stage not in completed_value:
         recommendations = (get_contract(mode, current_stage).skill,)
@@ -97,7 +126,11 @@ def default_sql_gate() -> dict[str, object]:
 def read_meta(feature_dir: Path) -> dict[str, object]:
     meta_path = feature_dir / META_NAME
     if not meta_path.is_file():
-        raise ValueError(f"状态文件不存在: {meta_path}")
+        raise WorkflowError(
+            "ZSTT_STATE_NOT_FOUND",
+            f"状态文件不存在: {meta_path}",
+            {"metaPath": str(meta_path)},
+        )
     return normalize_meta(
         feature_dir,
         json.loads(meta_path.read_text(encoding="utf-8")),
@@ -241,7 +274,11 @@ def init_feature(args: argparse.Namespace) -> int:
     date_text = args.date or date.today().strftime("%Y%m%d")
     target = feature_directory(repo_root, args.mode, args.feature_name, date_text)
     if target.exists():
-        raise FileExistsError(f"需求目录已存在，拒绝覆盖: {target}")
+        raise WorkflowError(
+            "ZSTT_FEATURE_EXISTS",
+            f"需求目录已存在，拒绝覆盖: {target}",
+            {"featureDir": str(target)},
+        )
 
     requirement = get_contract(args.mode, "requirement_clarification")
     template_path = TEMPLATE_ROOT / args.mode / requirement.artifact
@@ -299,7 +336,11 @@ def show_status(args: argparse.Namespace) -> int:
 
 def raise_for_errors(errors: list[str]) -> None:
     if errors:
-        raise ValueError("；".join(errors))
+        raise WorkflowError(
+            "ZSTT_ARTIFACT_INVALID",
+            "；".join(errors),
+            {"validationErrors": errors},
+        )
 
 
 def validate_stage(args: argparse.Namespace) -> int:
@@ -409,7 +450,7 @@ def changed_stage_error(
     meta: dict[str, object],
     earliest: str,
     invalidated: list[str],
-) -> ValueError:
+) -> WorkflowError:
     mode = str(meta["mode"])
     contract = get_contract(mode, earliest)
     errors, _ = validate_stage_document(
@@ -420,11 +461,18 @@ def changed_stage_error(
     detail = "；当前文档校验通过，但仍需用户确认并重新完成该阶段"
     if errors:
         detail = "；当前文档还存在问题: " + "；".join(errors)
-    return ValueError(
-        "上游已完成产物已修改，已撤销相关完成状态: "
-        + ", ".join(invalidated)
-        + f"；请重新执行阶段 {earliest} 的 complete-stage"
-        + detail
+    return WorkflowError(
+        "ZSTT_ARTIFACT_CHANGED",
+        (
+            "上游已完成产物已修改，已撤销相关完成状态: "
+            + ", ".join(invalidated)
+            + f"；请重新执行阶段 {earliest} 的 complete-stage"
+            + detail
+        ),
+        {
+            "earliestChangedStage": earliest,
+            "invalidatedStages": invalidated,
+        },
     )
 
 
@@ -443,7 +491,14 @@ def complete_stage(args: argparse.Namespace) -> int:
         if stage not in completed
     ]
     if missing_predecessors:
-        raise ValueError("前置阶段尚未完成: " + ", ".join(missing_predecessors))
+        raise WorkflowError(
+            "ZSTT_PREDECESSOR_NOT_READY",
+            "前置阶段尚未完成: " + ", ".join(missing_predecessors),
+            {
+                "stage": contract.key,
+                "missingStages": missing_predecessors,
+            },
+        )
 
     errors, frontmatter = validate_stage_document(
         feature_dir / contract.artifact,
@@ -486,7 +541,11 @@ def validate_predecessors(
     predecessors = required_predecessors(mode, target_stage)
     missing = [stage for stage in predecessors if stage not in completed]
     if missing:
-        raise ValueError("前置阶段尚未完成: " + ", ".join(missing))
+        raise WorkflowError(
+            "ZSTT_PREDECESSOR_NOT_READY",
+            "前置阶段尚未完成: " + ", ".join(missing),
+            {"stage": target_stage, "missingStages": missing},
+        )
 
     artifacts = dict(meta.get("artifacts", {}))
     for stage in predecessors:
@@ -516,7 +575,11 @@ def prepare_stage(args: argparse.Namespace) -> int:
     mode = str(meta["mode"])
     contract = get_contract(mode, args.stage)
     if contract.key == "requirement_clarification":
-        raise ValueError("需求澄清阶段由 init 初始化")
+        raise WorkflowError(
+            "ZSTT_STAGE_OPERATION_INVALID",
+            "需求澄清阶段由 init 初始化",
+            {"stage": contract.key},
+        )
     earliest_changed, invalidated = invalidate_changed_stages(feature_dir, meta)
     if earliest_changed:
         stage_order = [stage.key for stage in stages_for(mode)]
@@ -695,6 +758,11 @@ def confirm_sql(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="ZSTT 后端工作流状态与门禁工具")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="失败时输出机器可读的 JSON 结果",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init_parser = subparsers.add_parser("init", help="初始化 full 或 quick 需求目录")
@@ -752,6 +820,52 @@ def configure_stdio() -> None:
         sys.stderr.reconfigure(encoding="utf-8")
 
 
+def operation_error(
+    operation: str,
+    error: BaseException,
+) -> WorkflowError:
+    if isinstance(error, WorkflowError):
+        return error
+    if isinstance(error, json.JSONDecodeError):
+        return WorkflowError(
+            "ZSTT_STATE_INVALID",
+            f"状态文件不是有效 JSON: {error}",
+        )
+    if isinstance(error, FileNotFoundError):
+        return WorkflowError(
+            "ZSTT_ARTIFACT_NOT_FOUND",
+            str(error),
+        )
+    operation_codes = {
+        "init": "ZSTT_FEATURE_INIT_INVALID",
+        "status": "ZSTT_STATE_INVALID",
+        "validate": "ZSTT_ARTIFACT_INVALID",
+        "complete-stage": "ZSTT_STAGE_COMPLETION_BLOCKED",
+        "prepare-stage": "ZSTT_STAGE_PREPARATION_BLOCKED",
+        "prepare-sql-gate": "ZSTT_SQL_GATE_PREPARATION_BLOCKED",
+        "confirm-sql": "ZSTT_SQL_CONFIRMATION_BLOCKED",
+    }
+    return WorkflowError(
+        operation_codes.get(operation, "ZSTT_WORKFLOW_OPERATION_FAILED"),
+        str(error),
+    )
+
+
+def error_payload(
+    operation: str,
+    error: WorkflowError,
+) -> dict[str, object]:
+    return {
+        "status": "BLOCKED",
+        "operation": operation,
+        "error": {
+            "code": error.code,
+            "message": str(error),
+            "details": error.details,
+        },
+    }
+
+
 def main() -> int:
     configure_stdio()
     parser = build_parser()
@@ -759,7 +873,11 @@ def main() -> int:
     try:
         return args.handler(args)
     except (FileExistsError, FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-        print(f"错误: {exc}", file=sys.stderr)
+        error = operation_error(args.command, exc)
+        if args.json:
+            print(json.dumps(error_payload(args.command, error), ensure_ascii=False, indent=2))
+        else:
+            print(f"[{error.code}] {error}", file=sys.stderr)
         return 2
 
 
