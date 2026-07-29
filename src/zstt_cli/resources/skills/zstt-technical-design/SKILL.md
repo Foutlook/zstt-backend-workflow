@@ -17,8 +17,9 @@ description: ZSTT 后端技术方案阶段。仅当用户明确指定 $zstt-tech
 2. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 3. 完整读取本阶段 `references/advanced-playbook.md`；涉及外部、公共或复杂契约时，再完整读取 `references/contract-detail-template.md`。
 4. 读取需求、调研和与设计落点相关的真实代码，根据实际契约与调用链追加 `jackson`、`data-access`、`database`、`transaction`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；没有适用证据时不加载、也不强行采用抽象或模式。
-5. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage technical_design --feature-dir <需求目录>`，重新校验 `00-requirement.md` 和 `01-research.md`。调研结论无法支持关键设计时，先回到上游补证据。
-6. 在“设计输入去向”中登记 Claim Ledger 的每个 `Cxx`，每个输入只出现一次：进入设计时指向 `Dxx` 或具体章节，仅作为风险或不进入设计时写明原因。
+5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage technical_design --feature-dir <需求目录>`，重新校验 `00-requirement.md` 和 `01-research.md`。调研结论无法支持关键设计时，先回到上游补证据。
+7. 在“设计输入去向”中登记 Claim Ledger 的每个 `Cxx`，每个输入只出现一次：进入设计时指向 `Dxx` 或具体章节，仅作为风险或不进入设计时写明原因。
 
 ## 设计顺序
 

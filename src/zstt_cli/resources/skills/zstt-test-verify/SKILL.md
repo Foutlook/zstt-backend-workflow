@@ -17,7 +17,8 @@ description: ZSTT Java 后端测试验证阶段。仅当用户明确指定 $zstt
 2. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 3. 完整读取 `references/advanced-playbook.md`，按其中的模式分流、能力探测、凭证安全、执行证据和差异归因规则工作。
 4. 盘点需求、方案、实现、测试用例、缺陷、环境、数据和运行证据；根据测试对象的真实接口、数据源和运行边界追加 `jackson`、`data-access`、`transaction`、`concurrency` 或 `smart-doc` 等上下文并重新解析。
-5. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage test_verify --feature-dir <需求目录>`，重新校验必需上游。quick 可以不执行 Review；Review 产物一旦存在就必须通过校验。
+5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage test_verify --feature-dir <需求目录>`，重新校验必需上游。quick 可以不执行 Review；Review 产物一旦存在就必须通过校验。
 
 ## 验证模式
 

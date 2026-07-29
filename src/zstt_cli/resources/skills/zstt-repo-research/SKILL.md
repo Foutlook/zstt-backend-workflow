@@ -17,8 +17,9 @@ description: ZSTT 仓库与代码调研阶段。仅当用户明确指定 $zstt-r
 2. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 3. 完整读取本阶段 `references/advanced-playbook.md`，按可用工具选择增强或标准降级路径。
 4. 读取 `meta.json` 与 `00-requirement.md`；根据真实入口、调用链和数据源追加 `call-chain`、`data-source`、`data-access` 等已证明上下文并重新解析。类名和关键词不能替代代码证据。
-5. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage repo_research --feature-dir <需求目录>`，让 CLI 重新校验需求产物。
-6. 如果 P0、文件缺失或结构校验失败，停止调研并报告上游修复点。
+5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage repo_research --feature-dir <需求目录>`，让 CLI 重新校验需求产物。
+7. 如果 P0、文件缺失或结构校验失败，停止调研并报告上游修复点。
 
 ## 调研强度
 

@@ -18,7 +18,8 @@ description: ZSTT 需求澄清阶段。仅当用户明确指定 $zstt-requiremen
 3. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 4. 完整读取本阶段 `references/advanced-playbook.md`，按实际输入类型执行相关检查；范围扩大时重新解析规则。
 5. 确认业务仓库根目录和需求名。用户未指定 quick/full 时，先根据范围、数据身份、核心状态、权限、旧链路副作用、关键契约和验收不确定性推荐模式并说明一句依据，再由用户选择；用户明确授权 AI 决定时可以采用推荐模式，但必须记录授权来源。未选择也未授权时不初始化目录。
-6. 使用 `.zstt-kit/runtime/workflow_cli.py` 初始化目录；已有目录时读取 `meta.json` 和现有 `00-requirement.md`，继续回写而不覆盖。
+6. 新需求使用 `.zstt-kit/runtime/workflow_cli.py init` 初始化目录。继续已有需求时，用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅在当前 Git 分支恰好匹配一个未完成需求时使用。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期、目录序号或最近修改时间猜测。
+7. 已有目录读取 `meta.json` 和现有 `00-requirement.md`，继续回写而不覆盖。
 
 ## 澄清范围
 

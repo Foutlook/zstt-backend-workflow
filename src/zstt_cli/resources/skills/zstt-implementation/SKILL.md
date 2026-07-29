@@ -17,8 +17,9 @@ description: ZSTT Java 后端编码实现阶段。仅当用户明确指定 $zstt
 2. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 3. 完整读取本阶段 `references/advanced-playbook.md`。
 4. full 读取 `00`–`03` 主产物；quick 读取 `00-requirement.md`。根据任务、完整目标文件、真实调用链和最终数据源追加 `jackson`、`data-access`、`transaction`、`concurrency`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；不得只凭文件名选择规则。
-5. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage implementation --feature-dir <需求目录>`，让 CLI 重新校验上游，并先在实现产物写简短执行计划。
-6. 记录会话基线：`git status --short`、目标文件定向 diff 和未跟踪状态；将开始前已有内容标为用户工作区基线，不把它归因于本轮，也不使用破坏性命令回滚。
+5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage implementation --feature-dir <需求目录>`，让 CLI 重新校验上游，并先在实现产物写简短执行计划。
+7. 记录会话基线：`git status --short`、目标文件定向 diff 和未跟踪状态；将开始前已有内容标为用户工作区基线，不把它归因于本轮，也不使用破坏性命令回滚。
 
 ## 实现顺序
 
@@ -59,7 +60,7 @@ full 更新 `04-implementation.md`；quick 更新 `01-implementation.md`。至�
 3. 只要存在任务 `blocked`、待确认的上游偏差、P0、关键验证失败/未执行或失败归因不清，就保持 `status: draft`，更新真实问题数量和解除条件，不运行完成命令，也不把局部完成表述为阶段完成。
 4. 仅当范围内任务全部 `done`、P0 为 0 且风险相称的验证闭环后，才设 `status: completed` 并运行 `complete-stage --stage implementation`。
 5. 完成命令失败时立即停止，将 frontmatter 恢复为 `draft`，保留实现与验证证据并记录失败原因和重试条件；不得手改 `meta.json` 或宣称阶段完成。
-6. 只有完成命令成功后，才输出阶段完成、实际改动、验证结果和产物路径，并推荐 `$zstt-code-review`；不得自动执行。
+6. 只有完成命令成功后，才输出阶段完成、实际改动、验证结果和产物路径，并推荐 `$zstt-code-review`；不得自动执行。Quick 若用户明确跳过可选 Review 与测试，应提示用户运行 `close --current --repo-root <业务仓库>` 显式关闭工作流，但不得代替用户自动关闭。
 
 ## 禁止事项
 

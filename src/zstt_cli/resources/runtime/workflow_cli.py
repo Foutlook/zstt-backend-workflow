@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -30,6 +31,7 @@ TEMPLATE_ROOT = KIT_ROOT / "templates"
 META_NAME = "meta.json"
 META_SCHEMA_VERSION = 3
 SUPPORTED_META_SCHEMA_VERSIONS = {2, META_SCHEMA_VERSION}
+WORKFLOW_STATUSES = {"active", "closed"}
 
 
 class WorkflowError(ValueError):
@@ -107,6 +109,30 @@ def normalize_meta(
     # v2 可能保存了本机绝对目录；v3 每次都从实际需求目录重建可提交的相对路径。
     normalized["version"] = META_SCHEMA_VERSION
     normalized["feature_dir"] = feature_relative_path(feature_dir)
+    workflow_status = normalized.get("workflow_status")
+    if workflow_status is None:
+        # 旧状态没有显式生命周期：只有没有任何后续推荐时才能安全推断已关闭。
+        workflow_status = "closed" if not recommendations else "active"
+    if (
+        not isinstance(workflow_status, str)
+        or workflow_status not in WORKFLOW_STATUSES
+    ):
+        raise WorkflowError(
+            "ZSTT_STATE_INVALID",
+            f"meta.json 的 workflow_status 无效: {workflow_status}",
+        )
+    normalized["workflow_status"] = workflow_status
+    if workflow_status == "closed":
+        recommendations = ()
+    skipped_stages = normalized.get("skipped_stages", [])
+    if not isinstance(skipped_stages, list) or not all(
+        isinstance(stage, str) for stage in skipped_stages
+    ):
+        raise WorkflowError(
+            "ZSTT_STATE_INVALID",
+            "meta.json 的 skipped_stages 必须是字符串数组",
+        )
+    normalized["skipped_stages"] = skipped_stages
     set_recommendations(normalized, recommendations)
     return normalized
 
@@ -143,6 +169,169 @@ def write_meta(feature_dir: Path, meta: dict[str, object]) -> None:
     meta.update(normalized)
     content = json.dumps(normalized, ensure_ascii=False, indent=2) + "\n"
     (feature_dir / META_NAME).write_text(content, encoding="utf-8", newline="\n")
+
+
+def current_git_branch(repo_root: Path) -> str | None:
+    """Read the current symbolic branch without guessing from directory names."""
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "symbolic-ref",
+                "--quiet",
+                "--short",
+                "HEAD",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except OSError:
+        return None
+    branch = completed.stdout.strip()
+    return branch if completed.returncode == 0 and branch else None
+
+
+def feature_is_completed(
+    feature_dir: Path,
+    meta: dict[str, object],
+    stale_stages: list[str] | None = None,
+) -> bool:
+    """Only an explicitly closed workflow with fresh artifacts is completed."""
+    stale = (
+        changed_completed_stages(feature_dir, meta)
+        if stale_stages is None
+        else stale_stages
+    )
+    return meta.get("workflow_status") == "closed" and not stale
+
+
+def feature_summary(
+    feature_dir: Path,
+    meta: dict[str, object],
+) -> dict[str, object]:
+    stale_stages = changed_completed_stages(feature_dir, meta)
+    return {
+        "feature_dir": str(meta["feature_dir"]),
+        "absolute_path": str(feature_dir.resolve()),
+        "mode": str(meta.get("mode", "")),
+        "feature_name": str(meta.get("feature_name", "")),
+        "git_branch": meta.get("git_branch"),
+        "workflow_status": meta.get("workflow_status"),
+        "current_stage": str(meta.get("current_stage", "")),
+        "completed_stages": list(meta.get("completed_stages", [])),
+        "skipped_stages": list(meta.get("skipped_stages", [])),
+        "stale_stages": stale_stages,
+        "completed": feature_is_completed(feature_dir, meta, stale_stages),
+        "recommended_next_skills": list(meta.get("recommended_next_skills", [])),
+    }
+
+
+def discover_features(
+    repo_root: Path,
+) -> tuple[
+    list[tuple[Path, dict[str, object]]],
+    list[dict[str, object]],
+]:
+    """Discover only direct ZSTT feature directories; never choose by newest date."""
+    valid: list[tuple[Path, dict[str, object]]] = []
+    invalid: list[dict[str, object]] = []
+    for category in ("features", "quick"):
+        category_root = repo_root / ".zstt" / category
+        if not category_root.is_dir():
+            continue
+        for feature_dir in sorted(
+            (path for path in category_root.iterdir() if path.is_dir()),
+            key=lambda path: path.name,
+        ):
+            try:
+                valid.append((feature_dir, read_meta(feature_dir)))
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                invalid.append(
+                    {
+                        "feature_dir": str(feature_dir.resolve()),
+                        "error": str(exc),
+                    }
+                )
+    return valid, invalid
+
+
+def select_current_feature(
+    repo_root: Path,
+) -> tuple[Path, dict[str, object], str]:
+    branch = current_git_branch(repo_root)
+    if not branch:
+        raise WorkflowError(
+            "ZSTT_GIT_BRANCH_UNAVAILABLE",
+            "无法确定当前 Git 分支；请显式传入 --feature-dir",
+            {"repoRoot": str(repo_root)},
+        )
+
+    valid, invalid = discover_features(repo_root)
+    if invalid:
+        raise WorkflowError(
+            "ZSTT_CURRENT_STATE_INVALID",
+            "存在无法读取的需求状态，不能证明当前需求唯一；请先修复状态或显式传入 --feature-dir",
+            {
+                "gitBranch": branch,
+                "invalidFeatures": invalid,
+            },
+        )
+    unfinished = [
+        (feature_dir, meta)
+        for feature_dir, meta in valid
+        if not feature_is_completed(feature_dir, meta)
+    ]
+    unbound = [
+        feature_summary(feature_dir, meta)
+        for feature_dir, meta in unfinished
+        if not meta.get("git_branch")
+    ]
+    if unbound:
+        raise WorkflowError(
+            "ZSTT_CURRENT_BRANCH_UNBOUND",
+            "存在未绑定 Git 分支的历史需求，不能安全自动选择；请显式使用 bind-branch",
+            {
+                "gitBranch": branch,
+                "unboundFeatures": unbound,
+            },
+        )
+    candidates = [
+        (feature_dir, meta)
+        for feature_dir, meta in unfinished
+        if meta.get("git_branch") == branch
+    ]
+    candidate_summaries = [
+        feature_summary(feature_dir, meta)
+        for feature_dir, meta in candidates
+    ]
+    if not candidates:
+        raise WorkflowError(
+            "ZSTT_CURRENT_NOT_FOUND",
+            f"当前分支 {branch} 没有唯一可用的未完成需求；请显式传入 --feature-dir",
+            {
+                "gitBranch": branch,
+                "unfinishedFeatures": [
+                    feature_summary(feature_dir, meta)
+                    for feature_dir, meta in unfinished
+                ],
+                "invalidFeatures": invalid,
+            },
+        )
+    if len(candidates) > 1:
+        raise WorkflowError(
+            "ZSTT_CURRENT_AMBIGUOUS",
+            f"当前分支 {branch} 存在多个未完成需求；请显式传入 --feature-dir",
+            {
+                "gitBranch": branch,
+                "candidates": candidate_summaries,
+            },
+        )
+    feature_dir, meta = candidates[0]
+    return feature_dir, meta, branch
 
 
 def render_template(template_path: Path, values: dict[str, str]) -> str:
@@ -303,6 +492,9 @@ def init_feature(args: argparse.Namespace) -> int:
         "feature_name": args.feature_name.strip(),
         "feature_dir": feature_relative_path(target),
         "created_date": date_text,
+        "git_branch": current_git_branch(repo_root),
+        "workflow_status": "active",
+        "skipped_stages": [],
         "current_stage": requirement.key,
         "completed_stages": [],
         "artifacts": {requirement.key: requirement.artifact},
@@ -320,8 +512,18 @@ def init_feature(args: argparse.Namespace) -> int:
 
 
 def show_status(args: argparse.Namespace) -> int:
-    feature_dir = Path(args.feature_dir).resolve()
-    meta = read_meta(feature_dir)
+    if args.feature_dir:
+        feature_dir = Path(args.feature_dir).resolve()
+        meta = read_meta(feature_dir)
+    elif args.current:
+        feature_dir, meta, _branch = select_current_feature(
+            Path(args.repo_root).resolve()
+        )
+    else:
+        raise WorkflowError(
+            "ZSTT_USAGE_INVALID",
+            "status 必须显式传入 --feature-dir，或使用 --current",
+        )
     status = dict(meta)
     status["stale_stages"] = changed_completed_stages(feature_dir, meta)
     if str(meta.get("mode")) == "full":
@@ -331,6 +533,141 @@ def show_status(args: argparse.Namespace) -> int:
         )
         status["sql_gate"] = gate
     print(json.dumps(status, ensure_ascii=False, indent=2))
+    return 0
+
+
+def list_features(args: argparse.Namespace) -> int:
+    repo_root = Path(args.repo_root).resolve()
+    valid, invalid = discover_features(repo_root)
+    payload = {
+        "repo_root": str(repo_root),
+        "current_git_branch": current_git_branch(repo_root),
+        "features": [
+            feature_summary(feature_dir, meta)
+            for feature_dir, meta in valid
+        ],
+        "invalid_features": invalid,
+    }
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
+def show_current(args: argparse.Namespace) -> int:
+    repo_root = Path(args.repo_root).resolve()
+    feature_dir, meta, branch = select_current_feature(repo_root)
+    print(
+        json.dumps(
+            {
+                "repo_root": str(repo_root),
+                "current_git_branch": branch,
+                "feature": feature_summary(feature_dir, meta),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def bind_branch(args: argparse.Namespace) -> int:
+    """Explicitly bind one legacy feature to the current Git branch."""
+    repo_root = Path(args.repo_root).resolve()
+    feature_dir = Path(args.feature_dir).resolve()
+    expected_root = repo_root / ".zstt"
+    if (
+        feature_dir.parent.parent != expected_root
+        or feature_dir.parent.name not in {"features", "quick"}
+    ):
+        raise WorkflowError(
+            "ZSTT_FEATURE_PATH_INVALID",
+            "bind-branch 的需求目录必须位于指定仓库的 .zstt/features 或 .zstt/quick",
+            {
+                "repoRoot": str(repo_root),
+                "featureDir": str(feature_dir),
+            },
+        )
+    branch = current_git_branch(repo_root)
+    if not branch:
+        raise WorkflowError(
+            "ZSTT_GIT_BRANCH_UNAVAILABLE",
+            "无法确定当前 Git 分支，不能绑定历史需求",
+            {"repoRoot": str(repo_root)},
+        )
+    meta = read_meta(feature_dir)
+    existing = meta.get("git_branch")
+    if existing and existing != branch:
+        raise WorkflowError(
+            "ZSTT_BRANCH_ALREADY_BOUND",
+            f"需求已绑定其他 Git 分支: {existing}",
+            {
+                "existingBranch": existing,
+                "currentGitBranch": branch,
+                "featureDir": str(feature_dir),
+            },
+        )
+    meta["git_branch"] = branch
+    write_meta(feature_dir, meta)
+    print(
+        json.dumps(
+            {
+                "feature_dir": str(meta["feature_dir"]),
+                "git_branch": branch,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def close_workflow(args: argparse.Namespace) -> int:
+    """Close a workflow explicitly after all mandatory stages are fresh."""
+    if args.feature_dir:
+        feature_dir = Path(args.feature_dir).resolve()
+        meta = read_meta(feature_dir)
+    elif args.current:
+        feature_dir, meta, _branch = select_current_feature(
+            Path(args.repo_root).resolve()
+        )
+    else:
+        raise WorkflowError(
+            "ZSTT_USAGE_INVALID",
+            "close 必须显式传入 --feature-dir，或使用 --current",
+        )
+
+    earliest_changed, invalidated = invalidate_changed_stages(feature_dir, meta)
+    if earliest_changed:
+        raise changed_stage_error(feature_dir, meta, earliest_changed, invalidated)
+
+    mode = str(meta["mode"])
+    completed = list(meta.get("completed_stages", []))
+    mandatory = (
+        [stage.key for stage in stages_for("full")]
+        if mode == "full"
+        else ["requirement_clarification", "implementation"]
+    )
+    missing = [stage for stage in mandatory if stage not in completed]
+    if missing:
+        raise WorkflowError(
+            "ZSTT_WORKFLOW_NOT_CLOSABLE",
+            "必需阶段尚未完成: " + ", ".join(missing),
+            {"missingStages": missing},
+        )
+
+    optional = [] if mode == "full" else ["code_review", "test_verify"]
+    meta["workflow_status"] = "closed"
+    meta["closed_at"] = datetime.now(timezone.utc).isoformat()
+    meta["skipped_stages"] = [
+        stage for stage in optional if stage not in completed
+    ]
+    set_recommendations(meta, ())
+    meta["last_validation"] = {
+        "stage": str(meta.get("current_stage", "")),
+        "valid": True,
+        "kind": "workflow_closed",
+    }
+    write_meta(feature_dir, meta)
+    print(json.dumps(meta, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -410,6 +747,9 @@ def invalidate_changed_stages(
         fingerprints.pop(stage, None)
     meta["artifact_fingerprints"] = fingerprints
     meta["current_stage"] = earliest
+    meta["workflow_status"] = "active"
+    meta.pop("closed_at", None)
+    meta["skipped_stages"] = []
     set_recommendations(meta, (get_contract(mode, earliest).skill,))
     if mode == "full":
         technical_index = stage_order.index("technical_design")
@@ -525,7 +865,33 @@ def complete_stage(args: argparse.Namespace) -> int:
         "p2": int(frontmatter["open_p2_count"]),
     }
     meta["last_validation"] = {"stage": contract.key, "valid": True}
-    set_recommendations(meta, recommended_next_skills(mode, completed))
+    skipped = [
+        stage
+        for stage in list(meta.get("skipped_stages", []))
+        if stage != contract.key
+    ]
+    meta["skipped_stages"] = skipped
+    automatically_closed = (
+        mode == "full"
+        and all(stage.key in completed for stage in stages_for("full"))
+    ) or (
+        mode == "quick"
+        and "test_verify" in completed
+    )
+    if automatically_closed:
+        meta["workflow_status"] = "closed"
+        meta["closed_at"] = datetime.now(timezone.utc).isoformat()
+        if mode == "quick":
+            meta["skipped_stages"] = [
+                stage
+                for stage in ("code_review", "test_verify")
+                if stage not in completed
+            ]
+        set_recommendations(meta, ())
+    else:
+        meta["workflow_status"] = "active"
+        meta.pop("closed_at", None)
+        set_recommendations(meta, recommended_next_skills(mode, completed))
     write_meta(feature_dir, meta)
     print(json.dumps(meta, ensure_ascii=False, indent=2))
     return 0
@@ -603,6 +969,13 @@ def prepare_stage(args: argparse.Namespace) -> int:
     artifacts[contract.key] = contract.artifact
     meta["artifacts"] = artifacts
     meta["current_stage"] = contract.key
+    meta["workflow_status"] = "active"
+    meta.pop("closed_at", None)
+    meta["skipped_stages"] = [
+        stage
+        for stage in list(meta.get("skipped_stages", []))
+        if stage != contract.key
+    ]
     set_recommendations(meta, (contract.skill,))
     if mode == "full" and contract.key == "technical_design" and not isinstance(
         meta.get("sql_gate"), dict
@@ -772,9 +1145,47 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--date")
     init_parser.set_defaults(handler=init_feature)
 
+    list_parser = subparsers.add_parser("list", help="列出项目中的 ZSTT 需求")
+    list_parser.add_argument("--repo-root", default=".")
+    list_parser.set_defaults(handler=list_features)
+
+    current_parser = subparsers.add_parser(
+        "current",
+        help="按当前 Git 分支选择唯一未完成需求",
+    )
+    current_parser.add_argument("--repo-root", default=".")
+    current_parser.set_defaults(handler=show_current)
+
     status_parser = subparsers.add_parser("status", help="输出需求状态 JSON")
-    status_parser.add_argument("--feature-dir", required=True)
+    status_parser.add_argument("--feature-dir")
+    status_parser.add_argument(
+        "--current",
+        action="store_true",
+        help="按当前 Git 分支选择唯一未完成需求",
+    )
+    status_parser.add_argument("--repo-root", default=".")
     status_parser.set_defaults(handler=show_status)
+
+    bind_parser = subparsers.add_parser(
+        "bind-branch",
+        help="把一个没有分支信息的历史需求显式绑定到当前 Git 分支",
+    )
+    bind_parser.add_argument("--feature-dir", required=True)
+    bind_parser.add_argument("--repo-root", default=".")
+    bind_parser.set_defaults(handler=bind_branch)
+
+    close_parser = subparsers.add_parser(
+        "close",
+        help="完成必需阶段后显式关闭工作流",
+    )
+    close_parser.add_argument("--feature-dir")
+    close_parser.add_argument(
+        "--current",
+        action="store_true",
+        help="按当前 Git 分支选择唯一活动需求",
+    )
+    close_parser.add_argument("--repo-root", default=".")
+    close_parser.set_defaults(handler=close_workflow)
 
     validate_parser = subparsers.add_parser("validate", help="校验指定阶段产物")
     validate_parser.add_argument("--feature-dir", required=True)
@@ -838,7 +1249,11 @@ def operation_error(
         )
     operation_codes = {
         "init": "ZSTT_FEATURE_INIT_INVALID",
+        "list": "ZSTT_FEATURE_LIST_FAILED",
+        "current": "ZSTT_CURRENT_RESOLUTION_FAILED",
         "status": "ZSTT_STATE_INVALID",
+        "bind-branch": "ZSTT_BRANCH_BINDING_BLOCKED",
+        "close": "ZSTT_WORKFLOW_CLOSE_BLOCKED",
         "validate": "ZSTT_ARTIFACT_INVALID",
         "complete-stage": "ZSTT_STAGE_COMPLETION_BLOCKED",
         "prepare-stage": "ZSTT_STAGE_PREPARATION_BLOCKED",

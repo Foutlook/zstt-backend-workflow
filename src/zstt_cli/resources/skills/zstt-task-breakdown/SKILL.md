@@ -17,8 +17,9 @@ description: ZSTT 正式需求任务拆分阶段。仅当用户明确指定 $zst
 2. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 3. 完整读取本阶段 `references/advanced-playbook.md`。
 4. 读取 `00-requirement.md`、`01-research.md`、`02-design.md` 和被主方案索引的辅助附件，建立覆盖矩阵；只为已确认的 DTO、数据访问、事务、并发、抽象或 DDD 任务追加对应上下文并重新解析。
-5. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage task_breakdown --feature-dir <需求目录>`，重新校验需求、调研和方案。
-6. 发现方案缺少代码落点、接口契约、数据设计或验证策略时，停止拆分并回到方案阶段修正。
+5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage task_breakdown --feature-dir <需求目录>`，重新校验需求、调研和方案。
+7. 发现方案缺少代码落点、接口契约、数据设计或验证策略时，停止拆分并回到方案阶段修正。
 
 ## 拆分规则
 

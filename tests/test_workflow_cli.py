@@ -24,6 +24,35 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def set_git_branch(repo_root: Path, branch: str) -> None:
+    if not (repo_root / ".git").exists():
+        completed = subprocess.run(
+            ["git", "init", "--quiet", str(repo_root)],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        if completed.returncode != 0:
+            raise AssertionError(completed.stderr)
+    completed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "symbolic-ref",
+            "HEAD",
+            f"refs/heads/{branch}",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr)
+
+
 def replace_frontmatter_value(path: Path, key: str, value: str) -> None:
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
@@ -335,6 +364,39 @@ def prepare_task_breakdown(repo_root: Path) -> Path:
     return feature_dir
 
 
+def complete_quick_implementation(feature_dir: Path) -> None:
+    requirement = feature_dir / "00-requirement.md"
+    fill_stage_document(requirement, "requirement_clarification")
+    completed = run_cli(
+        "complete-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "requirement_clarification",
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr)
+    prepared = run_cli(
+        "prepare-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "implementation",
+    )
+    if prepared.returncode != 0:
+        raise AssertionError(prepared.stderr)
+    fill_stage_document(feature_dir / "01-implementation.md", "implementation")
+    completed = run_cli(
+        "complete-stage",
+        "--feature-dir",
+        str(feature_dir),
+        "--stage",
+        "implementation",
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr)
+
+
 def prepare_research_document(repo_root: Path) -> Path:
     feature_dir = init_feature(repo_root)
     requirement = feature_dir / "00-requirement.md"
@@ -362,6 +424,241 @@ def prepare_research_document(repo_root: Path) -> Path:
 
 
 class WorkflowCliInitTest(unittest.TestCase):
+    def test_init_records_branch_and_current_selects_unique_unfinished_feature(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/report-export")
+            feature_dir = init_feature(repo_root)
+
+            meta = json.loads(
+                (feature_dir / "meta.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("feature/report-export", meta["git_branch"])
+
+            current = run_cli("current", "--repo-root", str(repo_root))
+
+            self.assertEqual(0, current.returncode, current.stderr)
+            payload = json.loads(current.stdout)
+            self.assertEqual(
+                str(feature_dir.resolve()),
+                payload["feature"]["absolute_path"],
+            )
+            self.assertEqual(
+                "feature/report-export",
+                payload["current_git_branch"],
+            )
+
+            status = run_cli(
+                "status",
+                "--current",
+                "--repo-root",
+                str(repo_root),
+            )
+            self.assertEqual(0, status.returncode, status.stderr)
+            self.assertEqual(
+                feature_dir.relative_to(repo_root).as_posix(),
+                json.loads(status.stdout)["feature_dir"],
+            )
+
+    def test_status_explicit_feature_dir_has_priority_over_current(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/original")
+            feature_dir = init_feature(repo_root)
+            set_git_branch(repo_root, "feature/other")
+
+            status = run_cli(
+                "status",
+                "--current",
+                "--repo-root",
+                str(repo_root),
+                "--feature-dir",
+                str(feature_dir),
+            )
+
+            self.assertEqual(0, status.returncode, status.stderr)
+            self.assertEqual(
+                feature_dir.relative_to(repo_root).as_posix(),
+                json.loads(status.stdout)["feature_dir"],
+            )
+
+    def test_current_blocks_when_branch_has_multiple_unfinished_features(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/shared")
+            init_feature(repo_root)
+            second = run_cli(
+                "init",
+                "--repo-root",
+                str(repo_root),
+                "--mode",
+                "quick",
+                "--feature-name",
+                "修正文案",
+                "--date",
+                "20260717",
+            )
+            self.assertEqual(0, second.returncode, second.stderr)
+
+            current = run_cli(
+                "--json",
+                "current",
+                "--repo-root",
+                str(repo_root),
+            )
+
+            self.assertEqual(2, current.returncode)
+            payload = json.loads(current.stdout)
+            self.assertEqual(
+                "ZSTT_CURRENT_AMBIGUOUS",
+                payload["error"]["code"],
+            )
+            self.assertEqual(2, len(payload["error"]["details"]["candidates"]))
+
+    def test_current_never_falls_back_to_latest_feature_on_another_branch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/original")
+            init_feature(repo_root)
+            set_git_branch(repo_root, "feature/other")
+
+            current = run_cli(
+                "--json",
+                "current",
+                "--repo-root",
+                str(repo_root),
+            )
+
+            self.assertEqual(2, current.returncode)
+            payload = json.loads(current.stdout)
+            self.assertEqual(
+                "ZSTT_CURRENT_NOT_FOUND",
+                payload["error"]["code"],
+            )
+            self.assertEqual(
+                "feature/other",
+                payload["error"]["details"]["gitBranch"],
+            )
+            self.assertEqual(
+                1,
+                len(payload["error"]["details"]["unfinishedFeatures"]),
+            )
+
+    def test_list_reports_valid_features_without_changing_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/list")
+            feature_dir = init_feature(repo_root)
+            before = (feature_dir / "meta.json").read_bytes()
+
+            listed = run_cli("list", "--repo-root", str(repo_root))
+
+            self.assertEqual(0, listed.returncode, listed.stderr)
+            payload = json.loads(listed.stdout)
+            self.assertEqual("feature/list", payload["current_git_branch"])
+            self.assertEqual(1, len(payload["features"]))
+            self.assertFalse(payload["features"][0]["completed"])
+            self.assertEqual([], payload["invalid_features"])
+            self.assertEqual(before, (feature_dir / "meta.json").read_bytes())
+
+    def test_current_blocks_when_any_feature_state_is_invalid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/safe-current")
+            init_feature(repo_root)
+            broken = repo_root / ".zstt" / "quick" / "broken"
+            broken.mkdir(parents=True)
+            (broken / "meta.json").write_text(
+                "{broken json",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            current = run_cli(
+                "--json",
+                "current",
+                "--repo-root",
+                str(repo_root),
+            )
+
+            self.assertEqual(2, current.returncode)
+            payload = json.loads(current.stdout)
+            self.assertEqual(
+                "ZSTT_CURRENT_STATE_INVALID",
+                payload["error"]["code"],
+            )
+            self.assertEqual(
+                1,
+                len(payload["error"]["details"]["invalidFeatures"]),
+            )
+
+    def test_legacy_feature_requires_explicit_branch_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/legacy")
+            feature_dir = init_feature(repo_root)
+            meta_path = feature_dir / "meta.json"
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            meta.pop("git_branch")
+            meta_path.write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            blocked = run_cli(
+                "--json",
+                "current",
+                "--repo-root",
+                str(repo_root),
+            )
+            self.assertEqual(2, blocked.returncode)
+            self.assertEqual(
+                "ZSTT_CURRENT_BRANCH_UNBOUND",
+                json.loads(blocked.stdout)["error"]["code"],
+            )
+
+            bound = run_cli(
+                "bind-branch",
+                "--feature-dir",
+                str(feature_dir),
+                "--repo-root",
+                str(repo_root),
+            )
+            self.assertEqual(0, bound.returncode, bound.stderr)
+            self.assertEqual(
+                "feature/legacy",
+                json.loads(bound.stdout)["git_branch"],
+            )
+            current = run_cli("current", "--repo-root", str(repo_root))
+            self.assertEqual(0, current.returncode, current.stderr)
+
+    def test_bind_branch_rejects_non_feature_category(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/invalid-category")
+            invalid = repo_root / ".zstt" / "other" / "feature"
+            invalid.mkdir(parents=True)
+
+            completed = run_cli(
+                "--json",
+                "bind-branch",
+                "--feature-dir",
+                str(invalid),
+                "--repo-root",
+                str(repo_root),
+            )
+
+            self.assertEqual(2, completed.returncode)
+            self.assertEqual(
+                "ZSTT_FEATURE_PATH_INVALID",
+                json.loads(completed.stdout)["error"]["code"],
+            )
+
     def test_init_full_creates_only_meta_and_requirement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
@@ -1003,6 +1300,79 @@ class WorkflowCliGateTest(unittest.TestCase):
             self.assertEqual(
                 ["zstt-code-review", "zstt-test-verify"],
                 meta["recommended_next_skills"],
+            )
+
+    def test_quick_can_close_after_mandatory_stages_and_skip_optional_stages(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/quick-close")
+            feature_dir = init_feature(repo_root, mode="quick")
+            complete_quick_implementation(feature_dir)
+
+            active = run_cli("current", "--repo-root", str(repo_root))
+            self.assertEqual(0, active.returncode, active.stderr)
+
+            closed = run_cli(
+                "close",
+                "--current",
+                "--repo-root",
+                str(repo_root),
+            )
+            self.assertEqual(0, closed.returncode, closed.stderr)
+            payload = json.loads(closed.stdout)
+            self.assertEqual("closed", payload["workflow_status"])
+            self.assertEqual(
+                ["code_review", "test_verify"],
+                payload["skipped_stages"],
+            )
+            self.assertEqual([], payload["recommended_next_skills"])
+
+            current = run_cli(
+                "--json",
+                "current",
+                "--repo-root",
+                str(repo_root),
+            )
+            self.assertEqual(2, current.returncode)
+            self.assertEqual(
+                "ZSTT_CURRENT_NOT_FOUND",
+                json.loads(current.stdout)["error"]["code"],
+            )
+
+    def test_changed_artifact_reopens_a_closed_feature_for_current(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/stale")
+            feature_dir = init_feature(repo_root, mode="quick")
+            complete_quick_implementation(feature_dir)
+            closed = run_cli(
+                "close",
+                "--feature-dir",
+                str(feature_dir),
+            )
+            self.assertEqual(0, closed.returncode, closed.stderr)
+
+            implementation = feature_dir / "01-implementation.md"
+            implementation.write_text(
+                implementation.read_text(encoding="utf-8")
+                + "\n- 用户修改：需要重新确认\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            listed = run_cli("list", "--repo-root", str(repo_root))
+            self.assertEqual(0, listed.returncode, listed.stderr)
+            summary = json.loads(listed.stdout)["features"][0]
+            self.assertFalse(summary["completed"])
+            self.assertEqual(["implementation"], summary["stale_stages"])
+
+            current = run_cli("current", "--repo-root", str(repo_root))
+            self.assertEqual(0, current.returncode, current.stderr)
+            self.assertEqual(
+                str(feature_dir.resolve()),
+                json.loads(current.stdout)["feature"]["absolute_path"],
             )
 
 

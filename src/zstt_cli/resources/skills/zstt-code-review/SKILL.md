@@ -17,7 +17,8 @@ description: ZSTT Java 后端代码评审阶段。仅当用户明确指定 $zstt
 2. 以 UTF-8 完整读取解析结果中每个规则的 `path`，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和选择原因。解析失败或规则缺失时停止，并执行 `zstt check --here`。
 3. 完整读取本阶段 `references/advanced-playbook.md`。
 4. 读取当前 Git diff、完整被改文件、相关调用方、测试和实现记录。根据真实风险面追加 `jackson`、`data-access`、`transaction`、`concurrency`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；不要只看局部 diff，也不要为填清单加载无关规则。
-5. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage code_review --feature-dir <需求目录>`，重新校验上游。
+5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage code_review --feature-dir <需求目录>`，重新校验上游。
 
 ## 评审强度
 

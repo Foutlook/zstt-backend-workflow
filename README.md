@@ -318,7 +318,12 @@ quick 必须先做轻量需求澄清。Review 和测试由用户决定是否调�
 python .zstt-kit/runtime/rule_resolver.py list-contexts
 python .zstt-kit/runtime/rule_resolver.py resolve --skill zstt-implementation --context jackson --context data-access
 python .zstt-kit/runtime/workflow_cli.py init --repo-root <repo> --mode full --feature-name <name>
+python .zstt-kit/runtime/workflow_cli.py list --repo-root <repo>
+python .zstt-kit/runtime/workflow_cli.py current --repo-root <repo>
+python .zstt-kit/runtime/workflow_cli.py status --current --repo-root <repo>
 python .zstt-kit/runtime/workflow_cli.py status --feature-dir <feature-dir>
+python .zstt-kit/runtime/workflow_cli.py bind-branch --repo-root <repo> --feature-dir <feature-dir>
+python .zstt-kit/runtime/workflow_cli.py close --current --repo-root <repo>
 python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
 python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
 ```
@@ -330,6 +335,10 @@ python .zstt-kit/runtime/workflow_cli.py --json status --feature-dir <feature-di
 python .zstt-kit/runtime/workflow_cli.py --json prepare-stage --feature-dir <feature-dir> --stage repo_research
 ```
 
+- 显式 `--feature-dir` 的优先级始终高于 `--current`。
+- `current` 只匹配当前 Git 分支上的唯一活动需求；0 个或多个候选、损坏状态、未绑定分支的历史活动需求都会返回稳定错误码，绝不按日期、编号或最近修改时间兜底。
+- `meta.json` 兼容性记录 `git_branch`、`workflow_status` 和 `skipped_stages`。Full 完成全部阶段、Quick 完成测试时自动关闭；Quick 跳过可选 Review/测试时通过 `close` 显式关闭。
+- 已关闭产物发生变化时，需求重新成为可恢复候选；重新准备或完成受影响阶段后刷新状态。
 - `prepare-stage` 在创建当前产物前重新校验上游，并对照内容指纹检测用户修改。
 - `complete-stage` 除了校验状态、P0、章节和模板项，还会校验需求 `S/R/Q` 来源与验收覆盖、最终确认来源，以及调研 `R/C/E/RQ` 覆盖、仓库 ChangeScope、本地证据行号、共享语义和当前 SQL 事实，成功后记录新指纹。
 - 已完成产物发生变化时，该阶段及其下游完成状态自动撤销，但原产物文件保留；用户重新执行被修改阶段的 `complete-stage` 后才能继续。

@@ -62,6 +62,22 @@ class AnalysisSkillContractTest(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
+    def test_stage_skills_use_safe_current_feature_resolution(self) -> None:
+        for name in (
+            "zstt-requirement-clarification",
+            "zstt-repo-research",
+            "zstt-technical-design",
+            "zstt-task-breakdown",
+            "zstt-implementation",
+            "zstt-code-review",
+            "zstt-test-verify",
+        ):
+            with self.subTest(name=name):
+                text = read_skill(name)
+                self.assertIn("current --repo-root", text)
+                self.assertIn("list --repo-root", text)
+                self.assertIn("禁止按日期", text)
+
     def test_research_skill_requires_real_execution_evidence(self) -> None:
         text = read_skill("zstt-repo-research")
         for token in (
