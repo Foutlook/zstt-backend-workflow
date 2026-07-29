@@ -105,10 +105,10 @@ def fill_stage_document(path: Path, stage: str) -> None:
             text,
             "| 需求 ID | 类型 | 已确认业务结论 | 来源 Sxx/Qxx | 详细章节 | 状态 |"
             if "mode: full" in text
-            else "| 需求 ID | 已确认边界/规则 | 来源 Sxx/Qxx | 状态 |",
+            else "| 需求 ID | 已确认边界/规则 | 来源 Sxx/Qxx | 允许修改 | 明确不做 | 风险/升级 Full 条件 | 状态 |",
             "| R01 | 功能 | 管理员可以导出学习报告 | S01 | 用户路径与验收 | 已确认 |"
             if "mode: full" in text
-            else "| R01 | 管理员可以导出学习报告 | S01 | 已确认 |",
+            else "| R01 | 管理员可以导出学习报告 | S01 | 管理端学习报告导出入口 | 不改变权限、导出格式及其他报表 | 影响扩大时升级 Full | 已确认 |",
         )
         text = insert_markdown_row(
             text,
@@ -128,6 +128,20 @@ def fill_stage_document(path: Path, stage: str) -> None:
             "confirmation_source: 用户确认消息-1",
             1,
         )
+        if "mode: quick" in text:
+            text = text.replace(
+                "- 模式评估： 已确认",
+                "- 模式评估：保持 Quick",
+                1,
+            ).replace(
+                "- 用户模式决定： 已确认",
+                "- 用户模式决定：保持 Quick",
+                1,
+            ).replace(
+                "- 模式决定来源： 已确认",
+                "- 模式决定来源：用户确认消息-1",
+                1,
+            )
 
     if stage == "repo_research":
         text = insert_markdown_row(
@@ -365,6 +379,9 @@ def prepare_task_breakdown(repo_root: Path) -> Path:
 
 
 def complete_quick_implementation(feature_dir: Path) -> None:
+    repo_root = feature_dir.parents[2]
+    if not (repo_root / ".git").exists():
+        set_git_branch(repo_root, "feature/quick-implementation")
     requirement = feature_dir / "00-requirement.md"
     fill_stage_document(requirement, "requirement_clarification")
     completed = run_cli(
@@ -386,6 +403,17 @@ def complete_quick_implementation(feature_dir: Path) -> None:
     if prepared.returncode != 0:
         raise AssertionError(prepared.stderr)
     fill_stage_document(feature_dir / "01-implementation.md", "implementation")
+    validated = run_cli(
+        "run-validation",
+        "--feature-dir",
+        str(feature_dir),
+        "--",
+        sys.executable,
+        "-c",
+        "raise SystemExit(0)",
+    )
+    if validated.returncode != 0:
+        raise AssertionError(validated.stderr)
     completed = run_cli(
         "complete-stage",
         "--feature-dir",
@@ -1211,7 +1239,9 @@ class WorkflowCliGateTest(unittest.TestCase):
 
     def test_quick_can_prepare_test_without_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            feature_dir = init_feature(Path(tmp), mode="quick")
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/quick-test")
+            feature_dir = init_feature(repo_root, mode="quick")
             requirement = feature_dir / "00-requirement.md"
             fill_stage_document(requirement, "requirement_clarification")
             self.assertEqual(
@@ -1236,6 +1266,18 @@ class WorkflowCliGateTest(unittest.TestCase):
             )
             implementation = feature_dir / "01-implementation.md"
             fill_stage_document(implementation, "implementation")
+            self.assertEqual(
+                0,
+                run_cli(
+                    "run-validation",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "raise SystemExit(0)",
+                ).returncode,
+            )
             self.assertEqual(
                 0,
                 run_cli(
@@ -1261,7 +1303,9 @@ class WorkflowCliGateTest(unittest.TestCase):
 
     def test_quick_exposes_both_optional_recommendations_after_implementation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            feature_dir = init_feature(Path(tmp), mode="quick")
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/quick-recommendations")
+            feature_dir = init_feature(repo_root, mode="quick")
             requirement = feature_dir / "00-requirement.md"
             fill_stage_document(requirement, "requirement_clarification")
             self.assertEqual(
@@ -1286,6 +1330,18 @@ class WorkflowCliGateTest(unittest.TestCase):
             )
             implementation = feature_dir / "01-implementation.md"
             fill_stage_document(implementation, "implementation")
+            self.assertEqual(
+                0,
+                run_cli(
+                    "run-validation",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "raise SystemExit(0)",
+                ).returncode,
+            )
 
             completed = run_cli(
                 "complete-stage",
@@ -1300,6 +1356,98 @@ class WorkflowCliGateTest(unittest.TestCase):
             self.assertEqual(
                 ["zstt-code-review", "zstt-test-verify"],
                 meta["recommended_next_skills"],
+            )
+
+    def test_run_validation_records_child_exit_code_in_implementation_evidence(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp), mode="quick")
+            fill_stage_document(
+                feature_dir / "00-requirement.md",
+                "requirement_clarification",
+            )
+            requirement = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+            self.assertEqual(0, requirement.returncode, requirement.stderr)
+            prepared = run_cli(
+                "prepare-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "implementation",
+            )
+            self.assertEqual(0, prepared.returncode, prepared.stderr)
+
+            validated = run_cli(
+                "run-validation",
+                "--feature-dir",
+                str(feature_dir),
+                "--",
+                sys.executable,
+                "-c",
+                "raise SystemExit(3)",
+            )
+
+            self.assertEqual(3, validated.returncode, validated.stderr)
+            payload = json.loads(
+                (
+                    feature_dir
+                    / "auxiliary"
+                    / "implementation-evidence.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(3, payload["validations"][0]["exitCode"])
+            self.assertIn(
+                "V01",
+                (feature_dir / "01-implementation.md").read_text(encoding="utf-8"),
+            )
+
+    def test_implementation_requires_validation_for_the_final_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp), mode="quick")
+            fill_stage_document(
+                feature_dir / "00-requirement.md",
+                "requirement_clarification",
+            )
+            requirement = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+            self.assertEqual(0, requirement.returncode, requirement.stderr)
+            prepared = run_cli(
+                "prepare-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "implementation",
+            )
+            self.assertEqual(0, prepared.returncode, prepared.stderr)
+            fill_stage_document(
+                feature_dir / "01-implementation.md",
+                "implementation",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "implementation",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn(
+                "缺少覆盖最终工作区快照的成功验证",
+                completed.stderr,
             )
 
     def test_quick_can_close_after_mandatory_stages_and_skip_optional_stages(
@@ -1377,6 +1525,99 @@ class WorkflowCliGateTest(unittest.TestCase):
 
 
 class RequirementResearchTraceabilityGateTest(unittest.TestCase):
+    def test_quick_requirement_requires_substantive_change_boundaries(self) -> None:
+        replacements = (
+            (
+                "| R01 | 管理员可以导出学习报告 | S01 | 管理端学习报告导出入口 | 不改变权限、导出格式及其他报表 |",
+                "| R01 | 管理员可以导出学习报告 | S01 |  | 不改变权限、导出格式及其他报表 |",
+                "缺少实质允许修改范围",
+            ),
+            (
+                "| R01 | 管理员可以导出学习报告 | S01 | 管理端学习报告导出入口 | 不改变权限、导出格式及其他报表 |",
+                "| R01 | 管理员可以导出学习报告 | S01 | 管理端学习报告导出入口 |  |",
+                "缺少实质不做事项",
+            ),
+        )
+        for original, replacement, expected in replacements:
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as tmp:
+                feature_dir = init_feature(Path(tmp), mode="quick")
+                requirement = feature_dir / "00-requirement.md"
+                fill_stage_document(requirement, "requirement_clarification")
+                requirement.write_text(
+                    requirement.read_text(encoding="utf-8").replace(
+                        original,
+                        replacement,
+                        1,
+                    ),
+                    encoding="utf-8",
+                    newline="\n",
+                )
+
+                completed = run_cli(
+                    "complete-stage",
+                    "--feature-dir",
+                    str(feature_dir),
+                    "--stage",
+                    "requirement_clarification",
+                )
+
+                self.assertNotEqual(0, completed.returncode)
+                self.assertIn(expected, completed.stderr)
+
+    def test_quick_requirement_cannot_complete_while_full_upgrade_is_pending(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp), mode="quick")
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            requirement.write_text(
+                requirement.read_text(encoding="utf-8").replace(
+                    "用户模式决定：保持 Quick",
+                    "用户模式决定：升级 Full",
+                    1,
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("必须记录用户决定保持 Quick", completed.stderr)
+
+    def test_quick_requirement_requires_mode_decision_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            feature_dir = init_feature(Path(tmp), mode="quick")
+            requirement = feature_dir / "00-requirement.md"
+            fill_stage_document(requirement, "requirement_clarification")
+            requirement.write_text(
+                requirement.read_text(encoding="utf-8").replace(
+                    "模式决定来源：用户确认消息-1",
+                    "模式决定来源：待确认",
+                    1,
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            completed = run_cli(
+                "complete-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "requirement_clarification",
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("缺少可回查的模式决定来源", completed.stderr)
+
     def test_requirement_rejects_unknown_source_reference(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             feature_dir = init_feature(Path(tmp))

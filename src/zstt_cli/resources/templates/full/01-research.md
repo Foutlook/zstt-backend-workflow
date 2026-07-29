@@ -31,7 +31,7 @@ current_sql_impact: pending
 
 ### 需求验证矩阵
 
-> 完整调研必须且只能覆盖 `00-requirement.md` 中全部 `Rxx`。聚焦调研只填本次范围，并保持 `status: draft`、`research_scope: focused`。
+> 完整调研必须且只能覆盖 `00-requirement.md` 中全部 `Rxx`。以 `Rxx` 定位需求，只写本阶段的代码验证问题、`Cxx/Exx/RQxx` 和风险，不复制需求正文。聚焦调研只填本次范围，并保持 `status: draft`、`research_scope: focused`。
 
 | 需求 ID | 需求主张 | 代码验证问题 | 验证状态 | 结论 ID | 证据 ID | 风险/RQxx |
 |---|---|---|---|---|---|---|

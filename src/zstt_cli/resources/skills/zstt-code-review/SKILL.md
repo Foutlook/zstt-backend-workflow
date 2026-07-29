@@ -18,7 +18,7 @@ description: ZSTT Java 后端代码评审阶段。仅当用户明确指定 $zstt
 3. 完整读取本阶段 `references/advanced-playbook.md`。
 4. 读取当前 Git diff、完整被改文件、相关调用方、测试和实现记录。根据真实风险面追加 `jackson`、`data-access`、`transaction`、`concurrency`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；不要只看局部 diff，也不要为填清单加载无关规则。
 5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
-6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage code_review --feature-dir <需求目录>`，重新校验上游。
+6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage code_review --feature-dir <需求目录>`，重新校验上游。Runtime 会先刷新 `auxiliary/implementation-evidence.json`；读取该证据和实现主产物的自动证据区，再与完整 Git diff 交叉核对。
 
 ## 评审强度
 
@@ -30,7 +30,7 @@ description: ZSTT Java 后端代码评审阶段。仅当用户明确指定 $zstt
 
 ## 评审顺序
 
-1. 固定评审范围：基线、工作区状态、diff、修改文件和未跟踪业务文件。
+1. 固定评审范围：以实现证据的准备阶段基线为起点，核对当前工作区、diff、修改文件和未跟踪业务文件。`newlyChanged` 只表示路径在基线后出现变化，`changedFromBaseline` 仍可能混有用户既存改动，不得仅凭分类认定归属。
 2. 建立需求、方案、任务与实现一致性矩阵，检查遗漏和越界修改。
 3. 反向追踪真实入口、调用链、最终数据源、最终赋值/计算点和关键参数。
 4. 区分 Guard 条件与真实业务依赖，检查数据源范围是否闭环。

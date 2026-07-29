@@ -18,6 +18,13 @@ from quality_gates import (
     quality_gates_before_stage,
     validate_quality_gate_document,
 )
+from implementation_evidence import (
+    IMPLEMENTATION_EVIDENCE_PATH,
+    finalize_implementation_evidence,
+    ensure_implementation_baseline,
+    load_evidence,
+    run_and_record_validation,
+)
 from workflow_contracts import (
     get_contract,
     recommended_next_skills,
@@ -858,6 +865,24 @@ def complete_stage(args: argparse.Namespace) -> int:
         mode,
         contract.key,
     )
+    if contract.key == "implementation":
+        evidence = finalize_implementation_evidence(
+            feature_dir,
+            feature_dir / contract.artifact,
+        )
+        validation_summary = evidence.get("validationSummary")
+        if not isinstance(validation_summary, dict):
+            validation_summary = {}
+        if (
+            validation_summary.get("freshPassed", 0) < 1
+            or validation_summary.get("freshFailed", 0) > 0
+        ):
+            raise WorkflowError(
+                "ZSTT_IMPLEMENTATION_VALIDATION_NOT_FRESH",
+                "实现阶段缺少覆盖最终工作区快照的成功验证，"
+                "或同一快照仍有失败验证；请重新运行 run-validation",
+                {"validationSummary": validation_summary},
+            )
 
     errors, frontmatter = validate_stage_document(
         feature_dir / contract.artifact,
@@ -996,6 +1021,16 @@ def prepare_stage(args: argparse.Namespace) -> int:
             "需求澄清阶段由 init 初始化",
             {"stage": contract.key},
         )
+    completed = list(meta.get("completed_stages", []))
+    if (
+        contract.key in {"code_review", "test_verify"}
+        and "implementation" in completed
+    ):
+        implementation = get_contract(mode, "implementation")
+        finalize_implementation_evidence(
+            feature_dir,
+            feature_dir / implementation.artifact,
+        )
     earliest_changed, invalidated = invalidate_changed_stages(feature_dir, meta)
     if earliest_changed:
         stage_order = [stage.key for stage in stages_for(mode)]
@@ -1014,6 +1049,8 @@ def prepare_stage(args: argparse.Namespace) -> int:
             },
         )
         target.write_text(content, encoding="utf-8", newline="\n")
+    if contract.key == "implementation":
+        ensure_implementation_baseline(feature_dir, target)
 
     artifacts = dict(meta.get("artifacts", {}))
     artifacts[contract.key] = contract.artifact
@@ -1040,6 +1077,43 @@ def prepare_stage(args: argparse.Namespace) -> int:
     write_meta(feature_dir, meta)
     print(str(target))
     return 0
+
+
+def run_validation(args: argparse.Namespace) -> int:
+    feature_dir = Path(args.feature_dir).resolve()
+    meta = read_meta(feature_dir)
+    mode = str(meta["mode"])
+    implementation = get_contract(mode, "implementation")
+    implementation_path = feature_dir / implementation.artifact
+    if not implementation_path.is_file():
+        raise WorkflowError(
+            "ZSTT_IMPLEMENTATION_NOT_PREPARED",
+            "实现阶段尚未准备，请先运行 prepare-stage --stage implementation",
+            {"artifact": str(implementation_path)},
+        )
+    command = list(args.validation_command)
+    if command and command[0] == "--":
+        command = command[1:]
+    exit_code = run_and_record_validation(
+        feature_dir,
+        implementation_path,
+        command,
+    )
+    payload = load_evidence(feature_dir)
+    validations = list(payload.get("validations", []))
+    result = validations[-1] if validations else {}
+    print(
+        json.dumps(
+            {
+                "feature_dir": str(meta["feature_dir"]),
+                "artifact": IMPLEMENTATION_EVIDENCE_PATH.as_posix(),
+                "validation": result,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return exit_code
 
 
 def prepare_quality_gate(args: argparse.Namespace) -> int:
@@ -1357,6 +1431,18 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--stage", required=True)
     prepare_parser.set_defaults(handler=prepare_stage)
 
+    validation_run_parser = subparsers.add_parser(
+        "run-validation",
+        help="执行实现阶段验证命令，并自动记录命令、退出码和耗时",
+    )
+    validation_run_parser.add_argument("--feature-dir", required=True)
+    validation_run_parser.add_argument(
+        "validation_command",
+        nargs=argparse.REMAINDER,
+        help="放在 -- 后的验证命令及参数",
+    )
+    validation_run_parser.set_defaults(handler=run_validation)
+
     quality_prepare_parser = subparsers.add_parser(
         "prepare-quality-gate",
         help="准备可选质量门禁产物，不推进固定阶段",
@@ -1436,6 +1522,7 @@ def operation_error(
         "validate": "ZSTT_ARTIFACT_INVALID",
         "complete-stage": "ZSTT_STAGE_COMPLETION_BLOCKED",
         "prepare-stage": "ZSTT_STAGE_PREPARATION_BLOCKED",
+        "run-validation": "ZSTT_VALIDATION_EXECUTION_FAILED",
         "prepare-quality-gate": "ZSTT_QUALITY_GATE_PREPARATION_BLOCKED",
         "validate-quality-gate": "ZSTT_QUALITY_GATE_INVALID",
         "prepare-sql-gate": "ZSTT_SQL_GATE_PREPARATION_BLOCKED",

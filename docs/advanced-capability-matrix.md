@@ -74,9 +74,10 @@
 | `ggg-task-breakdown` | 需求/设计到任务覆盖矩阵 | `zstt-task-breakdown/references/advanced-playbook.md` | 已融合 | 接口、SQL、代码和测试均能追到任务 |
 | 同上 | 关键路径、阻塞点、精确命令和预期信号 | 同上及 `03-tasks.md` | 已融合 | 每个任务具备可执行和可验证边界 |
 | 同上 | L0/L1/L2 并行等级与冲突文件 | 同上 | 适配后融合 | 只描述安全性；实际并行仍需用户明确要求或批准 |
-| `ggg-implementation` | 范围冻结、失败信号、最小实现顺序 | `zstt-implementation/references/advanced-playbook.md` | 已融合 | 先写当前阶段计划，再修改业务代码 |
+| `ggg-implementation` | 范围冻结、失败信号、最小实现顺序 | `zstt-implementation/references/advanced-playbook.md` | 已融合 | 引用 `Txx/Dxx` 记录本阶段增量，不复制上游正文 |
 | 同上 | worker 分工、文件锁、分组验证、主协调复核 | 同上 | 适配后融合 | Codex 子任务只在当前实现阶段、L2 且用户批准时使用 |
 | 两套来源 | 发现上游偏差后回写 | 同上及共享权威规则 | 已融合 | 纠正对应上游主产物，不用实现记录覆盖需求或方案 |
+| ZSTT 产品约束 | Git 基线、文件变化与验证结果自动取证 | `.zstt-kit/runtime/implementation_evidence.py`、实现模板 | 已融合 | 自动区分基线后出现变化、相对基线继续变化与未变化的既存改动；验证绑定工作区指纹，归属仍需复核 |
 
 ## 代码评审
 

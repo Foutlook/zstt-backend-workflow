@@ -97,6 +97,8 @@ Quick 固定链路：
               └─ 测试验证（可选）
 ```
 
+Quick 需求只保留目标、允许修改、明确不做、升级 Full 条件和验收信号；无关维度不展开。模式评估、用户决定和决定来源会写入产物；决定升级 Full 时当前 Quick 保持 draft。实现阶段引用这些 `Rxx` 契约，只补充实际增量和偏差。
+
 如果没有指定模式，需求澄清 Skill 会给出 Full/Quick 推荐和依据，最终仍由用户选择。
 
 若完成实现后决定同时跳过 Review 和测试，可以显式关闭 Quick：
@@ -132,6 +134,14 @@ Quick 示例：
 $zstt-implementation
 继续处理 .zstt/quick/20260729-fix-learning-report
 ```
+
+准备实现时，Runtime 会自动创建 `auxiliary/implementation-evidence.json` 并保存当前 Git 基线。需要执行非交互验证时，Skill 会使用：
+
+```powershell
+python .zstt-kit/runtime/workflow_cli.py run-validation --feature-dir <feature-dir> -- mvn test
+```
+
+该命令记录脱敏后的命令、退出码、耗时和执行时工作区指纹。完成实现时 Runtime 再采集当前工作区，区分基线后出现变化、相对基线继续变化和未变化的既存改动；代码后来变化时旧验证会标为过期。实现完成门禁要求至少一条成功验证匹配最终快照，且同一快照不能仍有失败验证；文件分类仍不能代替完整 diff 归属复核。
 
 > 不要手工修改 `meta.json`。直接修改已完成的主产物是允许的，但 Runtime 会使该阶段及下游旧状态失效；修正后需要重新执行对应阶段。
 

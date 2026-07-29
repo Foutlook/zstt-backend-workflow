@@ -128,14 +128,20 @@ class RequirementAdvancedCapabilityTest(unittest.TestCase):
                     / mode
                     / "00-requirement.md"
                 ).read_text(encoding="utf-8")
-                self.assertIn("材料可读性与冲突", text)
-                self.assertIn("工具与降级记录", text)
                 self.assertIn("原始材料要点覆盖", text)
                 self.assertIn("来源 ID", text)
                 self.assertIn("需求 ID", text)
                 self.assertIn("问题 ID", text)
                 self.assertIn("confirmation_status", text)
                 self.assertIn("confirmation_source", text)
+                if mode == "full":
+                    self.assertIn("材料可读性与冲突", text)
+                    self.assertIn("工具与降级记录", text)
+                else:
+                    self.assertIn("最小修改契约", text)
+                    self.assertIn("允许修改", text)
+                    self.assertIn("升级 Full 条件", text)
+                    self.assertNotIn("材料可读性与冲突", text)
 
 
 class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
@@ -381,9 +387,17 @@ class ImplementationAdvancedCapabilityTest(unittest.TestCase):
                     / mode
                     / artifact
                 ).read_text(encoding="utf-8")
-                self.assertIn("范围冻结", text)
-                self.assertIn("失败信号", text)
-                self.assertIn("工具与降级记录", text)
+                self.assertIn("自动派生实现证据", text)
+                self.assertIn("implementation-evidence.json", text)
+                self.assertIn("run-validation", text)
+                if mode == "full":
+                    self.assertIn("范围冻结", text)
+                    self.assertIn("工具与降级记录", text)
+                    self.assertIn("任务增量", text)
+                else:
+                    self.assertIn("实现边界", text)
+                    self.assertIn("失败信号", text)
+                    self.assertIn("最小验证方式", text)
 
 
 class CodeReviewAdvancedCapabilityTest(unittest.TestCase):

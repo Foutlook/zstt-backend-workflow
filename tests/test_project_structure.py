@@ -89,6 +89,7 @@ class ProjectStructureTest(unittest.TestCase):
         self.assertTrue((RULES / "catalog.json").is_file())
         self.assertTrue((RUNTIME / "rule_resolver.py").is_file())
         self.assertTrue((RUNTIME / "quality_gates.py").is_file())
+        self.assertTrue((RUNTIME / "implementation_evidence.py").is_file())
         self.assertTrue((RUNTIME / "workflow_cli.py").is_file())
         self.assertTrue((RUNTIME / "with_env.py").is_file())
         self.assertTrue((TEMPLATES / "full" / "00-requirement.md").is_file())

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +12,7 @@ from tests.test_workflow_cli import (
     init_feature,
     replace_frontmatter_value,
     run_cli,
+    set_git_branch,
 )
 
 
@@ -28,6 +31,18 @@ def complete_document(feature_dir: Path, stage: str, artifact: str) -> None:
         )
         if sql_gate.returncode != 0:
             raise AssertionError(sql_gate.stderr)
+    if stage == "implementation":
+        validated = run_cli(
+            "run-validation",
+            "--feature-dir",
+            str(feature_dir),
+            "--",
+            sys.executable,
+            "-c",
+            "raise SystemExit(0)",
+        )
+        if validated.returncode != 0:
+            raise AssertionError(validated.stderr)
     completed = run_cli(
         "complete-stage",
         "--feature-dir",
@@ -40,6 +55,108 @@ def complete_document(feature_dir: Path, stage: str, artifact: str) -> None:
 
 
 class WorkflowEndToEndTest(unittest.TestCase):
+    def test_committed_implementation_keeps_evidence_valid_for_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            subprocess.run(
+                ["git", "init", "--quiet", str(repo_root)],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(repo_root), "config", "user.name", "ZSTT Test"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo_root),
+                    "config",
+                    "user.email",
+                    "zstt-test@example.invalid",
+                ],
+                check=True,
+                capture_output=True,
+            )
+            service = repo_root / "service.txt"
+            service.write_text("baseline\n", encoding="utf-8", newline="\n")
+            subprocess.run(
+                ["git", "-C", str(repo_root), "add", "service.txt"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(repo_root), "commit", "--quiet", "-m", "baseline"],
+                check=True,
+                capture_output=True,
+            )
+            feature_dir = init_feature(repo_root, mode="quick")
+            complete_document(
+                feature_dir,
+                "requirement_clarification",
+                "00-requirement.md",
+            )
+            prepared = run_cli(
+                "prepare-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "implementation",
+            )
+            self.assertEqual(0, prepared.returncode, prepared.stderr)
+            service.write_text(
+                "baseline\nimplementation\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            complete_document(feature_dir, "implementation", "01-implementation.md")
+            before_commit = json.loads(
+                (
+                    feature_dir
+                    / "auxiliary"
+                    / "implementation-evidence.json"
+                ).read_text(encoding="utf-8")
+            )["final"]["fingerprint"]
+            subprocess.run(
+                ["git", "-C", str(repo_root), "add", "service.txt"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo_root),
+                    "commit",
+                    "--quiet",
+                    "-m",
+                    "implementation",
+                ],
+                check=True,
+                capture_output=True,
+            )
+
+            review = run_cli(
+                "prepare-stage",
+                "--feature-dir",
+                str(feature_dir),
+                "--stage",
+                "code_review",
+            )
+
+            self.assertEqual(0, review.returncode, review.stderr)
+            after_commit = json.loads(
+                (
+                    feature_dir
+                    / "auxiliary"
+                    / "implementation-evidence.json"
+                ).read_text(encoding="utf-8")
+            )["final"]["fingerprint"]
+            self.assertEqual(before_commit, after_commit)
+            self.assertTrue((feature_dir / "02-code-review.md").is_file())
+
     def test_full_workflow_runs_one_explicit_stage_at_a_time(self) -> None:
         stages = (
             ("requirement_clarification", "00-requirement.md"),
@@ -51,7 +168,9 @@ class WorkflowEndToEndTest(unittest.TestCase):
             ("test_verify", "06-test-report.md"),
         )
         with tempfile.TemporaryDirectory() as tmp:
-            feature_dir = init_feature(Path(tmp))
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/full-e2e")
+            feature_dir = init_feature(repo_root)
 
             for index, (stage, artifact) in enumerate(stages):
                 if index > 0:
@@ -70,13 +189,18 @@ class WorkflowEndToEndTest(unittest.TestCase):
             self.assertIsNone(meta["recommended_next_skill"])
             self.assertEqual([], meta["recommended_next_skills"])
             self.assertEqual(
-                {"meta.json", *(artifact for _, artifact in stages)},
+                {"meta.json", "auxiliary", *(artifact for _, artifact in stages)},
                 {path.name for path in feature_dir.iterdir()},
+            )
+            self.assertTrue(
+                (feature_dir / "auxiliary" / "implementation-evidence.json").is_file()
             )
 
     def test_quick_can_skip_review_but_keeps_fixed_artifact_numbers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            feature_dir = init_feature(Path(tmp), mode="quick")
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "feature/quick-e2e")
+            feature_dir = init_feature(repo_root, mode="quick")
             complete_document(feature_dir, "requirement_clarification", "00-requirement.md")
             self.assertEqual(
                 0,

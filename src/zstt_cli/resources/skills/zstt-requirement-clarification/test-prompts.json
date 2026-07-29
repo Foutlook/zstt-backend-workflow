@@ -7,7 +7,7 @@
   {
     "id": 2,
     "prompt": "$zstt-requirement-clarification 按 quick 澄清一个口头需求：管理员可以批量关闭任务，但权限范围、重复操作、历史任务和验收口径都没说清楚。",
-    "expected": "保留 quick 的必要风险扫描和最小 Sxx→Rxx/Qxx 链，聚焦高影响缺口，不静默补全权限、状态、历史数据或验收规则；无法闭环时建议由用户决定是否升级 full。"
+    "expected": "保留 quick 的必要风险扫描和最小 Sxx→Rxx/Qxx 链，只记录目标、允许修改、明确不做、直接风险和验收信号；不为无关维度填写不适用，也不静默补全权限、状态、历史数据或验收规则；无法闭环时建议由用户决定是否升级 full。"
   },
   {
     "id": 3,
@@ -23,5 +23,20 @@
     "id": 5,
     "prompt": "$zstt-requirement-clarification 我确认所有问题了，直接完成阶段。",
     "expected": "先核对每个 Sxx 已收口、每个 Rxx 有来源和验收覆盖、Qxx 数量与 frontmatter 一致，再按业务时间顺序做最终反向确认并记录 confirmation_source；没有最终确认时不能完成阶段。"
+  },
+  {
+    "id": 6,
+    "prompt": "$zstt-requirement-clarification 按 quick 处理：只把导出按钮文案改成“导出报告”，不改交互、接口和权限；按钮显示新文案即可验收。",
+    "expected": "用最小 Sxx→Rxx→验收链记录目标、允许修改和明确不做，省略无关风险维度，持久化用户保持 Quick 的决定，不展开 Full 表格或继续追问。"
+  },
+  {
+    "id": 7,
+    "prompt": "$zstt-requirement-clarification 当前已经是 quick，但发现还要改变共享 API 错误语义、旧客户端兼容和历史记录。",
+    "expected": "把未确认影响登记为 Qxx，记录建议升级 Full、依据和用户决定来源；用户决定前保持 draft，不把风险先写成已确认 Rxx，也不自动切换模式。"
+  },
+  {
+    "id": 8,
+    "prompt": "$zstt-requirement-clarification 按 quick 澄清：批量关闭入口不变，唯一未确认的是管理员能操作哪些任务，其他行为沿用现状。",
+    "expected": "只为管理员可操作范围创建一个 P0 Qxx，保持 draft 并等待确认；不扩问无证据的重复、历史、性能等维度，也不因单一可闭环缺口过早升级 Full。"
   }
 ]
