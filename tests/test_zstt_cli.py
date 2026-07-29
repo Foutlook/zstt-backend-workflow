@@ -621,6 +621,26 @@ class ProjectInstallerTest(unittest.TestCase):
             with self.assertRaises(InstallationError):
                 update_project(project_root, force=True)
 
+    def test_update_rejects_windows_backslash_traversal_and_preserves_file(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            init_project(project_root)
+            victim = project_root / "README.md"
+            content = b"keep this file\n"
+            victim.write_bytes(content)
+            relative = r".zstt-kit/rules/x\..\..\..\README.md"
+            manifest = read_manifest(project_root)
+            manifest["managedFiles"][relative] = {"sha256": sha256(content)}
+            write_manifest(project_root, manifest)
+
+            with self.assertRaises(InstallationError) as context:
+                update_project(project_root)
+
+            self.assertEqual("ZSTT_MANAGED_PATH_INVALID", context.exception.code)
+            self.assertEqual(content, victim.read_bytes())
+
     def test_manifest_cannot_claim_a_local_environment_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_root = Path(tmp)

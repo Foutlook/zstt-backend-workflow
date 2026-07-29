@@ -206,6 +206,14 @@ def _managed_root(relative: PurePosixPath) -> PurePosixPath | None:
 
 
 def _validate_managed_path(relative_path: str) -> PurePosixPath:
+    # Manifest 路径统一使用 POSIX 分隔符；Windows 会把反斜杠重新解释为
+    # 原生分隔符，导致隐藏其中的 ".." 绕过 PurePosixPath 校验。
+    if "\\" in relative_path:
+        raise InstallationError(
+            f"manifest 包含越界受管路径: {relative_path}",
+            code="ZSTT_MANAGED_PATH_INVALID",
+            details={"path": relative_path},
+        )
     relative = PurePosixPath(relative_path)
     parts = relative.parts
     if (
@@ -224,9 +232,24 @@ def _validate_managed_path(relative_path: str) -> PurePosixPath:
 def _target_path(project_root: Path, relative_path: str) -> Path:
     relative = _validate_managed_path(relative_path)
     target = project_root.joinpath(*relative.parts)
-    if not target.resolve(strict=False).is_relative_to(project_root):
+    managed_root = _managed_root(relative)
+    if managed_root is None:
         raise InstallationError(
-            f"受管路径超出业务仓库: {relative_path}",
+            f"无法确定受管根目录: {relative_path}",
+            code="ZSTT_MANAGED_PATH_INVALID",
+            details={"path": relative_path},
+        )
+    resolved_target = target.resolve(strict=False)
+    resolved_project_root = project_root.resolve(strict=False)
+    resolved_managed_root = project_root.joinpath(*managed_root.parts).resolve(
+        strict=False
+    )
+    if (
+        not resolved_target.is_relative_to(resolved_project_root)
+        or not resolved_target.is_relative_to(resolved_managed_root)
+    ):
+        raise InstallationError(
+            f"受管路径超出允许范围: {relative_path}",
             code="ZSTT_MANAGED_PATH_INVALID",
             details={"path": relative_path},
         )
