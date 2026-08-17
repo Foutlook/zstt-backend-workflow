@@ -206,14 +206,14 @@ class ProjectInstallerTest(unittest.TestCase):
             init_project(project_root)
             local_env = project_root / ".zstt-kit" / ".env" / ".env.local"
             local_env.write_text(
-                "ZSTT_ENV=test\nZSTT_MYSQL_PASSWORD=local-secret\n",
+                "ZSTT_ENV=test\nZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET=local-secret\n",
                 encoding="utf-8",
             )
 
             update_project(project_root, force=True)
 
             self.assertEqual(
-                "ZSTT_ENV=test\nZSTT_MYSQL_PASSWORD=local-secret\n",
+                "ZSTT_ENV=test\nZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET=local-secret\n",
                 local_env.read_text(encoding="utf-8"),
             )
             self.assertNotIn(
@@ -659,7 +659,7 @@ class ProjectInstallerTest(unittest.TestCase):
             project_root = Path(tmp)
             init_project(project_root)
             local_env = project_root / ".zstt-kit" / ".env" / ".env.local"
-            content = b"ZSTT_ENV=test\nZSTT_MYSQL_PASSWORD=local-secret\n"
+            content = b"ZSTT_ENV=test\nZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET=local-secret\n"
             local_env.write_bytes(content)
             manifest = read_manifest(project_root)
             manifest["managedFiles"][".zstt-kit/.env/.env.local"] = {

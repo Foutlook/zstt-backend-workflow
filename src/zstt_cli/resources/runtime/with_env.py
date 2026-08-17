@@ -19,14 +19,10 @@ SCOPE_KEYS = {
         "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
         "ZSTT_CLIENT_ALIBABA_CLOUD_REGION",
     },
-    "mysql": {
-        "ZSTT_MYSQL_HOST",
-        "ZSTT_MYSQL_PORT",
-        "ZSTT_MYSQL_URL",
-        "ZSTT_MYSQL_USERNAME",
-        "ZSTT_MYSQL_PASSWORD",
-        "ZSTT_MYSQL_DATABASE",
-        "ZSTT_MYSQL_DRIVER",
+    "dms": {
+        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID",
+        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+        "ZSTT_DMS_ALIBABA_CLOUD_SECURITY_TOKEN",
     },
     "es": {
         "ZSTT_ES_HOST",
@@ -38,6 +34,11 @@ SCOPE_KEYS = {
     },
 }
 SCOPE_EXPORT_KEYS = {
+    "dms": {
+        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID": "ALIBABA_CLOUD_ACCESS_KEY_ID",
+        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET": "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+        "ZSTT_DMS_ALIBABA_CLOUD_SECURITY_TOKEN": "ALIBABA_CLOUD_SECURITY_TOKEN",
+    },
     "observability-client": {
         "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_ID": "ALIBABA_CLOUD_ACCESS_KEY_ID",
         "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET": "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
@@ -57,11 +58,13 @@ REQUIRED_KEYS = {
         "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_ID",
         "ZSTT_CLIENT_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
     },
-    "mysql": {"ZSTT_MYSQL_USERNAME", "ZSTT_MYSQL_PASSWORD"},
+    "dms": {
+        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID",
+        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+    },
     "es": set(),
 }
 REQUIRED_CONNECTION_KEYS = {
-    "mysql": {"ZSTT_MYSQL_HOST", "ZSTT_MYSQL_URL"},
     "es": {"ZSTT_ES_HOST", "ZSTT_ES_URL"},
 }
 
@@ -142,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) < 4 or args[2] != "--":
         print(
             "Usage: with_env.py <test|prod> "
-            "<observability|observability-client|mysql|es> -- "
+            "<observability|observability-client|dms|es> -- "
             "<command> [args...]",
             file=sys.stderr,
         )

@@ -504,6 +504,7 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         text = read_skill("zstt-bug-fix")
         self.assertIn("references/advanced-playbook.md", text)
         self.assertIn("references/observability-mcp.md", text)
+        self.assertIn("references/dms-mcp.md", text)
         self.assertIn("references/environment-config.md", text)
         self.assertIn("references/runtime-bootstrap.md", text)
         self.assertIn("assets/bug-report-template.md", text)
@@ -512,7 +513,7 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         text = read_skill("zstt-bug-fix")
         self.assertIn("默认不创建 Bug 报告", text)
         self.assertIn("with_env.py", text)
-        self.assertIn("observability|observability-client|mysql|es", text)
+        self.assertIn("observability|observability-client|dms|es", text)
         self.assertIn("查询数据是两种角色共有能力", text)
         self.assertIn("没有业务代码则选择测试角色", text)
         self.assertIn("测试角色没有本阶段", text)
@@ -558,8 +559,22 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
             "不进入安装清单",
             "生产配置缺失",
             "不同 Scope 的凭据不得交叉注入",
+            "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID",
         ):
             self.assertIn(token, environment)
+
+        dms = read_reference("zstt-bug-fix", "dms-mcp.md")
+        for token in (
+            "searchDatabase",
+            "EnvType",
+            "EnvType=product",
+            "executeScript",
+            "dms_mcp_client.py",
+            "createDataChangeOrder",
+            "不回退",
+            "ALIBABA_CLOUD_ACCESS_KEY_ID",
+        ):
+            self.assertIn(token, dms)
 
         bootstrap = read_reference("zstt-bug-fix", "runtime-bootstrap.md")
         for token in (

@@ -27,7 +27,7 @@ confirmation_source: null
 | 当前角色（developer/tester） | | |
 | Git 基线与用户已有改动（仅开发角色） | | |
 | 代码与调用链能力（测试角色可标不适用） | | |
-| Observability MCP、日志、Trace、MySQL、ES及其他数据能力 | | |
+| Observability MCP、DMS MCP/MySQL、日志、Trace、ES及其他数据能力 | | |
 | 环境、账号、权限与前置数据 | | |
 
 ## 3. 复现与真实调用链
