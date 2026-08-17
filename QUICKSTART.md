@@ -32,7 +32,7 @@ zstt doctor --here
 初始化后主要生成：
 
 ```text
-.agents/skills/zstt-*/         # 12 个 Codex 项目级 Skill
+.agents/skills/zstt-*/         # 13 个 Codex 项目级 Skill
 .zstt-kit/rules/               # 动态工作流和 Java 规则
 .zstt-kit/runtime/             # 状态、指纹和门禁工具
 .zstt-kit/templates/           # Full、Quick 和质量门禁模板
@@ -185,11 +185,12 @@ analysis/artifact-analysis.md
 
 ## 6. 其他常用入口
 
-这三个辅助 Skill 不推进 Full/Quick 阶段：
+这四个辅助 Skill 不推进 Full/Quick 阶段：
 
 | 场景 | Skill | 关键边界 |
 | --- | --- | --- |
-| Bug、线上/偶现问题、数据或日志异常 | `$zstt-bug-fix` | 先给证据化根因；开发角色得到二次确认后才修改代码 |
+| 说明已有功能、规则、接口或数据来源 | `$zstt-product-feature-analysis` | 默认只说明当前行为；新需求转需求澄清，疑似缺陷转 Bug Fix |
+| Bug、线上/偶现问题、数据或日志异常 | `$zstt-bug-fix` | 先确认缺陷/非缺陷/有界未解决；支持缺陷且开发角色得到二次确认后才修改代码 |
 | 功能正确，只需要行为保持型简化 | `$zstt-code-simplification` | 不混入 Bug 修复或架构重构 |
 | 多文件职责、模块/DDD 边界或资源治理 | `$zstt-module-refactor` | 重大重构和行为变化先获得用户审批 |
 
@@ -248,6 +249,6 @@ zstt doctor --here
 
 ## 下一步
 
-- 完整能力、12 个 Skill、产物契约和命令参考：[README.md](README.md)
+- 完整能力、13 个 Skill、产物契约和命令参考：[README.md](README.md)
 - 高级能力来源、融合位置和边界：[高级能力融合矩阵](docs/advanced-capability-matrix.md)
 - 版本变化：[CHANGELOG.md](CHANGELOG.md)

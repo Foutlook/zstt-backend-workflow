@@ -56,6 +56,16 @@
 | `ggg-requirement-alignment` | 严格 Claim/Evidence/Question 校验 | `.zstt-kit/runtime/workflow_validation.py` | 适配后融合 | 校验 R/C/E/RQ 唯一性、引用、证据等级、本地文件行号、问题数量和阶段承接 |
 | 两套来源 | 旧链路副作用、运行时验证缺口 | `01-research.md` 模板 | 已融合 | 不能把静态推断写成运行事实 |
 
+## 现有功能分析
+
+| 来源 | 原能力 | ZSTT 落点 | 状态 | 适配说明 |
+|---|---|---|---|---|
+| `sdd-mini/product-feature-analysis` | 面向产品、测试或开发说明已有功能的当前行为 | `zstt-product-feature-analysis/SKILL.md` | 适配后融合 | 聚焦 Java 后端，不要求需求目录，不推进 Full/Quick；默认只在当前任务交付 |
+| 同上 | 产品意图、代码实现、运行观察、持久状态和推断分离 | `zstt-product-feature-analysis/SKILL.md`、`references/advanced-playbook.md` | 已融合 | PRD 不证明已实现，静态代码不证明本次执行，一条运行记录不代表所有场景 |
+| 同上 | 有界代码来源、真实调用链、最终数据源和关键参数 | `references/advanced-playbook.md` | 适配后融合 | 用户指定本地路径时只读该路径；未指定时才检查只读 MCP，失败后安全降级 |
+| 同上 | 只有明确要求时才分析变更影响 | `zstt-product-feature-analysis/SKILL.md` | 已融合 | 新需求转需求澄清，疑似契约违反转 Bug Fix，不在本 Skill 中设计或修复 |
+| ZSTT 产品约束 | 阶段中立和可选留档 | `assets/feature-analysis-template.md` | 适配后融合 | 默认不创建文件；明确要求时写 `.zstt/analyses/features/`，不得替代需求、调研或方案 |
+
 ## 技术方案
 
 | 来源 | 原能力 | ZSTT 落点 | 状态 | 适配说明 |
@@ -114,8 +124,9 @@
 
 | 来源 | 原能力 | ZSTT 落点 | 状态 | 适配说明 |
 |---|---|---|---|---|
+| `sdd-mini/issue-analysis` | 先确认契约违反，再分析责任和修复 | `zstt-bug-fix/SKILL.md`、`references/advanced-playbook.md` | 适配后融合 | 保留现有 Bug Fix 两阶段结构，在根因前增加确认卡和支持缺陷/非缺陷/有界未解决三分支 |
 | `ggg-bug-fix` | 代码、日志、MySQL、ES 和时间线联合取证 | `zstt-bug-fix/references/advanced-playbook.md` | 已融合 | 测试环境可做收敛的只读查询；线上默认生成 SQL、DSL 和日志条件，由用户回传脱敏结果 |
-| 同上 | 先排查结论、后二次确认修复 | `zstt-bug-fix/SKILL.md` 及 Bug 报告模板 | 已融合 | 用户最初要求修复不解锁代码修改，必须在看到证据化结论后明确确认 |
+| 同上 | 先排查结论、后二次确认修复 | `zstt-bug-fix/SKILL.md` 及 Bug 报告模板 | 已融合 | 用户最初要求修复只授权目标确认和只读取证；只有支持缺陷且看到完整结论后才能确认修复 |
 | 同上 | 常见时序、缓存、MQ、ES、幂等和状态源问题模型 | Bug Fix 高级手册 | 已融合 | 问题模型只作为调查假设，必须补齐代码、数据和过程证据 |
 | ZSTT 产品约束 | 独立辅助 Skill 和唯一权威记录 | `.zstt/bugs/` 或需求 `auxiliary/bugs/` | 适配后融合 | 不修改固定流程 `meta.json`；契约、SQL 或核心行为变化时转入 Full/Quick 和 SQL Gate |
 
@@ -149,6 +160,7 @@
 | 共享能力探测、证据和产物权威 | `SharedAdvancedCapabilityContractTest`、`RuleResolverTest` |
 | 混合材料需求澄清 | `RequirementAdvancedCapabilityTest` |
 | 跨仓库与 CodeGraph 降级调研 | `RepositoryResearchAdvancedCapabilityTest` |
+| 现有功能、证据类型和变更影响 | `ProductFeatureAnalysisAdvancedCapabilityTest` |
 | 完整 Java 后端技术方案 | `TechnicalDesignAdvancedCapabilityTest` |
 | 任务覆盖和并行安全 | `TaskBreakdownAdvancedCapabilityTest` |
 | 实现编排和主上下文复核 | `ImplementationAdvancedCapabilityTest` |
@@ -156,6 +168,7 @@
 | 环境化测试和六类差异归因 | `TestVerifyAdvancedCapabilityTest` |
 | 行为保持型代码简化 | `CodeSimplificationAdvancedCapabilityTest` |
 | 行为保持型模块重构 | `ModuleRefactorAdvancedCapabilityTest` |
+| 缺陷确认、环境取证和二次修复门禁 | `BugFixAdvancedCapabilityTest` |
 | README、能力矩阵和高级评测 | `DocumentationAndEvalContractTest` |
 | 阶段门禁和 full/quick 兼容性 | `WorkflowCliGateTest`、`WorkflowEndToEndTest` |
 | UTF-8 无 BOM 和 Skill 长度 | `ProjectStructureTest`、`test_skill_contracts` |

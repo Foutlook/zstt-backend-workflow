@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1,
+    "prompt": "$zstt-product-feature-analysis 面向测试说明退款按钮当前在什么条件下显示，覆盖接口、状态和数据来源，不需要影响分析。",
+    "expected": "不要求需求目录；锁定测试读者和当前行为边界，从入口追到响应字段最终赋值及真实数据源，区分产品意图、代码实现和推断，输出显示条件、例外、紧凑流程和证据，不设计修改方案。"
+  },
+  {
+    "id": 2,
+    "prompt": "$zstt-product-feature-analysis 解释订单详情接口的 statusName 是怎么计算出来的，这是静态代码问题。",
+    "expected": "不强制要求 test/prod 环境，沿 Controller 到最终计算或映射点核对关键参数、Guard 与真实依赖，直接回答当前算法和例外，不无边界查询日志或数据库。"
+  },
+  {
+    "id": 3,
+    "prompt": "$zstt-product-feature-analysis 说明生产环境昨晚这次请求为什么展示旧状态，这是 traceId 和时间。",
+    "expected": "确认这是环境特定行为问题并锁定 prod，区分当前功能说明与缺陷定性；只在答案需要时收敛查询 Trace、日志和状态来源，说明本次观察与静态实现的关系，不直接确认 Bug 或给修复方案。"
+  },
+  {
+    "id": 4,
+    "prompt": "$zstt-product-feature-analysis 只读取 D:/work/order-service，说明取消订单会触发哪些写库和消息副作用。",
+    "expected": "验证并只读取用户指定的本地仓库，不检查私有 MCP 配置或切换远程来源；从取消入口追到最终持久化和消息发送点，输出必要副作用和未覆盖边界。"
+  },
+  {
+    "id": 5,
+    "prompt": "$zstt-product-feature-analysis 没给本地路径；请说明会员冻结当前如何工作，如果配置了远程仓库 MCP 就使用。",
+    "expected": "只在没有显式路径时判断私有 MCP 配置完整性且不回显值，并验证当前会话实际暴露匹配 MCP；不可用时使用已授权本地上下文降级，不能把配置存在当作调用成功。"
+  },
+  {
+    "id": 6,
+    "prompt": "$zstt-product-feature-analysis 说明任务状态流转，并分析如果把状态 2 的含义改掉会影响什么。",
+    "expected": "先说明当前状态生产、持久化和消费链路；因用户明确要求影响分析，再沿数据库、RPC、MQ、缓存、SQL 条件、历史值和测试边界扩展，但不生成需求、技术方案或代码。"
+  },
+  {
+    "id": 7,
+    "prompt": "$zstt-product-feature-analysis 这个接口返回和 PRD 不一致，直接告诉我根因并修掉。",
+    "expected": "只交付现状基线、实际与预期依据及证据缺口，说明缺陷定性和修复超出本 Skill，建议用户显式调用 $zstt-bug-fix，不分析根因或修改代码。"
+  },
+  {
+    "id": 8,
+    "prompt": "$zstt-product-feature-analysis 我想新增批量导出功能，顺便帮我设计接口。",
+    "expected": "识别为新需求设计而非现有功能说明，停止并建议显式调用 $zstt-requirement-clarification；不得创建需求目录、方案或接口设计。"
+  },
+  {
+    "id": 9,
+    "prompt": "$zstt-product-feature-analysis 分析现有退款规则，并保存一份报告。",
+    "expected": "因用户明确要求留档，使用 feature-analysis-template.md 创建唯一功能分析报告；报告仍是阶段中立的派生分析，不修改 .zstt/meta.json 或替代需求、调研和方案。"
+  }
+]

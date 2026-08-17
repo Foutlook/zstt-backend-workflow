@@ -120,6 +120,15 @@ class ProjectInstallerTest(unittest.TestCase):
                 ).is_file()
             )
             self.assertTrue(
+                (
+                    project_root
+                    / ".agents"
+                    / "skills"
+                    / "zstt-product-feature-analysis"
+                    / "SKILL.md"
+                ).is_file()
+            )
+            self.assertTrue(
                 (project_root / ".zstt-kit" / "rules" / "catalog.json").is_file()
             )
             self.assertTrue(
@@ -778,7 +787,7 @@ class CliTest(unittest.TestCase):
             self.assertTrue(result["healthy"])
             self.assertTrue(result["codexDiscoverable"])
             self.assertEqual("normal", result["installationStatus"])
-            self.assertEqual(12, len(result["expectedSkills"]))
+            self.assertEqual(13, len(result["expectedSkills"]))
             self.assertEqual([], result["missingSkills"])
 
     def test_doctor_uses_git_root_when_called_from_repository_subdirectory(self) -> None:

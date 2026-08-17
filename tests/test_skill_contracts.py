@@ -232,6 +232,7 @@ class SupportingSkillContractTest(unittest.TestCase):
             "zstt-code-simplification",
             "zstt-module-refactor",
             "zstt-bug-fix",
+            "zstt-product-feature-analysis",
         ):
             with self.subTest(name=name):
                 self.assertLess(len(read_skill(name).splitlines()), 500)
@@ -269,6 +270,12 @@ class SupportingSkillContractTest(unittest.TestCase):
             "数据证据",
             "过程证据",
             "线上环境",
+            "缺陷确认卡",
+            "支持缺陷",
+            "支持非缺陷",
+            "有界未解决",
+            "适用契约",
+            "可达状态",
             "二次确认",
             "禁止修改业务代码",
             "SQL Gate",
@@ -287,6 +294,31 @@ class SupportingSkillContractTest(unittest.TestCase):
             "05-code-review.md",
             "implementation-evidence.json",
             "changedFromBaseline",
+        ):
+            self.assertIn(token, text)
+
+    def test_product_feature_analysis_is_read_only_and_stage_neutral(self) -> None:
+        text = read_skill("zstt-product-feature-analysis")
+        self.assertEqual(
+            "zstt-product-feature-analysis",
+            frontmatter_value(text, "name"),
+        )
+        for token in (
+            "仅当用户明确指定",
+            "阶段中立",
+            "不要求先创建 `00-requirement.md`",
+            "不推进或修改 `.zstt/meta.json`",
+            "产品意图",
+            "当前实现",
+            "运行观察",
+            "持久状态",
+            "Guard",
+            "最终查询、计算、赋值",
+            "数据源",
+            "变更影响",
+            "$zstt-requirement-clarification",
+            "$zstt-bug-fix",
+            "不确认 Bug",
         ):
             self.assertIn(token, text)
 

@@ -4,16 +4,16 @@
 
 面向团队的 Codex Java 后端开发工作流套件。这个仓库不只提供一组提示词，而是把项目级 Skills（技能）、动态 Rules（规则）、确定性 Runtime（运行时）、产物 Templates（模板）和安全安装 CLI 组合成一套可提交、可恢复、可校验的工程工作流。
 
-首版支持 Codex 与 Java 后端项目。流程覆盖需求澄清、仓库调研、技术方案、任务拆分、编码实现、代码评审和测试验证，并提供 Quick/Full 两种处理强度、两个可选质量门禁以及 Bug 排查、代码简化、模块重构等独立能力。
+首版支持 Codex 与 Java 后端项目。流程覆盖需求澄清、仓库调研、技术方案、任务拆分、编码实现、代码评审和测试验证，并提供 Quick/Full 两种处理强度、两个可选质量门禁以及现有功能分析、Bug 排查、代码简化、模块重构等独立能力。
 
-**快速导航：** [5 分钟开始使用](#5-分钟开始使用) · [Full 与 Quick](#full-与-quick) · [12 个 Skill](#12-个-skill) · [产物与契约](#产物与契约) · [运行时与门禁](#运行时与门禁) · [安装和升级](#安装和升级) · [命令参考](#命令参考)
+**快速导航：** [5 分钟开始使用](#5-分钟开始使用) · [Full 与 Quick](#full-与-quick) · [13 个 Skill](#13-个-skill) · [产物与契约](#产物与契约) · [运行时与门禁](#运行时与门禁) · [安装和升级](#安装和升级) · [命令参考](#命令参考)
 
 ## 仓库提供什么
 
 | 能力层 | 解决的问题 | 安装到业务仓库的位置 |
 | --- | --- | --- |
 | `zstt-cli` | 初始化、升级、完整性检查、Git/Codex 发现诊断 | 全局命令 `zstt` |
-| 12 个项目级 Skill | 告诉 Codex 当前阶段或辅助任务该如何执行 | `.agents/skills/zstt-*/` |
+| 13 个项目级 Skill | 告诉 Codex 当前阶段或辅助任务该如何执行 | `.agents/skills/zstt-*/` |
 | 动态 Rules | 按 Skill 和真实代码上下文加载工作流、Java、数据访问、并发等约束 | `.zstt-kit/rules/` |
 | Workflow Runtime | 管理需求状态、分支绑定、阶段顺序、内容校验、指纹失效和稳定错误码 | `.zstt-kit/runtime/` |
 | Full/Quick Templates | 为每个阶段和可选质量门禁提供固定结构 | `.zstt-kit/templates/` |
@@ -136,7 +136,7 @@ flowchart LR
 
 Quick 的固定链路仍是“需求澄清 → 实现”。Quick 需求只写会改变实现或验收的最小契约，无关维度直接省略，并持久化模式评估、用户决定和决定来源；决定升级 Full 时保持 Quick 为 draft。实现记录引用需求 ID，不再复述整份需求。需求 Checklist 不会被自动推荐或插入链路，但用户显式执行后，已有报告会在实现前校验。实现完成后，Runtime 同时推荐可选 Review 和测试；测试完成后流程结束，不会倒退推荐 Review。即使跳过 Review，测试报告仍固定为 `03-test-report.md`。
 
-## 12 个 Skill
+## 13 个 Skill
 
 所有 Skill 都由用户显式调用。固定阶段会推进 Full/Quick 状态；质量门禁与其他辅助 Skill 不进入固定阶段。
 
@@ -151,15 +151,17 @@ Quick 的固定链路仍是“需求澄清 → 实现”。Quick 需求只写会
 | `$zstt-implementation` | 固定阶段；Full/Quick | 上游已就绪，需要按任务或 Quick 边界实施最小代码改动时 | Full `04-implementation.md`；Quick `01-implementation.md`；自动证据 `auxiliary/implementation-evidence.json` | 完成实现阶段 |
 | `$zstt-code-review` | Full 固定；Quick 可选 | 实现后核对上游契约、真实 diff、正确性、安全性和可维护性 | Full `05-code-review.md`；Quick `02-code-review.md` | Full 必需；Quick 按需记录 |
 | `$zstt-test-verify` | Full 固定；Quick 可选 | 执行测试并区分需求、方案、实现、用例、环境/数据和覆盖差异时 | Full `06-test-report.md`；Quick `03-test-report.md` | Full 必需；Quick 按需记录 |
-| `$zstt-bug-fix` | 按需辅助 | Bug、线上/偶现问题、日志/Trace/MySQL/ES 数据异常排查 | 默认在当前任务交付；显式要求时写 `.zstt/bugs/` 或 `auxiliary/bugs/` | 不推进固定阶段 |
+| `$zstt-product-feature-analysis` | 只读辅助 | 需要面向产品、测试或开发解释已有功能、业务规则、接口、调用链和数据来源时 | 默认在当前任务交付；显式要求时写 `.zstt/analyses/features/` | 不推进固定阶段 |
+| `$zstt-bug-fix` | 按需辅助 | 判断或修复 Bug、排查线上/偶现问题、日志/Trace/MySQL/ES 数据异常 | 默认在当前任务交付；显式要求时写 `.zstt/bugs/` 或 `auxiliary/bugs/` | 不推进固定阶段 |
 | `$zstt-code-simplification` | 按需辅助 | 当前 diff、提交、文件或符号功能正确，但可在行为不变前提下简化 | 代码 diff；关联需求时可写 `auxiliary/` | 不推进固定阶段 |
 | `$zstt-module-refactor` | 审批型辅助 | 多文件职责拆分、模块/DDD 边界调整，或有证据的性能、并发、资源治理 | `.zstt/refactors/` 或 `auxiliary/refactors/` | 不推进；重大或行为变化方案先审批 |
 
 ### 选择入口
 
 - 新需求或需求口径不清：从 `$zstt-requirement-clarification` 开始。
+- 只想说明一个已有功能当前怎样工作：使用 `$zstt-product-feature-analysis`；新需求转需求澄清，疑似契约违反转 Bug Fix。
 - 上一步已完成，想在行动前再次对齐契约：需求后用 `$zstt-requirement-checklist`，Full 任务后用 `$zstt-artifact-analysis`。
-- 已知是故障或数据异常：先用 `$zstt-bug-fix` 定位根因；若最终涉及新增能力、契约、SQL、核心状态或权限变化，再进入 Full/Quick。
+- 已知是故障或数据异常：先用 `$zstt-bug-fix` 确认支持缺陷、支持非缺陷或有界未解决；只有支持缺陷才继续根因和最小修复，涉及新增能力、契约、SQL、核心状态或权限变化时再进入 Full/Quick。
 - 已有明确任务并准备改代码：用 `$zstt-implementation`；实现后的静态评审与实际验证分别用 `$zstt-code-review`、`$zstt-test-verify`。
 - 只做行为保持型整理：用 `$zstt-code-simplification`；涉及多文件职责或架构边界时用 `$zstt-module-refactor`。
 
@@ -252,7 +254,7 @@ Runtime 负责确定性状态和校验，Skill 负责分析与写作，两者分
 ```text
 .agents/
 └─ skills/
-   └─ zstt-*/                  # 12 个用户可调用 Skill
+   └─ zstt-*/                  # 13 个用户可调用 Skill
 .zstt-kit/
 ├─ manifest.json               # CLI 版本与受管文件 SHA-256
 ├─ project-databases.json      # 用户维护的项目/数据库与日志映射，不受 update 覆盖
@@ -296,7 +298,9 @@ Rules 分为 `constraint`（硬约束）、`decision`（证据满足时采用的
 
 仓库调研采用显式本地路径优先。用户给出 checkout 后，只读取这些路径，不探测或切换远程来源；未给路径时，才检查本机受 Git 忽略的私有配置和当前会话是否真实暴露匹配的只读仓库 MCP。`.env.local` 不会自动注册 MCP，其中的 URL 也不是可直接请求的普通 HTTP 接口。
 
-Bug 排查可以结合代码、Trace、SLS 日志、MySQL、ES 和时间线。已注册 Observability MCP 时优先做收敛的只读取证；不可用时输出精确查询条件，等待用户回传脱敏结果。`$zstt-bug-fix` 默认先交付根因、影响和方案，开发角色只有在用户看到结论并二次确认后才执行最小修复。ZSTT 不打包 MCP Server 二进制或凭据。
+现有功能分析不要求先创建需求目录。它把产品意图、当前实现、一次运行观察、持久状态和分析推断分开，只回答当前规则、流程和数据来源；只有用户明确要求时才扩展变更影响。新需求转入需求澄清，疑似契约违反转入 Bug Fix，不在功能说明中越界设计或修复。
+
+Bug 排查可以结合代码、Trace、SLS 日志、MySQL、ES 和时间线。问题排查先形成确认卡，再判断支持缺陷、支持非缺陷或有界未解决；只有支持缺陷才继续责任、根因和最小修复。已注册 Observability MCP 时优先做收敛的只读取证；不可用时输出精确查询条件，等待用户回传脱敏结果。开发角色只有在用户看到完整结论并二次确认后才执行最小修复。ZSTT 不打包 MCP Server 二进制或凭据。
 
 高级能力的来源、融合位置、边界和验证索引见 [高级能力融合矩阵](docs/advanced-capability-matrix.md)。
 
@@ -345,7 +349,7 @@ zstt init --here
 zstt doctor --here
 ```
 
-`zstt doctor` 检查安装清单、12 个 Skill、Git 根目录、父级错误安装、嵌套仓库和 Codex 发现边界。若聚合目录下有多个独立 Git 仓库，应分别进入每个真实仓库初始化。
+`zstt doctor` 检查安装清单、13 个 Skill、Git 根目录、父级错误安装、嵌套仓库和 Codex 发现边界。若聚合目录下有多个独立 Git 仓库，应分别进入每个真实仓库初始化。
 
 CLI 只管理清单记录的以下内容：
 
@@ -491,7 +495,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 
 验证脚本会：
 
-1. 校验 12 个 Skill 的 frontmatter、元数据、引用与行为测试提示；
+1. 校验 13 个 Skill 的 frontmatter、元数据、引用与行为测试提示；
 2. 运行全部单元、契约和 Full/Quick 端到端测试；
 3. 编译 Python 源码并检查文本为 UTF-8 无 BOM；
 4. 构建 Wheel，验证 Skill、Rules、Runtime、Templates 和环境示例完整，且不包含 Codex 插件元数据；

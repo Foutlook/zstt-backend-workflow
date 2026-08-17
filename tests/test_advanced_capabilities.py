@@ -62,6 +62,7 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
             "zstt-code-simplification",
             "zstt-module-refactor",
             "zstt-bug-fix",
+            "zstt-product-feature-analysis",
         ):
             with self.subTest(skill=skill):
                 text = read_skill(skill)
@@ -518,6 +519,22 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         self.assertIn("没有全局 `zstt` 命令", text)
         self.assertIn("已解析 Kit", text)
 
+    def test_bug_fix_confirms_defect_before_root_cause_or_fix(self) -> None:
+        text = read_skill("zstt-bug-fix")
+        for token in (
+            "缺陷确认卡",
+            "适用契约",
+            "真实观察到的状态",
+            "可测试差异",
+            "工程纠正",
+            "支持缺陷",
+            "支持非缺陷",
+            "有界未解决",
+            "只有直接反证",
+            "保持不变行为",
+        ):
+            self.assertIn(token, text)
+
         observability = read_reference("zstt-bug-fix", "observability-mcp.md")
         for token in (
             "umodel_get_traces",
@@ -574,6 +591,9 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
             "真实调用链",
             "代码证据",
             "数据/日志证据",
+            "supported_defect",
+            "supported_non_defect",
+            "bounded_unresolved",
             "二次确认",
             "SQL Gate",
         ):
@@ -585,14 +605,65 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for token in (
             "role: developer",
-            "phase: diagnosis",
+            "phase: intake",
+            "disposition: pending",
             "fix_authorized: false",
             "范围、基线与能力",
             "证据与候选假设",
+            "缺陷确认",
+            "supported_non_defect",
             "修复确认门禁",
             "实际修改",
             "验证证据",
             "回归点与残余风险",
+        ):
+            self.assertIn(token, text)
+
+
+class ProductFeatureAnalysisAdvancedCapabilityTest(unittest.TestCase):
+    def test_product_feature_analysis_loads_playbook_and_template(self) -> None:
+        text = read_skill("zstt-product-feature-analysis")
+        self.assertIn("references/advanced-playbook.md", text)
+        self.assertIn("assets/feature-analysis-template.md", text)
+        self.assertIn("默认只在当前任务中交付", text)
+
+    def test_product_feature_playbook_covers_sources_and_evidence_types(self) -> None:
+        text = read_reference(
+            "zstt-product-feature-analysis",
+            "advanced-playbook.md",
+        )
+        for token in (
+            "最小问题卡",
+            "代码来源门禁",
+            "用户明确给出",
+            "私有仓库 MCP",
+            "配置中的 URL 不能作为普通 HTTP",
+            "当前行为取证",
+            "最终赋值",
+            "负面结论",
+            "环境特定证据",
+            "生产配置缺失时不能回退到测试",
+            "功能模型",
+            "变更影响",
+        ):
+            self.assertIn(token, text)
+
+    def test_product_feature_template_is_optional_and_non_authoritative(self) -> None:
+        text = (
+            SKILLS
+            / "zstt-product-feature-analysis"
+            / "assets"
+            / "feature-analysis-template.md"
+        ).read_text(encoding="utf-8")
+        for token in (
+            "status: draft",
+            "impact_analysis: false",
+            "问题与边界",
+            "直接答案",
+            "当前行为、规则与例外",
+            "事实类型",
+            "冲突与未知",
+            "分流建议",
         ):
             self.assertIn(token, text)
 
@@ -753,6 +824,9 @@ class DocumentationAndEvalContractTest(unittest.TestCase):
             "无边界并行",
             "个人风格命名",
             "zstt-code-simplification",
+            "sdd-mini/product-feature-analysis",
+            "zstt-product-feature-analysis",
+            "支持缺陷/非缺陷/有界未解决",
         ):
             self.assertIn(token, text)
 
@@ -766,12 +840,14 @@ class DocumentationAndEvalContractTest(unittest.TestCase):
             "唯一权威主产物",
             "auxiliary/",
             "不会自动执行",
+            "现有功能分析不要求先创建需求目录",
+            "问题排查先形成确认卡",
         ):
             self.assertIn(token, text)
 
     def test_evals_cover_advanced_and_forbidden_behaviors(self) -> None:
         data = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))
-        self.assertGreaterEqual(len(data["evals"]), 12)
+        self.assertGreaterEqual(len(data["evals"]), 26)
         corpus = json.dumps(data, ensure_ascii=False)
         for token in (
             "混合材料",
@@ -786,6 +862,9 @@ class DocumentationAndEvalContractTest(unittest.TestCase):
             "代码简化",
             "模块重构",
             "业务逻辑变更提案",
+            "$zstt-product-feature-analysis",
+            "支持非缺陷",
+            "有界未解决",
         ):
             self.assertIn(token, corpus)
         for item in data["evals"]:
