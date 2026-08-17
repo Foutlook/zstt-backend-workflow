@@ -17,7 +17,7 @@
 | 动态 Rules | 按 Skill 和真实代码上下文加载工作流、Java、数据访问、并发等约束 | `.zstt-kit/rules/` |
 | Workflow Runtime | 管理需求状态、分支绑定、阶段顺序、内容校验、指纹失效和稳定错误码 | `.zstt-kit/runtime/` |
 | Full/Quick Templates | 为每个阶段和可选质量门禁提供固定结构 | `.zstt-kit/templates/` |
-| 环境隔离与集成约定 | 隔离测试/生产、后端/客户端、MySQL/ES/Observability 凭据范围 | `.zstt-kit/.env/`、`runtime/with_env.py` |
+| 环境隔离与集成约定 | 隔离测试/生产、后端/客户端、DMS/ES/Observability 凭据范围 | `.zstt-kit/.env/`、`runtime/with_env.py` |
 | 验证与发布流水线 | 校验 Skill 契约、测试、UTF-8、Python、Wheel 内容和真实安装 | `scripts/`、`tests/`、GitHub Actions |
 
 ## 核心原则
@@ -151,7 +151,7 @@ Quick 的固定链路仍是“需求澄清 → 实现”。Quick 需求只写会
 | `$zstt-implementation` | 固定阶段；Full/Quick | 上游已就绪，需要按任务或 Quick 边界实施最小代码改动时 | Full `04-implementation.md`；Quick `01-implementation.md`；自动证据 `auxiliary/implementation-evidence.json` | 完成实现阶段 |
 | `$zstt-code-review` | Full 固定；Quick 可选 | 实现后核对上游契约、真实 diff、正确性、安全性和可维护性 | Full `05-code-review.md`；Quick `02-code-review.md` | Full 必需；Quick 按需记录 |
 | `$zstt-test-verify` | Full 固定；Quick 可选 | 执行测试并区分需求、方案、实现、用例、环境/数据和覆盖差异时 | Full `06-test-report.md`；Quick `03-test-report.md` | Full 必需；Quick 按需记录 |
-| `$zstt-bug-fix` | 按需辅助 | Bug、线上/偶现问题、日志/Trace/MySQL/ES 数据异常排查 | 默认在当前任务交付；显式要求时写 `.zstt/bugs/` 或 `auxiliary/bugs/` | 不推进固定阶段 |
+| `$zstt-bug-fix` | 按需辅助 | Bug、线上/偶现问题、日志/Trace/DMS MySQL/ES 数据异常排查 | 默认在当前任务交付；显式要求时写 `.zstt/bugs/` 或 `auxiliary/bugs/` | 不推进固定阶段 |
 | `$zstt-code-simplification` | 按需辅助 | 当前 diff、提交、文件或符号功能正确，但可在行为不变前提下简化 | 代码 diff；关联需求时可写 `auxiliary/` | 不推进固定阶段 |
 | `$zstt-module-refactor` | 审批型辅助 | 多文件职责拆分、模块/DDD 边界调整，或有证据的性能、并发、资源治理 | `.zstt/refactors/` 或 `auxiliary/refactors/` | 不推进；重大或行为变化方案先审批 |
 
@@ -266,7 +266,8 @@ Runtime 负责确定性状态和校验，Skill 负责分析与写作，两者分
 │  ├─ workflow_validation.py
 │  ├─ quality_gates.py
 │  ├─ rule_resolver.py
-│  └─ with_env.py
+│  ├─ with_env.py
+│  └─ dms_mcp_client.py
 ├─ templates/
 │  ├─ full/
 │  ├─ quick/
@@ -296,7 +297,7 @@ Rules 分为 `constraint`（硬约束）、`decision`（证据满足时采用的
 
 仓库调研采用显式本地路径优先。用户给出 checkout 后，只读取这些路径，不探测或切换远程来源；未给路径时，才检查本机受 Git 忽略的私有配置和当前会话是否真实暴露匹配的只读仓库 MCP。`.env.local` 不会自动注册 MCP，其中的 URL 也不是可直接请求的普通 HTTP 接口。
 
-Bug 排查可以结合代码、Trace、SLS 日志、MySQL、ES 和时间线。已注册 Observability MCP 时优先做收敛的只读取证；不可用时输出精确查询条件，等待用户回传脱敏结果。`$zstt-bug-fix` 默认先交付根因、影响和方案，开发角色只有在用户看到结论并二次确认后才执行最小修复。ZSTT 不打包 MCP Server 二进制或凭据。
+Bug 排查可以结合代码、Trace、SLS 日志、DMS MCP 中的 MySQL 数据、ES 和时间线。已注册只读 MCP 时优先做收敛取证；DMS MCP 未注册时，可以通过 `.zstt-kit/runtime/dms_mcp_client.py` 启动固定版本的官方 Server，并在调用前校验目标环境和只读 SQL。能力不可用时输出精确查询条件，等待用户回传脱敏结果。`$zstt-bug-fix` 默认先交付根因、影响和方案，开发角色只有在用户看到结论并二次确认后才执行最小修复。ZSTT 不打包 MCP Server 二进制、数据库连接信息或凭据。
 
 高级能力的来源、融合位置、边界和验证索引见 [高级能力融合矩阵](docs/advanced-capability-matrix.md)。
 
@@ -312,17 +313,17 @@ Copy-Item .zstt-kit\.env\.env.prod.example .zstt-kit\.env\.env.prod.local
 真实 `*.local` 文件受 Git 忽略，不进入安装清单，`zstt update` 不读取或覆盖。生产配置缺失时禁止回退到测试环境。需要让本地只读工具临时使用凭据时，通过范围启动器执行：
 
 ```text
-python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client|mysql|es> -- <command> [args...]
+python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client|dms|es> -- <command> [args...]
 ```
 
 | Scope | 只注入 |
 | --- | --- |
 | `observability` | 当前环境的后端 `ALIBABA_CLOUD_*` |
 | `observability-client` | 当前环境的客户端 AK，并临时映射为标准 `ALIBABA_CLOUD_*` |
-| `mysql` | `ZSTT_MYSQL_*` |
+| `dms` | 当前环境独立的 `ZSTT_DMS_ALIBABA_CLOUD_*`，并临时映射为标准 `ALIBABA_CLOUD_*` |
 | `es` | `ZSTT_ES_*` |
 
-启动器会先清除其他 ZSTT 受管凭据，再向子进程注入当前环境与当前 Scope 所需变量，避免后端/客户端、测试/生产或 MySQL/ES 凭据串用。
+启动器会先清除其他 ZSTT 受管凭据，再向子进程注入当前环境与当前 Scope 所需变量，避免后端/客户端、测试/生产或 DMS/ES 凭据串用。测试与生产 DMS 分别读取 `.env.local` 和 `.env.prod.local`，任一环境缺失时都不会回退到另一环境。
 
 ## 安装和升级
 

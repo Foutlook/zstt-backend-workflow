@@ -26,7 +26,7 @@ description: ZSTT 问题排查、只读数据查询与 Java 后端最小修复 S
 2. 使用解析出的启动器和 Kit 绝对路径运行 `runtime/rule_resolver.py resolve --skill zstt-bug-fix`，完整读取返回的规则，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和原因。项目内解析器存在时不要求全局安装 `zstt`；只有解析器实际返回规则或清单错误时才按启动指南执行 CLI 降级检查。
 3. 完整读取 `references/advanced-playbook.md`。
 4. 问题包含 Trace ID、日志、服务异常或明确时间窗口时，完整读取 `references/observability-mcp.md`；按环境和后端/客户端意图优先读取已解析 Kit 中 `project-databases.json` 对应的 `$testBackendSls`、`$testClientSls`、`$prodBackendSls`、`$prodClientSls`，配置完整时直接查询，不重复发现 Project 和 Logstore。
-5. 使用 Observability、MySQL 或 ES 凭据前，完整读取 `references/environment-config.md`；数据库名与测试 SLS 映射先按其中规则读取已解析 Kit 中的 `project-databases.json`，确认目标环境和后端/客户端凭据 Scope。`$productionSameAsTest` 只确认生产与测试库名相同，不授权连接生产库，生产凭据仍禁止回退到测试配置。
+5. 查询 MySQL 业务数据时完整读取 `references/dms-mcp.md`，对测试和用户明确指定的生产环境使用 Alibaba Cloud DMS MCP 多实例模式，不再通过主机、数据库用户名和密码直连；使用 Observability、DMS 或 ES 凭据前完整读取 `references/environment-config.md`。数据库名与 SLS 映射先按其中规则读取已解析 Kit 中的 `project-databases.json`，确认目标环境和后端/客户端凭据 Scope。测试和生产 DMS 必须使用各自环境文件中的独立凭据，禁止跨环境回退。
 6. 开发角色根据真实代码链路追加 `data-access`、`transaction`、`concurrency`、`jackson`、`sql-design` 等上下文并重新解析；不得只凭类名或现象加载规则。测试角色不加载只服务于代码修改的规则。
 7. 默认不创建 Bug 报告、排查文档、`.zstt/bugs/` 目录或其他留档文件。只有用户明确要求“生成报告”“保存排查记录”“需要文档”等文件产物时，才使用 `assets/bug-report-template.md` 创建；普通的排查、定位或修复请求不构成文档创建授权。
 8. 开发角色在当前任务上下文中确认 Git 基线、用户已有改动和未跟踪业务文件。测试角色只记录可用的数据源和权限，不要求 Git 基线。排查阶段默认只读，不把用户已有改动归因于本轮。
@@ -37,17 +37,24 @@ description: ZSTT 问题排查、只读数据查询与 Java 后端最小修复 S
 
 优先确认角色、用户意图、现象、预期、必现或偶现、环境、时间范围、主项目、关联项目以及 `traceId`、业务 ID、接口、MQ key、ES 文档 ID 等关键标识。纯数据查询还要确认查询对象、筛选条件、所需字段或统计口径。信息不足时每轮只询问最影响下一步的 1–5 项；能从当前上下文确认的内容不重复询问。
 
-测试库名优先从已解析 Kit 的 `project-databases.json` 按当前项目相对路径匹配；没有匹配、匹配冲突或项目归属不明确时必须确认，不能猜测后写成事实。用户确认的新映射可以建议补入该文件，但未经用户要求不得修改配置。
+目标环境库名优先从已解析 Kit 的 `project-databases.json` 按当前项目相对路径匹配；没有匹配、匹配冲突或项目归属不明确时必须确认，不能猜测后写成事实。用户确认的新映射可以建议补入该文件，但未经用户要求不得修改配置。
 
 ### 2. 按环境取证
 
-- 测试或本地环境：确认目标后可以执行只读 MySQL、ES、日志、编译和测试；查询必须按关键 ID 或时间范围收敛，大表查询限制数量。
-- 线上环境：默认不直接连接线上数据库、ES 或执行写操作；基于真实调用链向用户提供只读 SQL、ES DSL、日志筛选条件和需要回传的字段。用户明确指定生产环境且存在对应 `$prodBackendSls` 或 `$prodClientSls` 时，可以使用匹配的生产 AK Scope 执行只读日志查询；不得回退到测试 AK。仅当映射文件明确声明 `$productionSameAsTest: true` 时，才可在生产只读 SQL 中使用已匹配的库名；否则使用待确认占位或先询问用户。
-- 本地命令需要凭据时，只通过已解析 Kit 的 `runtime/with_env.py` 绝对路径，使用启动指南确定的同一 Python，按 `test|prod` 和 `observability|observability-client|mysql|es` Scope 注入；测试客户端日志只用 `observability-client`，禁止读取后回显、跨 Scope 复用或把生产缺失降级为测试。
+- 测试或本地环境：确认目标后可以通过 DMS MCP 执行只读 MySQL 数据查询，也可以执行只读 ES、日志、编译和测试；查询必须按关键 ID 或时间范围收敛，大表查询限制数量。
+- 线上环境：默认先确认用户明确指定生产环境和查询目标；确认后仅通过 `prod dms` 和 `EnvType=product` 的唯一实例执行收敛的只读 MySQL 查询，也可以使用匹配的生产 Observability Scope 查询日志。生产 DMS、日志和 ES 都不得回退到测试凭据，不执行任何写操作。
+- 本地命令需要凭据时，只通过已解析 Kit 的 `runtime/with_env.py` 绝对路径，使用启动指南确定的同一 Python，按 `test|prod` 和 `observability|observability-client|dms|es` Scope 注入；DMS 使用与目标环境一致的 `<test|prod> dms`，客户端日志使用同环境的 `observability-client`，禁止读取后回显、跨 Scope 复用或跨环境回退。
 - 任何环境都不得在回复或用户明确要求的文档中泄露完整 Token、Cookie、Authorization、账号或密码。
 - 未经用户明确授权，不执行 `INSERT`、`UPDATE`、`DELETE`、数据修复、消息重放、缓存删除或线上写接口。
 
-### 3. 日志与 Trace MCP 取证
+### 3. DMS MCP 数据取证
+
+- 按目标环境取得库名后，优先使用当前会话已注册的 DMS MCP；未注册时通过 `runtime/with_env.py <test|prod> dms` 启动 `runtime/dms_mcp_client.py`。该客户端自动启动固定版本的官方 DMS MCP Server、复用单次 MCP 会话完成实例解析与查询，并在调用 DMS 前拦截非只读 SQL。
+- 使用 `searchDatabase` 查找数据库，再用 `getInstance` 检查实例环境：测试只保留 `EnvType=test`，生产只保留 `EnvType=product`。项目映射提供 `instanceAlias` 时直接通过 `--instance-alias` 精确选择；否则忽略与目标环境不一致的同名实例，目标环境仍不唯一时向用户展示实例别名并确认，不猜测目标。
+- 需要元数据时使用客户端的 `tables` 或 `table` 命令；需要业务数据时使用 `query` 命令执行带收敛条件和数量限制的只读 SQL。不得绕过客户端直接拼接数据库地址。
+- 不调用 `addInstance`、`createDataChangeOrder`、`submitOrderApproval`，不执行 DDL/DML；已注册 MCP 和运行时客户端均不可用、实例未托管或权限不足时输出精确只读 SQL，禁止回退到旧 MySQL 用户名和密码直连。
+
+### 4. 日志与 Trace MCP 取证
 
 - 有 Trace ID 时先查完整 Trace 和 Span，再按失败服务、Span 时间窗口查询日志；不要先做无边界关键词扫描。
 - 无 Trace ID 时按接口、业务 ID、Pod/服务名和分钟级时间范围查询入口日志，再从结果提取 Trace ID 回查链路。
@@ -55,14 +62,14 @@ description: ZSTT 问题排查、只读数据查询与 Java 后端最小修复 S
 - MCP 查询和结果都不得包含完整 Token、Cookie、Authorization、AccessKey、Secret 或密码；对外输出前再次脱敏。
 - MCP 未注册、鉴权失败或数据源不覆盖目标环境时，记录能力缺口，并给出可由用户执行的精确查询条件，不把“查不到”写成“不存在”。
 
-### 4. 建立真实问题链路
+### 5. 建立真实问题链路
 
 - 开发角色按问题实际经过的路径检查入口、Service/Manager、Facade/Client、Repository/Mapper/SQL、缓存、ES、MQ、异步任务，以及直接影响入参、权限、路由、事务和状态的配置或横切逻辑。追到最终查询、计算、赋值、持久化或外部调用点，区分 Guard 条件和真实业务依赖。
 - 测试角色按客户端请求、入口日志、Trace/Span、上下游服务、MySQL、ES、缓存/MQ 可见状态和接口返回建立运行时链路。能够定位失败服务、异常阶段或数据不一致点时直接交付；无法看到代码内部原因时明确标为开发待确认，不把没有源码写成无结论。
 
 只把必经链路或有直接证据的横切逻辑纳入结论；相似代码和搜索未命中都不能直接证明根因或不存在。
 
-### 5. 建立证据链
+### 6. 建立证据链
 
 至少整理：
 
@@ -72,7 +79,7 @@ description: ZSTT 问题排查、只读数据查询与 Java 后端最小修复 S
 
 测试角色的结论可以停在失败服务、异常阶段、数据不一致点或高置信度运行时原因，并给开发人员提供精确的 Trace、时间窗口、服务、状态和待核对点。没有运行数据或日志佐证时，将结论标为“推测”或“待验证”，不得写成已证明根因。用户补充新证据时刷新结论，必要时明确推翻旧判断。
 
-### 6. 交付排查结论并停止
+### 7. 交付排查结论并停止
 
 纯数据查询直接交付查询目标、环境、数据源、筛选口径、脱敏结果、空结果或数据质量说明，然后结束；不得强行扩展为 Bug 根因分析或代码修复。
 

@@ -18,6 +18,7 @@ REQUIRED_SUFFIXES = (
     "zstt_cli/resources/skills/zstt-requirement-checklist/test-prompts.json",
     "zstt_cli/resources/rules/catalog.json",
     "zstt_cli/resources/rules/java/design-patterns.md",
+    "zstt_cli/resources/runtime/dms_mcp_client.py",
     "zstt_cli/resources/runtime/rule_resolver.py",
     "zstt_cli/resources/runtime/quality_gates.py",
     "zstt_cli/resources/runtime/implementation_evidence.py",

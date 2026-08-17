@@ -27,12 +27,12 @@
   {
     "id": 6,
     "prompt": "$zstt-bug-fix 排查 group/service-b/module-a 的测试环境数据异常，应该连接哪个库？",
-    "expected": "先读取安装根目录的 .zstt-kit/project-databases.json，并按当前项目相对路径选择最长且唯一的匹配；缺少映射或配置冲突时询问用户，不猜测库名，不读取或输出数据库凭据；未明确设置 $productionSameAsTest 为 true 时，不把测试库映射用于生产环境。"
+    "expected": "先读取安装根目录的 .zstt-kit/project-databases.json，并按当前项目相对路径选择最长且唯一的匹配；再通过 DMS MCP searchDatabase 解析目标库并用 getInstance 只保留 EnvType=test，同名开发库和生产库直接忽略，测试库仍不唯一时才确认；缺少映射或配置冲突时询问用户，不猜测，不读取或输出数据库凭据。"
   },
   {
     "id": 7,
     "prompt": "$zstt-bug-fix 生产库连不上，但配置确认生产库名与测试相同，给我排查 SQL。",
-    "expected": "仅在 project-databases.json 明确设置 $productionSameAsTest 为 true 时，把匹配到的库名写入生产只读 SQL；不直接连接生产数据库，不复用测试凭据，不生成写 SQL，并说明由用户或有权限人员执行后回传结果。"
+    "expected": "仅在 project-databases.json 明确设置 $productionSameAsTest 为 true 时复用同一库名；确认用户明确指定生产环境后，通过 prod dms 注入独立生产 DMS AK，使用运行时只读客户端只保留 EnvType=product 的唯一实例并执行收敛 SQL，不复用测试凭据，不生成或执行写 SQL。"
   },
   {
     "id": 8,
@@ -52,17 +52,17 @@
   {
     "id": 11,
     "prompt": "$zstt-bug-fix 我是测试同学，没有项目代码，帮我排查测试环境这个接口为什么没有数据。",
-    "expected": "选择测试角色，不要求代码仓库或 Git 基线，也不把代码不可用写成阻塞；使用接口、时间、业务 ID、日志、Trace、测试 MySQL 和 ES 建立运行时链路，交付失败服务、异常阶段、数据不一致点、证据和开发待核对项，不进入代码修复。"
+    "expected": "选择测试角色，不要求代码仓库或 Git 基线，也不把代码不可用写成阻塞；使用接口、时间、业务 ID、日志、Trace、DMS MCP 中的测试 MySQL 数据和 ES 建立运行时链路，交付失败服务、异常阶段、数据不一致点、证据和开发待核对项，不进入代码修复。"
   },
   {
     "id": 12,
     "prompt": "$zstt-bug-fix 我是测试同学，查一下测试环境这个学生最近 10 条作业记录。",
-    "expected": "选择测试角色并把查数据作为两种角色共有能力；确认项目、查询对象、筛选条件和必要字段，匹配测试库后执行有 limit 的只读查询，返回脱敏结果或空结果说明，不强行扩展为 Bug 根因分析，不要求代码或进入修复。"
+    "expected": "选择测试角色并把查数据作为两种角色共有能力；确认项目、查询对象、筛选条件和必要字段，匹配测试库并通过 DMS MCP searchDatabase 唯一解析后，使用 executeScript 执行有 limit 的只读查询，返回脱敏结果或空结果说明，不强行扩展为 Bug 根因分析，不要求代码或进入修复。"
   },
   {
     "id": 13,
     "prompt": "$zstt-bug-fix 当前有完整业务代码，我是开发，定位这个问题并准备修复。",
-    "expected": "选择开发角色，联合代码、日志、Trace、MySQL、ES 和时间线证据完成定位；第一次请求只交付根因、影响和最小方案，等待用户看到结论后二次确认，未确认前禁止修改业务代码。"
+    "expected": "选择开发角色，联合代码、日志、Trace、DMS MCP 中的 MySQL 数据、ES 和时间线证据完成定位；第一次请求只交付根因、影响和最小方案，等待用户看到结论后二次确认，未确认前禁止修改业务代码。"
   },
   {
     "id": 14,
@@ -78,5 +78,20 @@
     "id": 16,
     "prompt": "$zstt-bug-fix 我从没有代码的目录发起测试排查，Skill 是全局安装的。",
     "expected": "选择测试角色，并按 ZSTT_KIT_ROOT、当前目录祖先、已加载全局 Skill 位置、CODEX_HOME/zstt-kit 和用户目录 .codex/zstt-kit 的顺序定位完整 Kit；不要求 Git 仓库或全局 zstt 命令，找不到时只报告已检查位置和缺失文件。"
+  },
+  {
+    "id": 17,
+    "prompt": "$zstt-bug-fix 用阿里云 AK 查测试库，日志查询也配置了另一套 AK。",
+    "expected": "读取 environment-config.md 和 dms-mcp.md，通过 test dms Scope 把独立的 ZSTT_DMS_ALIBABA_CLOUD_* 临时映射成 DMS MCP 要求的 ALIBABA_CLOUD_*；数据库候选只接受 EnvType=test，不得复用或暴露 Observability AK，不得回退到旧 ZSTT_MYSQL_* 用户名和密码直连。"
+  },
+  {
+    "id": 18,
+    "prompt": "$zstt-bug-fix 用 DMS MCP 直接查生产库。",
+    "expected": "先确认用户明确指定生产环境、项目映射和查询目标；通过 prod dms 注入独立生产 DMS AK，使用 dms_mcp_client.py 只选择 EnvType=product 的唯一实例并执行收敛、限量、脱敏的只读 SQL；拒绝写 SQL、测试凭据回退和数据库地址直连。"
+  },
+  {
+    "id": 19,
+    "prompt": "$zstt-bug-fix analytics-service 测试查 analytics_test，生产查 analytics，而且生产实例固定是 analytics-prod-primary。",
+    "expected": "读取 project-databases.json 的分环境对象映射：测试取得 schema=analytics_test，生产取得 schema=analytics 和 instanceAlias=analytics-prod-primary；生产调用 dms_mcp_client.py 时传 --instance-alias 精确选择 EnvType=product 实例，不复用测试库名或普通生产实例。"
   }
 ]
