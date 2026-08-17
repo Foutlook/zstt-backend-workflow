@@ -20,7 +20,7 @@
 
 ## ZSTT Kit 查找
 
-按以下顺序查找，候选必须同时包含 `runtime/rule_resolver.py`、`runtime/with_env.py` 和 `rules/catalog.json`：
+按以下顺序查找，候选必须同时包含 `runtime/rule_resolver.py`、`runtime/with_env.py`、`runtime/dms_mcp_client.py` 和 `rules/catalog.json`：
 
 1. 环境变量 `ZSTT_KIT_ROOT` 指向的目录；允许值是 `.zstt-kit` 本身或其父目录。
 2. 从当前工作目录逐级向上查找 `.zstt-kit`。

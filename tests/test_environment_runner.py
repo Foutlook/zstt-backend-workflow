@@ -21,7 +21,7 @@ class ScopedEnvironmentRunnerTest(unittest.TestCase):
         shutil.copy2(RUNNER, target)
         return target
 
-    def test_mysql_scope_clears_other_managed_credentials(self) -> None:
+    def test_dms_scope_maps_separate_credential_and_clears_other_scopes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_root = Path(tmp)
             runner = self._install_runner(project_root)
@@ -33,9 +33,9 @@ class ScopedEnvironmentRunnerTest(unittest.TestCase):
                         "ZSTT_ENV=test",
                         "ALIBABA_CLOUD_ACCESS_KEY_ID=observability-id",
                         "ALIBABA_CLOUD_ACCESS_KEY_SECRET=observability-secret",
-                        "ZSTT_MYSQL_URL=mysql://test.example/db",
-                        "ZSTT_MYSQL_USERNAME=readonly",
-                        "ZSTT_MYSQL_PASSWORD=mysql-secret",
+                        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID=dms-id",
+                        "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET=dms-secret",
+                        "ZSTT_DMS_ALIBABA_CLOUD_SECURITY_TOKEN=dms-token",
                         "ZSTT_ES_URL=http://es.example:9200",
                     )
                 )
@@ -46,8 +46,11 @@ class ScopedEnvironmentRunnerTest(unittest.TestCase):
                 "import json, os; "
                 "print(json.dumps({"
                 "'env': os.getenv('ZSTT_ENV'), "
-                "'mysql': bool(os.getenv('ZSTT_MYSQL_PASSWORD')), "
-                "'observability': bool(os.getenv('ALIBABA_CLOUD_ACCESS_KEY_SECRET')), "
+                "'id': os.getenv('ALIBABA_CLOUD_ACCESS_KEY_ID'), "
+                "'secret': os.getenv('ALIBABA_CLOUD_ACCESS_KEY_SECRET'), "
+                "'token': os.getenv('ALIBABA_CLOUD_SECURITY_TOKEN'), "
+                "'dms_source_visible': bool(os.getenv("
+                "'ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID')), "
                 "'es': bool(os.getenv('ZSTT_ES_URL'))}))"
             )
             inherited = os.environ.copy()
@@ -59,7 +62,7 @@ class ScopedEnvironmentRunnerTest(unittest.TestCase):
                     sys.executable,
                     str(runner),
                     "test",
-                    "mysql",
+                    "dms",
                     "--",
                     sys.executable,
                     "-c",
@@ -76,8 +79,10 @@ class ScopedEnvironmentRunnerTest(unittest.TestCase):
             self.assertEqual(
                 {
                     "env": "test",
-                    "mysql": True,
-                    "observability": False,
+                    "id": "dms-id",
+                    "secret": "dms-secret",
+                    "token": "dms-token",
+                    "dms_source_visible": False,
                     "es": False,
                 },
                 json.loads(completed.stdout),
@@ -135,6 +140,51 @@ class ScopedEnvironmentRunnerTest(unittest.TestCase):
                     "id": "client-id",
                     "region": "cn-hangzhou",
                     "client_source_visible": False,
+                },
+                json.loads(completed.stdout),
+            )
+
+    def test_dms_scope_maps_separate_production_credential(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            runner = self._install_runner(project_root)
+            env_dir = project_root / ".zstt-kit" / ".env"
+            env_dir.mkdir(parents=True)
+            (env_dir / ".env.prod.local").write_text(
+                "ZSTT_ENV=prod\n"
+                "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID=prod-dms-id\n"
+                "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET=prod-dms-secret\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(runner),
+                    "prod",
+                    "dms",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    (
+                        "import json, os; print(json.dumps({"
+                        "'env': os.getenv('ZSTT_ENV'), "
+                        "'id': os.getenv('ALIBABA_CLOUD_ACCESS_KEY_ID'), "
+                        "'secret': os.getenv('ALIBABA_CLOUD_ACCESS_KEY_SECRET')}))"
+                    ),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertEqual(
+                {
+                    "env": "prod",
+                    "id": "prod-dms-id",
+                    "secret": "prod-dms-secret",
                 },
                 json.loads(completed.stdout),
             )

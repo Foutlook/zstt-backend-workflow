@@ -16,7 +16,8 @@
 - 工作流状态增加 `active/closed` 生命周期；Quick 跳过可选 Review 和测试时可显式关闭，已关闭产物失效后重新进入可恢复候选。
 - `zstt-bug-fix` 默认在当前任务中交付排查结论，只有用户明确要求文档时才创建 Bug 报告。
 - `zstt-bug-fix` 增加 Trace/SLS 优先取证、双层 MCP 错误判断、脱敏和标准降级规则。
-- 安装资源增加测试/生产环境模板和按 Observability、MySQL、ES Scope 隔离凭据的跨平台启动器；本机 `*.local` 配置不进入安装清单。
+- `zstt-bug-fix` 增加 Alibaba Cloud DMS MCP 只读客户端，支持按测试/生产环境解析托管实例、查询表元数据和业务数据，并在调用前拦截写 SQL。
+- 安装资源增加测试/生产环境模板和按 Observability、DMS、ES Scope 隔离凭据的跨平台启动器；本机 `*.local` 配置不进入安装清单。
 
 ## 0.4.0 - 2026-07-21
 
