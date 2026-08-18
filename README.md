@@ -269,6 +269,7 @@ Runtime 负责确定性状态和校验，Skill 负责分析与写作，两者分
 │  ├─ quality_gates.py
 │  ├─ rule_resolver.py
 │  ├─ with_env.py
+│  ├─ sls_client.py
 │  └─ dms_mcp_client.py
 ├─ templates/
 │  ├─ full/
@@ -301,7 +302,7 @@ Rules 分为 `constraint`（硬约束）、`decision`（证据满足时采用的
 
 现有功能分析不要求先创建需求目录。它把产品意图、当前实现、一次运行观察、持久状态和分析推断分开，只回答当前规则、流程和数据来源；只有用户明确要求时才扩展变更影响。新需求转入需求澄清，疑似契约违反转入 Bug Fix，不在功能说明中越界设计或修复。
 
-Bug 排查可以结合代码、Trace、SLS 日志、DMS MCP 中的 MySQL 数据、ES 和时间线。问题排查先形成确认卡，再判断支持缺陷、支持非缺陷或有界未解决；只有支持缺陷才继续责任、根因和最小修复。已注册只读 MCP 时优先做收敛取证；DMS MCP 未注册时，可以通过 `.zstt-kit/runtime/dms_mcp_client.py` 启动固定版本的官方 Server，并在调用前校验目标环境、实例和只读 SQL。能力不可用时输出精确查询条件，等待用户回传脱敏结果。开发角色只有在用户看到完整结论并二次确认后才执行最小修复。ZSTT 不打包 MCP Server 二进制、数据库连接信息或凭据。
+Bug 排查可以结合代码、Trace、SLS 日志、DMS MCP 中的 MySQL 数据、ES 和时间线。问题排查先形成确认卡，再判断支持缺陷、支持非缺陷或有界未解决；只有支持缺陷才继续责任、根因和最小修复。SLS 日志默认通过对应环境与端的 Observability Scope 注入凭据，并调用 `.zstt-kit/runtime/sls_client.py` 直接查询；不先探测 Observability MCP。Trace MCP 只在日志证据需要补充 Span 拓扑时使用；凭证直查具体不可用时，已注册且环境匹配的只读 SLS MCP 才可作为程序化降级。DMS MCP 未注册时，可以通过 `.zstt-kit/runtime/dms_mcp_client.py` 启动固定版本的官方 Server，并在调用前校验目标环境、实例和只读 SQL。能力不可用时输出精确查询条件，等待用户回传脱敏结果。开发角色只有在用户看到完整结论并二次确认后才执行最小修复。ZSTT 不打包 MCP Server 二进制、数据库连接信息或凭据。
 
 高级能力的来源、融合位置、边界和验证索引见 [高级能力融合矩阵](docs/advanced-capability-matrix.md)。
 
@@ -328,6 +329,12 @@ python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-cl
 | `es` | `ZSTT_ES_*` |
 
 启动器会先清除其他 ZSTT 受管凭据，再向子进程注入当前环境与当前 Scope 所需变量，避免后端/客户端、测试/生产或 DMS/ES 凭据串用。测试与生产 DMS 分别读取 `.env.local` 和 `.env.prod.local`，任一环境缺失时都不会回退到另一环境。
+
+SLS 日志使用 `project-databases.json` 中已确认的映射直接查询，示例结构如下；时间使用 Unix 秒，客户端限制单次最多 100 条、时间范围最多 7 天：
+
+```text
+python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client> -- python .zstt-kit/runtime/sls_client.py --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query <收敛查询> --line <1-100>
+```
 
 ## 安装和升级
 

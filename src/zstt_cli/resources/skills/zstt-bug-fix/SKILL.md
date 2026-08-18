@@ -25,7 +25,7 @@ description: ZSTT 缺陷定性、问题排查、只读数据查询与 Java 后�
 1. 完整读取 `references/runtime-bootstrap.md`，跨平台解析可用的 Python 3.11+ 启动器和 `.zstt-kit` 绝对路径。某个命令名或候选路径不存在时继续兼容探测；不得因存在 `python3` 但没有 `python`、没有全局 `zstt` 命令或当前目录不是安装根目录而询问用户或停止。
 2. 使用解析出的启动器和 Kit 绝对路径运行 `runtime/rule_resolver.py resolve --skill zstt-bug-fix`，完整读取返回的规则，记录 `rulesetVersion`、`rulesetFingerprint`、规则 ID 和原因。项目内解析器存在时不要求全局安装 `zstt`；只有解析器实际返回规则或清单错误时才按启动指南执行 CLI 降级检查。
 3. 完整读取 `references/advanced-playbook.md`。
-4. 问题包含 Trace ID、日志、服务异常或明确时间窗口时，完整读取 `references/observability-mcp.md`；按环境和后端/客户端意图优先读取已解析 Kit 中 `project-databases.json` 对应的 `$testBackendSls`、`$testClientSls`、`$prodBackendSls`、`$prodClientSls`，配置完整时直接查询，不重复发现 Project 和 Logstore。
+4. 问题包含 Trace ID、日志、服务异常或明确时间窗口时，完整读取 `references/observability-mcp.md`；按环境和后端/客户端意图读取已解析 Kit 中 `project-databases.json` 对应的 `$testBackendSls`、`$testClientSls`、`$prodBackendSls`、`$prodClientSls`。配置完整时默认通过 `runtime/with_env.py` 注入对应 Scope 凭据并调用 `runtime/sls_client.py` 直接查询 SLS，不先探测 Observability MCP，不重复发现 Project 和 Logstore。
 5. 查询 MySQL 业务数据时完整读取 `references/dms-mcp.md`，对测试和用户明确指定的生产环境使用 Alibaba Cloud DMS MCP 多实例模式，不再通过主机、数据库用户名和密码直连；使用 Observability、DMS 或 ES 凭据前完整读取 `references/environment-config.md`。数据库名与 SLS 映射先按其中规则读取已解析 Kit 中的 `project-databases.json`，确认目标环境和后端/客户端凭据 Scope。测试和生产 DMS 必须使用各自环境文件中的独立凭据，禁止跨环境回退。
 6. 开发角色根据真实代码链路追加 `data-access`、`transaction`、`concurrency`、`jackson`、`sql-design` 等上下文并重新解析；不得只凭类名或现象加载规则。测试角色不加载只服务于代码修改的规则。
 7. 默认不创建 Bug 报告、排查文档、`.zstt/bugs/` 目录或其他留档文件。只有用户明确要求“生成报告”“保存排查记录”“需要文档”等文件产物时，才使用 `assets/bug-report-template.md` 创建；普通的排查、定位或修复请求不构成文档创建授权。
@@ -49,7 +49,7 @@ description: ZSTT 缺陷定性、问题排查、只读数据查询与 Java 后�
 
 - 测试或本地环境：确认目标后可以通过 DMS MCP 执行只读 MySQL 数据查询，也可以执行只读 ES、日志、编译和测试；查询必须按关键 ID 或时间范围收敛，大表查询限制数量。
 - 线上环境：默认先确认用户明确指定生产环境和查询目标；确认后仅通过 `prod dms` 和 `EnvType=product` 的唯一实例执行收敛的只读 MySQL 查询，也可以使用匹配的生产 Observability Scope 查询日志。生产 DMS、日志和 ES 都不得回退到测试凭据，不执行任何写操作。
-- 本地命令需要凭据时，只通过已解析 Kit 的 `runtime/with_env.py` 绝对路径，使用启动指南确定的同一 Python，按 `test|prod` 和 `observability|observability-client|dms|es` Scope 注入；DMS 使用与目标环境一致的 `<test|prod> dms`，客户端日志使用同环境的 `observability-client`，禁止读取后回显、跨 Scope 复用或跨环境回退。
+- 本地命令需要凭据时，只通过已解析 Kit 的 `runtime/with_env.py` 绝对路径，使用启动指南确定的同一 Python，按 `test|prod` 和 `observability|observability-client|dms|es` Scope 注入；SLS 日志默认在对应 Observability Scope 中调用同一 Kit 的 `runtime/sls_client.py`，DMS 使用与目标环境一致的 `<test|prod> dms`，客户端日志使用同环境的 `observability-client`，禁止读取后回显、跨 Scope 复用或跨环境回退。
 - 任何环境都不得在回复或用户明确要求的文档中泄露完整 Token、Cookie、Authorization、账号或密码。
 - 未经用户明确授权，不执行 `INSERT`、`UPDATE`、`DELETE`、数据修复、消息重放、缓存删除或线上写接口。
 
@@ -60,13 +60,13 @@ description: ZSTT 缺陷定性、问题排查、只读数据查询与 Java 后�
 - 需要元数据时使用客户端的 `tables` 或 `table` 命令；需要业务数据时使用 `query` 命令执行带收敛条件和数量限制的只读 SQL。不得绕过客户端直接拼接数据库地址。
 - 不调用 `addInstance`、`createDataChangeOrder`、`submitOrderApproval`，不执行 DDL/DML；已注册 MCP 和运行时客户端均不可用、实例未托管或权限不足时输出精确只读 SQL，禁止回退到旧 MySQL 用户名和密码直连。
 
-### 4. 日志与 Trace MCP 取证
+### 4. SLS 凭证直查与 Trace 取证
 
-- 有 Trace ID 时先查完整 Trace 和 Span，再按失败服务、Span 时间窗口查询日志；不要先做无边界关键词扫描。
-- 无 Trace ID 时按接口、业务 ID、Pod/服务名和分钟级时间范围查询入口日志，再从结果提取 Trace ID 回查链路。
-- 优先使用 `umodel_get_traces`、`umodel_search_traces`、`sls_execute_sql` 和 `sls_get_context_logs`；当前环境存在有效后端/客户端 SLS 映射时按意图直接使用，其他项目、Logstore、Workspace 或 TraceSet 未知时只做一次收敛式发现。
-- MCP 查询和结果都不得包含完整 Token、Cookie、Authorization、AccessKey、Secret 或密码；对外输出前再次脱敏。
-- MCP 未注册、鉴权失败或数据源不覆盖目标环境时，记录能力缺口，并给出可由用户执行的精确查询条件，不把“查不到”写成“不存在”。
+- 当前环境存在有效后端/客户端 SLS 映射时，默认先使用对应 `<test|prod> <observability|observability-client>` Scope 运行 `runtime/sls_client.py`，按 Trace ID、业务 ID、接口或服务/Pod 和分钟级时间范围直接查应用日志；禁止先探测 Observability MCP。
+- 有 Trace ID 时先通过 SLS 精确查询入口与异常日志，取得真实服务和时间窗口；只有日志证据还需要补充 Span 拓扑时，才使用已注册的 `umodel_get_traces` 或 `umodel_search_traces`。无 Trace ID 时从收敛日志结果提取 Trace ID，再按需补查 Trace。
+- `sls_execute_sql` 和 `sls_get_context_logs` 不作为默认 SLS 入口。只有凭证直查已被具体证明不可用，且当前会话已经注册匹配环境的只读 Observability MCP 时，才可作为程序化降级；不得在调用前枚举或寻找 MCP。
+- 凭证直查和已注册只读 MCP 均不可用时，输出精确查询条件并等待脱敏结果。
+- 查询命令、程序化工具输入和结果都不得包含完整 Token、Cookie、Authorization、AccessKey、Secret 或密码；对外输出前再次脱敏。任何零命中或能力失败都不能被写成“不存在”。
 
 ### 5. 建立真实问题链路
 

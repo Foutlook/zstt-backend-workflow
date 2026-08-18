@@ -513,7 +513,9 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         text = read_skill("zstt-bug-fix")
         self.assertIn("默认不创建 Bug 报告", text)
         self.assertIn("with_env.py", text)
+        self.assertIn("runtime/sls_client.py", text)
         self.assertIn("observability|observability-client|dms|es", text)
+        self.assertIn("不先探测 Observability MCP", text)
         self.assertIn("查询数据是两种角色共有能力", text)
         self.assertIn("没有业务代码则选择测试角色", text)
         self.assertIn("测试角色没有本阶段", text)
@@ -540,10 +542,15 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
         for token in (
             "umodel_get_traces",
             "sls_execute_sql",
-            "标准降级",
-            "不打包 MCP Server 二进制或凭据",
+            "runtime/sls_client.py",
+            "不得先探测、搜索或枚举 Observability MCP",
+            "不打包 Observability MCP Server 或凭据",
         ):
             self.assertIn(token, observability)
+        self.assertNotIn(
+            "优先探测项目是否已注册 Alibaba Cloud Observability MCP",
+            observability,
+        )
 
         environment = read_reference("zstt-bug-fix", "environment-config.md")
         for token in (
@@ -560,6 +567,7 @@ class BugFixAdvancedCapabilityTest(unittest.TestCase):
             "生产配置缺失",
             "不同 Scope 的凭据不得交叉注入",
             "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID",
+            "runtime/sls_client.py",
         ):
             self.assertIn(token, environment)
 

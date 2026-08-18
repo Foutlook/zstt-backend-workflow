@@ -1,6 +1,6 @@
 # 排查环境配置
 
-仅在排查需要本地命令使用 Observability、DMS MCP 或 ES 凭据时读取。项目已注册的 MCP 或连接器自行安全管理凭据时，不读取本地环境文件。
+仅在排查需要本地命令使用 Observability、DMS MCP 或 ES 凭据时读取。SLS 日志默认通过本文件定义的 Observability Scope 注入凭据并调用 `runtime/sls_client.py` 直查。
 
 先按 `references/runtime-bootstrap.md` 解析 `{PYTHON}` 和 `{ZSTT_KIT}`。本文件中的占位符必须替换为解析出的绝对路径；不得退回当前目录下的固定相对路径。
 
@@ -29,6 +29,14 @@
 入口会先清除当前进程继承的全部受管变量，再只注入目标 Scope。不同 Scope 的凭据不得交叉注入。DMS 身份必须只授予目标数据库查询权限，ES 账号必须只读；Skill 仍禁止数据写入、索引修改、删除、缓存清理和消息重放。
 
 DMS MCP Server 要求的标准变量名是 `ALIBABA_CLOUD_*`，但本地文件不得直接复用 Observability 的同名字段作为数据库凭据；统一由 `dms` Scope 在子进程内完成映射。当前会话未注册 DMS MCP 时，由 `runtime/dms_mcp_client.py` 通过已安装的 `uvx` 启动固定版本 Server 并管理单次查询会话；ZSTT 不保存数据库登录凭据或连接地址，也不自动执行系统级安装。
+
+SLS 只读查询统一使用同一 Kit 中的客户端，命令结构如下；`from-time` 和 `to-time` 使用 Unix 秒，时间范围不得超过 7 天，单次最多返回 100 条：
+
+```text
+{PYTHON} "{ZSTT_KIT}/runtime/with_env.py" <test|prod> <observability|observability-client> -- {PYTHON} "{ZSTT_KIT}/runtime/sls_client.py" --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query <收敛查询> --line <1-100>
+```
+
+命令必须使用 `$testBackendSls`、`$testClientSls`、`$prodBackendSls` 或 `$prodClientSls` 中已经确认的映射。客户端只执行查询请求，校验目标格式、时间范围和返回条数，并对错误信息中的已注入凭据脱敏。
 
 ## 项目、数据库与日志映射
 
@@ -80,9 +88,9 @@ DMS MCP Server 要求的标准变量名是 `ALIBABA_CLOUD_*`，但本地文件�
 5. 取得目标环境 schema 和可选 `instanceAlias` 后，必须通过 DMS MCP `searchDatabase` 解析，并通过 `getInstance` 校验环境：测试只保留 `EnvType=test`，生产只保留 `EnvType=product`。配置了实例别名时再做大小写不敏感的精确别名匹配；同名的其他环境实例不参与选择，目标环境仍不唯一时继续确认。
 6. 字符串映射只有在 `"$productionSameAsTest": true` 时才可同时作为生产库名；否则生产环境必须使用对象中的 `prod` 值或由用户确认。该标记只确认库名相同，不允许复用测试凭据，生产查询仍必须通过 `prod dms`。
 7. 该文件不保存 DMS 实例 ID、AccessKey、Security Token、主机、端口、URL、账号、密码或其他凭据。
-8. `$testBackendSls` 只保存测试环境后端应用日志的 `region`、`project` 和 `logstore`。三项完整时直接用于 `sls_execute_sql`，不重复调用 `sls_list_projects` 或 `sls_list_logstores`。
+8. `$testBackendSls` 只保存测试环境后端应用日志的 `region`、`project` 和 `logstore`。三项完整时通过 `test observability` 调用 `runtime/sls_client.py` 直接查询，不先调用 MCP，也不重复发现 Project 或 Logstore。
 9. `$testBackendSls` 不代表 Trace、Istio、Kubernetes 事件或生产日志。配置缺失、查询提示目标不存在或权限不覆盖时，才做一次收敛式发现；不得静默改用其他 Logstore。
-10. `$testClientSls` 只保存测试客户端应用日志映射。查询时必须使用 `test observability-client` Scope，不得使用后端 `observability` AK；它同样不代表 Trace、Istio、Kubernetes 事件或生产日志。
-11. `$prodBackendSls`、`$prodClientSls` 只保存生产后端、客户端应用日志映射。只有用户明确指定生产环境时，才分别使用 `prod observability`、`prod observability-client` Scope 做只读日志查询；不得回退到测试 AK。这些日志映射不授权 DMS 或 ES，生产数据库查询必须单独满足 `prod dms` 的映射、凭据和实例环境校验。
+10. `$testClientSls` 只保存测试客户端应用日志映射。查询时必须使用 `test observability-client` Scope 调用 `runtime/sls_client.py`，不得使用后端 `observability` AK；它同样不代表 Trace、Istio、Kubernetes 事件或生产日志。
+11. `$prodBackendSls`、`$prodClientSls` 只保存生产后端、客户端应用日志映射。只有用户明确指定生产环境时，才分别使用 `prod observability`、`prod observability-client` Scope 调用 `runtime/sls_client.py` 做只读日志查询；不得回退到测试 AK。这些日志映射不授权 DMS 或 ES，生产数据库查询必须单独满足 `prod dms` 的映射、凭据和实例环境校验。
 
 其他索引名、地域、Workspace、Project 和 Logstore 仍从当前项目运行配置、用户说明或收敛式元数据发现中确认，不能套用其他项目的历史映射。

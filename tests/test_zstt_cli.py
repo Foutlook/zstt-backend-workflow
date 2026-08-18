@@ -138,6 +138,9 @@ class ProjectInstallerTest(unittest.TestCase):
                 (project_root / ".zstt-kit" / "runtime" / "with_env.py").is_file()
             )
             self.assertTrue(
+                (project_root / ".zstt-kit" / "runtime" / "sls_client.py").is_file()
+            )
+            self.assertTrue(
                 (project_root / ".zstt-kit" / ".env" / ".env.example").is_file()
             )
             test_env_template = (

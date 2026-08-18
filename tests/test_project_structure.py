@@ -93,6 +93,7 @@ class ProjectStructureTest(unittest.TestCase):
         self.assertTrue((RUNTIME / "implementation_evidence.py").is_file())
         self.assertTrue((RUNTIME / "workflow_cli.py").is_file())
         self.assertTrue((RUNTIME / "with_env.py").is_file())
+        self.assertTrue((RUNTIME / "sls_client.py").is_file())
         self.assertTrue((RUNTIME / "dms_mcp_client.py").is_file())
         self.assertTrue((TEMPLATES / "full" / "00-requirement.md").is_file())
         self.assertTrue(
