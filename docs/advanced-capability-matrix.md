@@ -125,10 +125,10 @@
 | 来源 | 原能力 | ZSTT 落点 | 状态 | 适配说明 |
 |---|---|---|---|---|
 | `sdd-mini/issue-analysis` | 先确认契约违反，再分析责任和修复 | `zstt-bug-fix/SKILL.md`、`references/advanced-playbook.md` | 适配后融合 | 保留现有 Bug Fix 两阶段结构，在根因前增加确认卡和支持缺陷/非缺陷/有界未解决三分支 |
-| `ggg-bug-fix` | 代码、日志、MySQL、ES 和时间线联合取证 | `zstt-bug-fix/references/advanced-playbook.md` | 已融合 | 测试环境可做收敛的只读查询；线上默认生成 SQL、DSL 和日志条件，由用户回传脱敏结果 |
+| `ggg-bug-fix` | 代码、日志、MySQL、ES 和时间线联合取证 | `zstt-bug-fix/references/advanced-playbook.md` | 已融合 | 测试环境和用户明确指定的生产环境均可通过环境隔离的只读 Scope 做收敛查询；目标或程序化能力不可用时生成精确条件并等待脱敏结果 |
 | 同上 | 先排查结论、后二次确认修复 | `zstt-bug-fix/SKILL.md` 及 Bug 报告模板 | 已融合 | 用户最初要求修复只授权目标确认和只读取证；只有支持缺陷且看到完整结论后才能确认修复 |
 | 同上 | 常见时序、缓存、MQ、ES、幂等和状态源问题模型 | Bug Fix 高级手册 | 已融合 | 问题模型只作为调查假设，必须补齐代码、数据和过程证据 |
-| ZSTT 产品约束 | 独立辅助 Skill 和唯一权威记录 | `.zstt/bugs/` 或需求 `auxiliary/bugs/` | 适配后融合 | 不修改固定流程 `meta.json`；契约、SQL 或核心行为变化时转入 Full/Quick 和 SQL Gate |
+| ZSTT 产品约束 | 独立辅助 Skill 和按需排查记录 | 当前任务或用户明确要求的 Bug 报告 | 适配后融合 | 默认只在当前任务交付，不修改固定流程 `meta.json`；契约、SQL 或核心行为变化时转入 Full/Quick 和 SQL Gate |
 
 ## 随时可用的模块重构
 

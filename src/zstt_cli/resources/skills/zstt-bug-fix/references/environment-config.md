@@ -33,8 +33,10 @@ DMS MCP Server 要求的标准变量名是 `ALIBABA_CLOUD_*`，但本地文件�
 SLS 只读查询统一使用同一 Kit 中的客户端，命令结构如下；`from-time` 和 `to-time` 使用 Unix 秒，时间范围不得超过 7 天，单次最多返回 100 条：
 
 ```text
-{PYTHON} "{ZSTT_KIT}/runtime/with_env.py" <test|prod> <observability|observability-client> -- {PYTHON} "{ZSTT_KIT}/runtime/sls_client.py" --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query <收敛查询> --line <1-100>
+{PYTHON} "{ZSTT_KIT}/runtime/with_env.py" <test|prod> <observability|observability-client> -- {PYTHON} "{ZSTT_KIT}/runtime/sls_client.py" --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query '<收敛查询>' --line <0-100>
 ```
+
+`--query` 的值必须按当前 Shell 的规则作为一个完整参数传入，不能让空格或 `|` 被 Shell 拆分或解释为管道；查询自身包含单引号时，先放入安全引用的变量再传给 `--query`。普通查询的 `line` 使用 `1-100`；包含 `|` 的 SQL 分析中 `line`、`offset` 不参与分页，建议传 `--line 0`，并在 SQL 中使用 `LIMIT` 控制返回条数。
 
 命令必须使用 `$testBackendSls`、`$testClientSls`、`$prodBackendSls` 或 `$prodClientSls` 中已经确认的映射。客户端只执行查询请求，校验目标格式、时间范围和返回条数，并对错误信息中的已注入凭据脱敏。
 

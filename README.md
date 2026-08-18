@@ -333,8 +333,10 @@ python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-cl
 SLS 日志使用 `project-databases.json` 中已确认的映射直接查询，示例结构如下；时间使用 Unix 秒，客户端限制单次最多 100 条、时间范围最多 7 天：
 
 ```text
-python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client> -- python .zstt-kit/runtime/sls_client.py --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query <收敛查询> --line <1-100>
+python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client> -- python .zstt-kit/runtime/sls_client.py --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query '<收敛查询>' --line <0-100>
 ```
+
+`--query` 的值必须按当前 Shell 的规则作为一个完整参数传入，不能让空格或 `|` 被 Shell 拆分或解释为管道；查询自身包含单引号时，先放入安全引用的变量再传给 `--query`。普通查询的 `line` 使用 `1-100`；SQL 分析建议传 `--line 0`，并通过 SQL 的 `LIMIT` 控制返回条数。
 
 ## 安装和升级
 

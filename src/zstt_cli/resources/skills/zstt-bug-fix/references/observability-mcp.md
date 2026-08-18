@@ -17,8 +17,9 @@ ZSTT 不打包 Observability MCP Server 或凭据。任何查询都不得修改�
 2. `region`、`project`、`logstore` 完整时直接执行以下结构的命令，不重复发现 Project 和 Logstore：
 
    ```text
-   {PYTHON} "{ZSTT_KIT}/runtime/with_env.py" <test|prod> <observability|observability-client> -- {PYTHON} "{ZSTT_KIT}/runtime/sls_client.py" --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query <收敛查询> --line <1-100>
+   {PYTHON} "{ZSTT_KIT}/runtime/with_env.py" <test|prod> <observability|observability-client> -- {PYTHON} "{ZSTT_KIT}/runtime/sls_client.py" --region <region> --project <project> --logstore <logstore> --from-time <unix-seconds> --to-time <unix-seconds> --query '<收敛查询>' --line <0-100>
    ```
+   `--query` 的值必须按当前 Shell 的规则作为一个完整参数传入，不能让空格或 `|` 被 Shell 拆分或解释为管道；查询自身包含单引号时，先放入安全引用的变量再传给 `--query`。普通查询的 `line` 使用 `1-100`；包含 `|` 的 SQL 分析建议传 `--line 0`，并通过 SQL 的 `LIMIT` 控制返回条数。
 
 3. 查询必须包含 Trace ID、业务 ID、接口或服务/Pod 条件之一，使用分钟级必要时间窗口；运行时客户端强制时间范围不超过 7 天、单次返回不超过 100 条。
 4. 有 Trace ID 时先用它精确查询入口、异常和上下游日志，记录真实服务、Pod、接口、时间、错误和处理结果。无 Trace ID 时按接口、业务 ID、Pod/服务名和分钟级时间范围查入口日志，再从结果提取 Trace ID。
