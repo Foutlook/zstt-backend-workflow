@@ -6,6 +6,7 @@
 
 ### 变更
 
+- `zstt-repo-research` 新增按测试/生产环境隔离的远程仓库 MCP 客户端；只需在本机 `*.local` 配置 `ZSTT_REPO_MCP_URL`，即可通过固定只读客户端调用 `codegraph_explore`，不再要求 Codex 会话预先注册仓库 MCP。
 - 新增 `zstt-prd-code-gap-analysis`，将新增或变更需求与最新 release/bugfix 代码逐项对齐，并通过 ZSTT Kit 的分环境 DMS 只读链路核验 `test` 或显式授权的 `prod` 数据支持，输出未确认点和已证变更范围。
 - 新增 `zstt-product-feature-analysis`，不依赖需求目录即可只读说明已有 Java 后端功能、规则、调用链和数据来源；默认在当前任务中交付，只有明确要求时才保存派生报告。
 - `zstt-bug-fix` 在根因分析前增加缺陷确认卡和三分支定性门槛：支持缺陷、支持非缺陷或有界未解决；纯数据查询保持直达，只有支持缺陷才能进入责任分析和二次修复确认。

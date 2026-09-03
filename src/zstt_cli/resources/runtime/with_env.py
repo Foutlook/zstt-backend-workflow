@@ -32,6 +32,9 @@ SCOPE_KEYS = {
         "ZSTT_ES_PASSWORD",
         "ZSTT_ES_INDEX_PREFIX",
     },
+    "repo-mcp": {
+        "ZSTT_REPO_MCP_URL",
+    },
 }
 SCOPE_EXPORT_KEYS = {
     "dms": {
@@ -63,6 +66,7 @@ REQUIRED_KEYS = {
         "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
     },
     "es": set(),
+    "repo-mcp": {"ZSTT_REPO_MCP_URL"},
 }
 REQUIRED_CONNECTION_KEYS = {
     "es": {"ZSTT_ES_HOST", "ZSTT_ES_URL"},
@@ -145,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) < 4 or args[2] != "--":
         print(
             "Usage: with_env.py <test|prod> "
-            "<observability|observability-client|dms|es> -- "
+            "<observability|observability-client|dms|es|repo-mcp> -- "
             "<command> [args...]",
             file=sys.stderr,
         )

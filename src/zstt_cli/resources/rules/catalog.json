@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rulesetVersion": "1.4.0",
+  "rulesetVersion": "1.4.1",
   "ruleTypes": {
     "constraint": "必须遵守的硬约束；违反时应停止、修正或形成阻塞。",
     "decision": "只有实际证据满足适用条件时才采用的工程决策。",

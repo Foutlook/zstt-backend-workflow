@@ -181,8 +181,11 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             "显式本地路径优先",
             "短路",
             ".zstt-kit/.env/.env.local",
-            "ZSTT_REPO_MCP_*",
-            "当前会话",
+            ".zstt-kit/.env/.env.prod.local",
+            "ZSTT_REPO_MCP_URL",
+            "with_env.py",
+            "repo_mcp_client.py",
+            "codegraph_explore",
             "普通 HTTP",
             "默认降级",
             "CodeGraph 不可用",
@@ -200,12 +203,12 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
             "只读取这些本地路径",
             "禁止检查私有 MCP 配置",
             "不能静默切换远程来源",
-            "当前会话暴露",
-            "不能把其中 URL 当作普通 HTTP 接口直接请求",
+            "不要求 MCP 预先注册到当前 Codex 会话",
+            "不得用 Web、curl、PowerShell 或其他通用 HTTP 客户端绕过它",
         ):
             self.assertIn(token, text)
 
-    def test_repository_mcp_private_values_are_not_packaged(self) -> None:
+    def test_repository_mcp_templates_package_only_an_empty_endpoint_key(self) -> None:
         for template_name in (".env.example", ".env.prod.example"):
             with self.subTest(template=template_name):
                 text = (
@@ -216,7 +219,8 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
                     / "env"
                     / template_name
                 ).read_text(encoding="utf-8")
-                self.assertNotIn("ZSTT_REPO_MCP_", text)
+                self.assertIn("ZSTT_REPO_MCP_URL=", text)
+                self.assertNotRegex(text, r"(?m)^ZSTT_REPO_MCP_URL=.+$")
 
         root_gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
         self.assertIn(".zstt-kit/.env/.env.local", root_gitignore)

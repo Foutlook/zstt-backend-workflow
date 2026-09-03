@@ -683,7 +683,7 @@ class CliTest(unittest.TestCase):
             exit_code = main(["version"])
 
         self.assertEqual(0, exit_code)
-        self.assertIn("zstt-cli 0.4.0", stdout.getvalue())
+        self.assertIn("zstt-cli 0.4.1", stdout.getvalue())
 
     def test_init_json_error_has_stable_code_and_details(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

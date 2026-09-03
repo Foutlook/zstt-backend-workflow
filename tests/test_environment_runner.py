@@ -144,6 +144,52 @@ class ScopedEnvironmentRunnerTest(unittest.TestCase):
                 json.loads(completed.stdout),
             )
 
+    def test_repository_scope_only_injects_remote_mcp_endpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            runner = self._install_runner(project_root)
+            env_dir = project_root / ".zstt-kit" / ".env"
+            env_dir.mkdir(parents=True)
+            (env_dir / ".env.local").write_text(
+                "ZSTT_ENV=test\n"
+                "ZSTT_REPO_MCP_URL=https://repo.example.test/mcp\n"
+                "ALIBABA_CLOUD_ACCESS_KEY_SECRET=must-not-leak\n",
+                encoding="utf-8",
+            )
+            child_code = (
+                "import json, os; print(json.dumps({"
+                "'env': os.getenv('ZSTT_ENV'), "
+                "'repo': os.getenv('ZSTT_REPO_MCP_URL'), "
+                "'observability_secret': bool(os.getenv('ALIBABA_CLOUD_ACCESS_KEY_SECRET'))}))"
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(runner),
+                    "test",
+                    "repo-mcp",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    child_code,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertEqual(
+                {
+                    "env": "test",
+                    "repo": "https://repo.example.test/mcp",
+                    "observability_secret": False,
+                },
+                json.loads(completed.stdout),
+            )
+
     def test_dms_scope_maps_separate_production_credential(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_root = Path(tmp)

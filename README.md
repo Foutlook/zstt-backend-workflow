@@ -300,7 +300,7 @@ Rules 分为 `constraint`（硬约束）、`decision`（证据满足时采用的
 - **标准降级**：工具不可用时回到本地源码、`rg`、静态证据或局部验证，同时记录证据置信度和未验证边界；
 - **阻塞**：缺少权限、环境、前置数据或关键证据会影响结论时，不输出伪完成或伪通过。
 
-仓库调研采用显式本地路径优先。用户给出 checkout 后，只读取这些路径，不探测或切换远程来源；未给路径时，才检查本机受 Git 忽略的私有配置和当前会话是否真实暴露匹配的只读仓库 MCP。`.env.local` 不会自动注册 MCP，其中的 URL 也不是可直接请求的普通 HTTP 接口。
+仓库调研采用显式本地路径优先。用户给出 checkout 后，只读取这些路径，不探测或切换远程来源；未给路径时，通过本机受 Git 忽略的 `ZSTT_REPO_MCP_URL` 和固定只读客户端调用远程 `codegraph_explore`，不要求当前 Codex 会话预先注册仓库 MCP。私有 URL 只由 `with_env.py` 注入 `repo_mcp_client.py`，Skill 不直接读取，也不得使用通用 HTTP 客户端绕过安全边界。
 
 现有功能分析不要求先创建需求目录。它把产品意图、当前实现、一次运行观察、持久状态和分析推断分开，只回答当前规则、流程和数据来源；只有用户明确要求时才扩展变更影响。新需求转入需求澄清，疑似契约违反转入 Bug Fix，不在功能说明中越界设计或修复。
 
@@ -320,7 +320,7 @@ Copy-Item .zstt-kit\.env\.env.prod.example .zstt-kit\.env\.env.prod.local
 真实 `*.local` 文件受 Git 忽略，不进入安装清单，`zstt update` 不读取或覆盖。生产配置缺失时禁止回退到测试环境。需要让本地只读工具临时使用凭据时，通过范围启动器执行：
 
 ```text
-python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client|dms|es> -- <command> [args...]
+python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-client|dms|es|repo-mcp> -- <command> [args...]
 ```
 
 | Scope | 只注入 |
@@ -329,8 +329,16 @@ python .zstt-kit/runtime/with_env.py <test|prod> <observability|observability-cl
 | `observability-client` | 当前环境的客户端 AK，并临时映射为标准 `ALIBABA_CLOUD_*` |
 | `dms` | 当前环境独立的 `ZSTT_DMS_ALIBABA_CLOUD_*`，并临时映射为标准 `ALIBABA_CLOUD_*` |
 | `es` | `ZSTT_ES_*` |
+| `repo-mcp` | 当前环境的 `ZSTT_REPO_MCP_URL` |
 
-启动器会先清除其他 ZSTT 受管凭据，再向子进程注入当前环境与当前 Scope 所需变量，避免后端/客户端、测试/生产或 DMS/ES 凭据串用。测试与生产 DMS 分别读取 `.env.local` 和 `.env.prod.local`，任一环境缺失时都不会回退到另一环境。
+启动器会先清除其他 ZSTT 受管凭据，再向子进程注入当前环境与当前 Scope 所需变量，避免后端/客户端、测试/生产或 DMS/ES/仓库 MCP 配置串用。测试与生产配置分别读取 `.env.local` 和 `.env.prod.local`，任一环境缺失时都不会回退到另一环境。
+
+远程仓库 MCP 先探测端点是否暴露固定只读工具，再进行有界源码探索：
+
+```text
+python .zstt-kit/runtime/with_env.py <test|prod> repo-mcp -- python .zstt-kit/runtime/repo_mcp_client.py probe
+python .zstt-kit/runtime/with_env.py <test|prod> repo-mcp -- python .zstt-kit/runtime/repo_mcp_client.py explore --repository <repository> --query <query> --max-files <1-20>
+```
 
 SLS 日志使用 `project-databases.json` 中已确认的映射直接查询，示例结构如下；时间使用 Unix 秒，客户端限制单次最多 100 条、时间范围最多 7 天：
 

@@ -40,9 +40,10 @@
 用户明确指定仓库路径
   -> 仅使用指定的本地 checkout
 未指定仓库路径
-  -> 本机私有 .env.local 配置完整 + 当前会话存在匹配的只读 MCP
-  -> 使用远程仓库 MCP
-以上条件不满足或 MCP 调用失败
+  -> 根据明确环境选择 .env.local；未明确时默认 .env.prod.local
+  -> with_env.py 注入 repo-mcp Scope
+  -> repo_mcp_client.py 探测并使用远程仓库 MCP
+以上条件不满足或客户端调用失败
   -> 默认降级
 ```
 
@@ -70,26 +71,44 @@ pending 文件影响主链时，不用旧索引下确定结论；直接读取最
 
 ### 4.2 未指定路径时的私有远程 MCP
 
-只有用户没有指定仓库路径时，才检查 `.zstt-kit/.env/.env.local` 中 `ZSTT_REPO_MCP_*` 配置是否完整。该配置是本机私有数据，必须受 Git 忽略：
+只有用户没有指定仓库路径时，才使用 Kit 的私有远程仓库配置。用户明确指定测试环境时使用 `.zstt-kit/.env/.env.local`；其他情况默认使用 `.zstt-kit/.env/.env.prod.local`。两份文件都必须受 Git 忽略，并使用相同字段：
 
-- 只判断配置项是否存在且完整，不在聊天、命令输出、日志、阶段产物、Skill 或代码中回显真实值；
-- `.env.local` 不负责把 MCP 动态注册到当前会话；还必须确认当前会话实际暴露了与配置匹配的只读 MCP；
-- 禁止使用 shell、Web、普通 HTTP 客户端或其他通用网络工具直接请求配置中的 URL；
-- 不把“配置存在”“工具名称存在”当成调用成功，必须以只读低成本调用验证；
+```dotenv
+ZSTT_REPO_MCP_URL=
+```
+
+不要直接读取该值。所有调用必须经过固定客户端：
+
+```text
+python .zstt-kit/runtime/with_env.py <test|prod> repo-mcp -- \
+  python .zstt-kit/runtime/repo_mcp_client.py probe
+
+python .zstt-kit/runtime/with_env.py <test|prod> repo-mcp -- \
+  python .zstt-kit/runtime/repo_mcp_client.py explore \
+  --repository <repository> --query <query> --max-files <1-20>
+```
+
+规则：
+
+- `with_env.py` 只向仓库客户端注入当前环境的 `ZSTT_REPO_MCP_URL`，不会注入 DMS、Observability 或 ES 凭据；
+- `repo_mcp_client.py` 只允许调用 `codegraph_explore`，并负责 MCP 初始化、会话和输出脱敏；
+- `probe` 成功只证明端点和工具可用；远程结果仍需证明仓库身份、分支或 ref、索引状态和证据覆盖；
+- 禁止使用 Web、curl、PowerShell、普通 HTTP 客户端或当前会话外的临时脚本直接请求私有 URL；
+- 不在聊天、命令输出、日志、阶段产物、Skill 或代码中回显真实 URL；
 - MCP 返回证据时记录仓库、分支或 ref、文件定位方式、能力覆盖和无法读取范围，不记录私有连接信息。
 
-确认可用后：
+探测成功后：
 
-1. 探测仓库清单、文件列表、精确读取、索引搜索、符号和调用关系能力；
+1. 根据 Git remote、需求材料或已确认仓库清单确定 `repository`，避免无边界全仓搜索；
 2. 确认目标仓库、分支或 ref；
 3. 用语义或源码切片定位候选，再读取最终源文件确认；
 4. 记录远程能力覆盖和无法读取的范围。
 
-私有配置不存在或不完整、当前会话没有匹配 MCP、权限不足、仓库不可访问、调用失败或缺少决定性证据时，转入默认降级。不得把真实服务名、URL、Header、Token 或其他鉴权信息补写到受 Git 管理的文件中。
+私有配置不存在或不完整、权限不足、仓库不可访问、工具不匹配、客户端调用失败或缺少决定性证据时，转入默认降级。不得把真实 URL、Header、Token 或其他鉴权信息补写到受 Git 管理的文件中。
 
 ### 4.3 默认降级
 
-没有显式路径且私有 MCP 不可用时，沿用当前任务中已经被用户授权并能确认身份的本地仓库上下文；如果无法唯一确认目标仓库，列出所需仓库并向用户索取路径，不按目录名称猜测。
+没有显式路径且私有仓库客户端不可用时，沿用当前任务中已经被用户授权并能确认身份的本地仓库上下文；如果无法唯一确认目标仓库，列出所需仓库并向用户索取路径，不按目录名称猜测。
 
 选定可信本地 checkout 后，CodeGraph 不可用、索引不覆盖或远程工具失败时：
 

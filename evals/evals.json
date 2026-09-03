@@ -213,10 +213,10 @@
     {
       "id": 20,
       "prompt": "$zstt-repo-research 没有提供本地仓库路径；如果本机私有环境配置了远程仓库 MCP 就使用它，否则按默认方式继续。",
-      "expected_output": "只在没有显式路径时检查本机私有配置是否完整且不回显值，并验证当前会话实际暴露匹配的只读 MCP；可用时通过 MCP 取证，不可用时进入已授权本地上下文、CodeGraph、rg 和逐层源码阅读的默认降级。",
+      "expected_output": "未明确测试环境时默认通过 with_env.py prod repo-mcp 启动固定 repo_mcp_client.py；先 probe 验证只读 codegraph_explore，再按已确认 repository 调用 explore，不要求当前 Codex 会话注册 MCP。配置或调用不可用时进入已授权本地上下文、CodeGraph、rg 和逐层源码阅读的默认降级。",
       "forbidden_output": [
         "不得把配置存在当成 MCP 调用成功",
-        "不得通过普通 HTTP 客户端直接请求私有 URL",
+        "不得读取、回显或通过通用 HTTP 客户端直接请求私有 URL",
         "不得把私有连接信息写入产物"
       ],
       "files": []

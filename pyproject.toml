@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zstt-cli"
-version = "0.4.0"
+version = "0.4.1"
 description = "将 ZSTT Java 后端 Skills、规则和运行时安装到业务仓库"
 readme = "README.md"
 requires-python = ">=3.11"
