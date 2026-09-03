@@ -736,7 +736,7 @@ class PrdCodeGapAnalysisAdvancedCapabilityTest(unittest.TestCase):
             "getInstance",
             "executeScript",
             "createDataChangeOrder",
-            "不回退",
+            "不跨环境回退",
         ):
             self.assertIn(token, dms)
 
