@@ -13,7 +13,7 @@
 - `ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_SECRET`；
 - 可选 `ZSTT_DMS_ALIBABA_CLOUD_SECURITY_TOKEN`。
 
-`with_env.py` 只在 DMS 子进程中把它们映射为标准 `ALIBABA_CLOUD_*`。测试和生产使用不同文件，DMS 凭据不得与 Observability、ES 或其他 Scope 交叉注入，也不得跨环境回退。
+`with_env.py` 只在 DMS 子进程中把它们映射为标准 `ALIBABA_CLOUD_*`。测试和生产使用不同文件，DMS 凭据不得与 Observability、ES 或其他 Scope 交叉注入。默认查询按 `prod` → `test` 顺序分别启动独立子进程；回退只切换环境配置，不得复用或复制另一环境的凭据。
 
 启动形式固定为：
 
@@ -52,5 +52,7 @@
 5. 字符串映射只有在 `"$productionSameAsTest": true` 时可同时作为生产库名。该标记只允许库名相同，不允许复用测试凭据；生产仍必须使用 `prod dms`。
 6. 取得 Schema 和可选实例别名后，必须通过 `searchDatabase` 与 `getInstance` 校验：测试只接受 `EnvType=test`，生产只接受 `EnvType=product`。同环境仍不唯一时让用户确认脱敏后的实例别名。
 7. 文件不得保存 DMS 实例 ID、AccessKey、Token、主机、端口、URL、数据库账号或密码。
+
+默认生产映射缺失、冲突或无法唯一匹配时，记录失败原因后可以解析测试映射继续验证；用户明确指定单一环境时仍按第 4 条停止确认，不跨环境回退。
 
 项目映射与代码配置、运行配置或用户说明冲突时停止并确认，以当前任务中最新、明确、可验证的证据为准。

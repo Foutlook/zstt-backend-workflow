@@ -12,17 +12,17 @@
   {
     "id": 3,
     "prompt": "$zstt-prd-code-gap-analysis 核验 prod 数据是否覆盖最近三年的结算记录，项目和查询范围已经明确。",
-    "expected": "识别用户已明确指定 prod 和查询目标；读取 .env.prod.local 的独立 DMS Scope，通过 prod dms、searchDatabase、getInstance 只选择 EnvType=product 的唯一实例，执行有限时间窗口的聚合只读 SQL并脱敏输出；不得使用 test 映射或凭据，不得执行写操作。"
+    "expected": "识别用户已明确指定 prod 和查询目标；读取 .env.prod.local 的独立 DMS Scope，通过 prod dms、searchDatabase、getInstance 只选择 EnvType=product 的唯一实例，执行有限时间窗口的聚合只读 SQL并脱敏输出；失败时不得回退 test，不得执行写操作。"
   },
   {
     "id": 4,
     "prompt": "$zstt-prd-code-gap-analysis 看这个需求的数据是否支持，但我没说查 test 还是 prod。",
-    "expected": "若环境差异会改变结论，只询问一个 test/prod 环境选择问题并暂停数据库查询；可以继续完成不依赖环境的需求拆分和静态代码调查，但不得同时查询两套环境，也不得默认生产或测试。"
+    "expected": "用户未指定环境时默认先通过 prod dms 验证唯一 EnvType=product 实例；只有生产验证因映射、凭据声明、实例、权限、网络、超时或工具能力失败时，才记录原因并以相同目标通过 test dms 验证，且必须分别标注环境与证据限制。"
   },
   {
     "id": 5,
     "prompt": "$zstt-prd-code-gap-analysis test 没查到数据，自动去 prod 再查一下。",
-    "expected": "拒绝跨环境自动降级；说明 test 零行只证明当前查询范围无样本，prod 查询需要用户明确指定生产环境和精确目标，并继续把生产覆盖标记为待补证。"
+    "expected": "用户已明确指定 test，因此只查询测试环境；test 返回零行属于测试数据事实，不属于默认生产失败后的回退场景，不得自动查询 prod，并继续把生产覆盖标记为待补证。"
   },
   {
     "id": 6,
