@@ -32,7 +32,7 @@ zstt doctor --here
 初始化后主要生成：
 
 ```text
-.agents/skills/zstt-*/         # 13 个 Codex 项目级 Skill
+.agents/skills/zstt-*/         # 14 个 Codex 项目级 Skill
 .zstt-kit/rules/               # 动态工作流和 Java 规则
 .zstt-kit/runtime/             # 状态、指纹和门禁工具
 .zstt-kit/templates/           # Full、Quick 和质量门禁模板
@@ -249,6 +249,6 @@ zstt doctor --here
 
 ## 下一步
 
-- 完整能力、13 个 Skill、产物契约和命令参考：[README.md](README.md)
+- 完整能力、14 个 Skill、产物契约和命令参考：[README.md](README.md)
 - 高级能力来源、融合位置和边界：[高级能力融合矩阵](docs/advanced-capability-matrix.md)
 - 版本变化：[CHANGELOG.md](CHANGELOG.md)

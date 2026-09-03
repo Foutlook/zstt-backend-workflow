@@ -17,6 +17,7 @@ EXPECTED_SKILLS = {
     "zstt-module-refactor",
     "zstt-product-feature-analysis",
     "zstt-repo-research",
+    "zstt-prd-code-gap-analysis",
     "zstt-requirement-checklist",
     "zstt-requirement-clarification",
     "zstt-task-breakdown",

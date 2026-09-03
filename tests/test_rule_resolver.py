@@ -24,14 +24,14 @@ from rule_resolver import (  # noqa: E402
 
 
 class RuleResolverTest(unittest.TestCase):
-    def test_catalog_supports_four_rule_types_and_thirteen_profiles(self) -> None:
+    def test_catalog_supports_four_rule_types_and_fourteen_profiles(self) -> None:
         catalog, _ = load_catalog()
 
         self.assertEqual(
             {"constraint", "decision", "checklist", "reference"},
             set(catalog["ruleTypes"]),
         )
-        self.assertEqual(13, len(catalog["profiles"]))
+        self.assertEqual(14, len(catalog["profiles"]))
         self.assertEqual(16, len(catalog["rules"]))
         self.assertNotIn("zstt-workflow-shared", catalog["profiles"])
         self.assertNotIn("zstt-java-backend-standard", catalog["profiles"])
@@ -65,6 +65,20 @@ class RuleResolverTest(unittest.TestCase):
 
     def test_product_feature_profile_is_read_only_and_evidence_backed(self) -> None:
         result = resolve_rules("zstt-product-feature-analysis")
+        rule_ids = [rule["id"] for rule in result["rules"]]
+
+        self.assertEqual(
+            [
+                "workflow.evidence",
+                "workflow.capability-fallback",
+                "workflow.document-authority",
+            ],
+            rule_ids,
+        )
+        self.assertNotIn("java.core", rule_ids)
+
+    def test_prd_code_gap_profile_is_read_only_and_evidence_backed(self) -> None:
+        result = resolve_rules("zstt-prd-code-gap-analysis")
         rule_ids = [rule["id"] for rule in result["rules"]]
 
         self.assertEqual(

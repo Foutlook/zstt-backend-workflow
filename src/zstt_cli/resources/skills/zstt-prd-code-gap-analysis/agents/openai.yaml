@@ -1,0 +1,7 @@
+interface:
+  display_name: "zstt-prd-code-gap-analysis"
+  short_description: "逐项核对需求与最新代码及 test/prod 数据能力，识别未确认点和已证变更范围"
+  default_prompt: "使用 $zstt-prd-code-gap-analysis 理解这个新增或变更需求，并与最新代码逐项比对；涉及数据时，先确认唯一 test 或 prod 环境，再按 ZSTT DMS 只读链路核验数据支持。"
+
+policy:
+  allow_implicit_invocation: false

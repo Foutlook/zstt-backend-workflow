@@ -105,7 +105,13 @@ try {
         ".agents\skills\zstt-requirement-checklist\test-prompts.json",
         ".agents\skills\zstt-artifact-analysis\SKILL.md",
         ".agents\skills\zstt-artifact-analysis\agents\openai.yaml",
-        ".agents\skills\zstt-artifact-analysis\test-prompts.json"
+        ".agents\skills\zstt-artifact-analysis\test-prompts.json",
+        ".agents\skills\zstt-prd-code-gap-analysis\SKILL.md",
+        ".agents\skills\zstt-prd-code-gap-analysis\agents\openai.yaml",
+        ".agents\skills\zstt-prd-code-gap-analysis\test-prompts.json",
+        ".agents\skills\zstt-prd-code-gap-analysis\references\runtime-bootstrap.md",
+        ".agents\skills\zstt-prd-code-gap-analysis\references\environment-config.md",
+        ".agents\skills\zstt-prd-code-gap-analysis\references\dms-mcp.md"
     )
     foreach ($relativePath in $requiredAuxiliaryFiles) {
         if (-not (Test-Path -LiteralPath (Join-Path $smokeProject $relativePath))) {
@@ -123,7 +129,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Installed ZSTT rule resolver failed catalog validation with exit code $LASTEXITCODE"
     }
-    foreach ($skill in @("zstt-requirement-checklist", "zstt-artifact-analysis")) {
+    foreach ($skill in @("zstt-requirement-checklist", "zstt-artifact-analysis", "zstt-prd-code-gap-analysis")) {
         & $venvPython (Join-Path $smokeProject ".zstt-kit\runtime\rule_resolver.py") resolve --skill $skill
         if ($LASTEXITCODE -ne 0) {
             throw "Installed ZSTT rule resolver failed to resolve $skill with exit code $LASTEXITCODE"

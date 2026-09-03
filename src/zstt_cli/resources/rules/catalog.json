@@ -24,6 +24,11 @@
       "workflow.capability-fallback",
       "workflow.document-authority"
     ],
+    "zstt-prd-code-gap-analysis": [
+      "workflow.evidence",
+      "workflow.capability-fallback",
+      "workflow.document-authority"
+    ],
     "zstt-technical-design": [
       "workflow.protocol",
       "workflow.evidence",

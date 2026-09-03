@@ -63,6 +63,7 @@ class SharedAdvancedCapabilityContractTest(unittest.TestCase):
             "zstt-module-refactor",
             "zstt-bug-fix",
             "zstt-product-feature-analysis",
+            "zstt-prd-code-gap-analysis",
         ):
             with self.subTest(skill=skill):
                 text = read_skill(skill)
@@ -687,6 +688,69 @@ class ProductFeatureAnalysisAdvancedCapabilityTest(unittest.TestCase):
             "事实类型",
             "冲突与未知",
             "分流建议",
+        ):
+            self.assertIn(token, text)
+
+
+class PrdCodeGapAnalysisAdvancedCapabilityTest(unittest.TestCase):
+    def test_prd_code_gap_analysis_uses_zstt_dms_runtime(self) -> None:
+        text = read_skill("zstt-prd-code-gap-analysis")
+        for token in (
+            "references/runtime-bootstrap.md",
+            "references/environment-config.md",
+            "references/dms-mcp.md",
+            "test",
+            "prod",
+            "project-databases.json",
+            "不自动执行推荐的下一阶段",
+        ):
+            self.assertIn(token, text)
+
+        environment = read_reference(
+            "zstt-prd-code-gap-analysis",
+            "environment-config.md",
+        )
+        for token in (
+            ".env.local",
+            ".env.prod.local",
+            "ZSTT_DMS_ALIBABA_CLOUD_ACCESS_KEY_ID",
+            "$productionSameAsTest",
+            "最长配置项",
+            "EnvType=test",
+            "EnvType=product",
+        ):
+            self.assertIn(token, environment)
+
+        dms = read_reference(
+            "zstt-prd-code-gap-analysis",
+            "dms-mcp.md",
+        )
+        for token in (
+            "with_env.py",
+            "dms_mcp_client.py",
+            "searchDatabase",
+            "getInstance",
+            "executeScript",
+            "createDataChangeOrder",
+            "不回退",
+        ):
+            self.assertIn(token, dms)
+
+    def test_prd_code_gap_analysis_preserves_decision_boundaries(self) -> None:
+        text = read_skill("zstt-prd-code-gap-analysis")
+        for token in (
+            "原子需求台账",
+            "最新代码基线",
+            "结构支持",
+            "链路支持",
+            "实际数据支持",
+            "需求—代码与数据追踪矩阵",
+            "需求待确认",
+            "证据待补",
+            "确定需变更",
+            "联动核查",
+            "无需变更",
+            "不修改业务代码",
         ):
             self.assertIn(token, text)
 

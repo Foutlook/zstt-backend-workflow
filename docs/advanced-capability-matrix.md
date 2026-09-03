@@ -66,6 +66,14 @@
 | 同上 | 只有明确要求时才分析变更影响 | `zstt-product-feature-analysis/SKILL.md` | 已融合 | 新需求转需求澄清，疑似契约违反转 Bug Fix，不在本 Skill 中设计或修复 |
 | ZSTT 产品约束 | 阶段中立和可选留档 | `assets/feature-analysis-template.md` | 适配后融合 | 默认不创建文件；明确要求时写 `.zstt/analyses/features/`，不得替代需求、调研或方案 |
 
+## 需求与现状差异分析
+
+| 来源 | 原能力 | ZSTT 落点 | 状态 | 适配说明 |
+|---|---|---|---|---|
+| `agent-skills/prd-code-gap-analysis` | 原子需求、当前行为和变更范围逐项判定 | `zstt-prd-code-gap-analysis/SKILL.md` | 适配后融合 | 保持阶段中立和默认聊天交付，不生成正式需求、调研、方案或实现 |
+| `agent-skills/read-code-with-codegraph` | 最新 release/bugfix 识别、远程 CodeGraph 优先和安全本地切换 | 同上 | 适配后融合 | 每仓记录来源、目标分支与提交；工作区不干净或无法快进时停止切换 |
+| ZSTT DMS Runtime | 结构、链路和实际数据覆盖三层核验 | `references/environment-config.md`、`references/dms-mcp.md` | 已融合 | 通过 `project-databases.json`、`with_env.py` 和 `dms_mcp_client.py` 隔离 test/prod；prod 必须显式指定，失败不跨环境回退 |
+
 ## 技术方案
 
 | 来源 | 原能力 | ZSTT 落点 | 状态 | 适配说明 |

@@ -233,6 +233,7 @@ class SupportingSkillContractTest(unittest.TestCase):
             "zstt-module-refactor",
             "zstt-bug-fix",
             "zstt-product-feature-analysis",
+            "zstt-prd-code-gap-analysis",
         ):
             with self.subTest(name=name):
                 self.assertLess(len(read_skill(name).splitlines()), 500)
@@ -321,6 +322,44 @@ class SupportingSkillContractTest(unittest.TestCase):
             "不确认 Bug",
         ):
             self.assertIn(token, text)
+
+    def test_prd_code_gap_analysis_is_read_only_and_stage_neutral(self) -> None:
+        text = read_skill("zstt-prd-code-gap-analysis")
+        self.assertEqual(
+            "zstt-prd-code-gap-analysis",
+            frontmatter_value(text, "name"),
+        )
+        for token in (
+            "仅当用户明确指定",
+            "阶段中立",
+            "不创建或修改 `00-requirement.md`",
+            "rulesetFingerprint",
+            "最新代码基线",
+            "release/",
+            "bugfix/",
+            "远程 MCP",
+            "安全切换",
+            "需求—代码与数据追踪矩阵",
+            "test",
+            "prod",
+            "不自动执行推荐的下一阶段",
+        ):
+            self.assertIn(token, text)
+
+        prompts = json.loads(
+            (
+                SKILLS
+                / "zstt-prd-code-gap-analysis"
+                / "test-prompts.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertGreaterEqual(len(prompts), 3)
+        for prompt in prompts:
+            self.assertIn(
+                "$zstt-prd-code-gap-analysis",
+                prompt["prompt"],
+            )
+            self.assertTrue(prompt["expected"])
 
     def test_test_verify_classifies_differences(self) -> None:
         text = read_skill("zstt-test-verify")

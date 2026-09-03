@@ -790,7 +790,7 @@ class CliTest(unittest.TestCase):
             self.assertTrue(result["healthy"])
             self.assertTrue(result["codexDiscoverable"])
             self.assertEqual("normal", result["installationStatus"])
-            self.assertEqual(13, len(result["expectedSkills"]))
+            self.assertEqual(14, len(result["expectedSkills"]))
             self.assertEqual([], result["missingSkills"])
 
     def test_doctor_uses_git_root_when_called_from_repository_subdirectory(self) -> None:

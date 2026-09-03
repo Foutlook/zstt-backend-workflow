@@ -131,6 +131,10 @@ class WorkflowContractsTest(unittest.TestCase):
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
         self.assertNotIn("zstt-product-feature-analysis", fixed_skills)
 
+    def test_prd_code_gap_analysis_is_not_a_fixed_stage(self) -> None:
+        fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
+        self.assertNotIn("zstt-prd-code-gap-analysis", fixed_skills)
+
     def test_artifact_analysis_is_not_a_fixed_stage(self) -> None:
         fixed_skills = {stage.skill for stage in FULL_STAGES + QUICK_STAGES}
         self.assertNotIn("zstt-artifact-analysis", fixed_skills)
