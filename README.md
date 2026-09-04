@@ -436,6 +436,7 @@ zstt doctor --here --json
 | `workflow_cli.py current` | 按当前 Git 分支解析唯一活动需求 |
 | `workflow_cli.py status` | 输出阶段、推荐、指纹、SQL 与质量门禁状态 |
 | `workflow_cli.py bind-branch` | 将没有分支信息的历史需求绑定到当前分支 |
+| `workflow_cli.py rebind-branch` | 在用户确认开发 checkout 后，校验原绑定并迁移到当前分支 |
 | `workflow_cli.py close` | 完成必需阶段后显式关闭，主要用于跳过 Quick 可选阶段 |
 | `workflow_cli.py validate` | 只校验指定阶段产物 |
 | `workflow_cli.py prepare-stage` | 重新校验上游并创建目标阶段模板 |
@@ -452,6 +453,7 @@ zstt doctor --here --json
 python .zstt-kit/runtime/workflow_cli.py init --repo-root <repo> --mode full --feature-name <name>
 python .zstt-kit/runtime/workflow_cli.py list --repo-root <repo>
 python .zstt-kit/runtime/workflow_cli.py current --repo-root <repo>
+python .zstt-kit/runtime/workflow_cli.py rebind-branch --repo-root <repo> --feature-dir <feature-dir> --from-branch <原分支>
 python .zstt-kit/runtime/workflow_cli.py status --current --repo-root <repo>
 python .zstt-kit/runtime/workflow_cli.py prepare-stage --feature-dir <feature-dir> --stage repo_research
 python .zstt-kit/runtime/workflow_cli.py complete-stage --feature-dir <feature-dir> --stage requirement_clarification
@@ -487,6 +489,7 @@ python .zstt-kit/runtime/rule_resolver.py resolve --skill zstt-implementation --
 | Codex 找不到 `$zstt-*` | 在当前业务 Git 仓库运行 `zstt doctor --here`；修复仓库边界后重新初始化并新建 Codex 任务 |
 | `current` 找不到或匹配多个需求 | 用 `list` 查看候选；显式传 `--feature-dir`，或关闭/绑定不正确的需求 |
 | 历史需求没有分支 | 确认目标后运行 `bind-branch`，不要按时间猜测 |
+| 实现阶段改用指定分支或 worktree | 先由用户确认开发载体；目标 checkout 中产物完整时运行 `rebind-branch --from-branch <原分支>`，原值不匹配时停止 |
 | 缺少上游文件 | 回到对应 Skill 补齐，不手工创建后续空文档 |
 | 用户修改已完成产物 | 核对影响并重新完成被修改阶段；Runtime 会重新校验并撤销下游旧状态 |
 | Checklist/分析报告为 `stale` | 先确认上游修正，再重新执行对应质量 Skill |

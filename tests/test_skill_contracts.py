@@ -173,6 +173,11 @@ class ExecutionSkillContractTest(unittest.TestCase):
             "保留既有注释",
             "java.jackson",
             "rule_resolver.py",
+            "指定分支",
+            "worktree",
+            "origin/master",
+            "不得替用户选择",
+            "rebind-branch",
             "04-implementation.md",
         ):
             self.assertIn(token, text)

@@ -641,6 +641,67 @@ def bind_branch(args: argparse.Namespace) -> int:
     return 0
 
 
+def rebind_branch(args: argparse.Namespace) -> int:
+    """Move an existing feature binding after the user confirms a development checkout."""
+    repo_root = Path(args.repo_root).resolve()
+    feature_dir = Path(args.feature_dir).resolve()
+    expected_root = repo_root / ".zstt"
+    if (
+        feature_dir.parent.parent != expected_root
+        or feature_dir.parent.name not in {"features", "quick"}
+    ):
+        raise WorkflowError(
+            "ZSTT_FEATURE_PATH_INVALID",
+            "rebind-branch 的需求目录必须位于指定仓库的 .zstt/features 或 .zstt/quick",
+            {
+                "repoRoot": str(repo_root),
+                "featureDir": str(feature_dir),
+            },
+        )
+    branch = current_git_branch(repo_root)
+    if not branch:
+        raise WorkflowError(
+            "ZSTT_GIT_BRANCH_UNAVAILABLE",
+            "无法确定当前 Git 分支，不能重新绑定需求",
+            {"repoRoot": str(repo_root)},
+        )
+    meta = read_meta(feature_dir)
+    existing = meta.get("git_branch")
+    if not existing:
+        raise WorkflowError(
+            "ZSTT_BRANCH_REBIND_SOURCE_MISSING",
+            "需求尚未绑定 Git 分支；请使用 bind-branch",
+            {"featureDir": str(feature_dir)},
+        )
+    if existing != args.from_branch:
+        # 调用方必须准确声明旧绑定，避免用过期上下文覆盖已被他人迁移的状态。
+        raise WorkflowError(
+            "ZSTT_BRANCH_REBIND_SOURCE_MISMATCH",
+            f"需求当前绑定分支与声明的原分支不一致: {existing}",
+            {
+                "expectedExistingBranch": args.from_branch,
+                "actualExistingBranch": existing,
+                "currentGitBranch": branch,
+                "featureDir": str(feature_dir),
+            },
+        )
+    meta["git_branch"] = branch
+    write_meta(feature_dir, meta)
+    print(
+        json.dumps(
+            {
+                "feature_dir": str(meta["feature_dir"]),
+                "previous_git_branch": existing,
+                "git_branch": branch,
+                "rebound": existing != branch,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
 def close_workflow(args: argparse.Namespace) -> int:
     """Close a workflow explicitly after all mandatory stages are fresh."""
     if args.feature_dir:
@@ -1403,6 +1464,15 @@ def build_parser() -> argparse.ArgumentParser:
     bind_parser.add_argument("--repo-root", default=".")
     bind_parser.set_defaults(handler=bind_branch)
 
+    rebind_parser = subparsers.add_parser(
+        "rebind-branch",
+        help="在用户确认开发 checkout 后，把需求从声明的原分支绑定到当前分支",
+    )
+    rebind_parser.add_argument("--feature-dir", required=True)
+    rebind_parser.add_argument("--repo-root", default=".")
+    rebind_parser.add_argument("--from-branch", required=True)
+    rebind_parser.set_defaults(handler=rebind_branch)
+
     close_parser = subparsers.add_parser(
         "close",
         help="完成必需阶段后显式关闭工作流",
@@ -1518,6 +1588,7 @@ def operation_error(
         "current": "ZSTT_CURRENT_RESOLUTION_FAILED",
         "status": "ZSTT_STATE_INVALID",
         "bind-branch": "ZSTT_BRANCH_BINDING_BLOCKED",
+        "rebind-branch": "ZSTT_BRANCH_REBIND_BLOCKED",
         "close": "ZSTT_WORKFLOW_CLOSE_BLOCKED",
         "validate": "ZSTT_ARTIFACT_INVALID",
         "complete-stage": "ZSTT_STAGE_COMPLETION_BLOCKED",

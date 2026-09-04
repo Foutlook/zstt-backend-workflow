@@ -687,6 +687,59 @@ class WorkflowCliInitTest(unittest.TestCase):
                 json.loads(completed.stdout)["error"]["code"],
             )
 
+    def test_rebind_branch_requires_and_updates_expected_existing_branch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "master")
+            feature_dir = init_feature(repo_root)
+            set_git_branch(repo_root, "feature/order-export")
+
+            rebound = run_cli(
+                "rebind-branch",
+                "--feature-dir",
+                str(feature_dir),
+                "--repo-root",
+                str(repo_root),
+                "--from-branch",
+                "master",
+            )
+
+            self.assertEqual(0, rebound.returncode, rebound.stderr)
+            payload = json.loads(rebound.stdout)
+            self.assertEqual("master", payload["previous_git_branch"])
+            self.assertEqual("feature/order-export", payload["git_branch"])
+            self.assertTrue(payload["rebound"])
+            current = run_cli("current", "--repo-root", str(repo_root))
+            self.assertEqual(0, current.returncode, current.stderr)
+
+    def test_rebind_branch_rejects_stale_source_without_changing_meta(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            set_git_branch(repo_root, "master")
+            feature_dir = init_feature(repo_root)
+            set_git_branch(repo_root, "feature/order-export")
+
+            blocked = run_cli(
+                "--json",
+                "rebind-branch",
+                "--feature-dir",
+                str(feature_dir),
+                "--repo-root",
+                str(repo_root),
+                "--from-branch",
+                "release/incorrect",
+            )
+
+            self.assertEqual(2, blocked.returncode)
+            self.assertEqual(
+                "ZSTT_BRANCH_REBIND_SOURCE_MISMATCH",
+                json.loads(blocked.stdout)["error"]["code"],
+            )
+            meta = json.loads(
+                (feature_dir / "meta.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("master", meta["git_branch"])
+
     def test_init_full_creates_only_meta_and_requirement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo_root = Path(tmp)

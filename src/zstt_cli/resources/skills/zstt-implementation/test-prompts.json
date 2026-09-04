@@ -13,5 +13,25 @@
     "id": 3,
     "prompt": "$zstt-implementation 工作区开始前已经有用户改动，我又需要修改其中一个相同文件。请实现并记录实际变化。",
     "expected": "读取 implementation-evidence.json 的文件级基线和完整定向 diff，把相同文件继续变化标为不可自动归因；只有存在可核对的 patch、提交或会话证据时才隔离本轮 hunk，否则停止并请求用户确认，不得把整个文件归为本轮或重置用户改动。"
+  },
+  {
+    "id": 4,
+    "prompt": "$zstt-implementation 开始编码吧，开发分支和目录你看着办。",
+    "expected": "在修改代码前要求用户明确选择指定分支或独立 worktree，并确认开发分支名；worktree 还需确认目标路径，不得替用户选择或直接在当前分支编码。"
+  },
+  {
+    "id": 5,
+    "prompt": "$zstt-implementation 使用 worktree，新建 feature/order-export；当前远程 master 无法 fetch，但本地 master 和 main 都可用。",
+    "expected": "停止创建；新分支只能在成功 fetch 并验证后从最新 origin/master 创建，不得使用本地旧 master、main 或其他猜测基线。"
+  },
+  {
+    "id": 6,
+    "prompt": "$zstt-implementation 使用 worktree，新分支和路径已确认，但需求文档只存在于当前工作区且未提交。",
+    "expected": "说明目标 worktree 无法取得当前权威需求产物并停止，禁止自动 stash、commit、复制需求目录或手改 meta.json，等待用户决定如何迁移或改用指定分支。"
+  },
+  {
+    "id": 7,
+    "prompt": "$zstt-implementation 用户已确认从 master 创建 feature/order-export worktree，目标 checkout 中需求完整，但 meta.json 仍绑定 master。",
+    "expected": "展示原分支和当前开发分支，使用 rebind-branch 并以 master 作为 from-branch 做原值校验；成功后才准备实现阶段，校验不一致时停止，不手改 meta.json 或绕过冲突。"
   }
 ]

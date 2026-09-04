@@ -18,9 +18,13 @@ description: ZSTT Java 后端编码实现阶段。仅当用户明确指定 $zstt
 3. 完整读取本阶段 `references/advanced-playbook.md`。
 4. full 读取 `00`–`03` 主产物；quick 读取 `00-requirement.md`。根据任务、完整目标文件、真实调用链和最终数据源追加 `jackson`、`data-access`、`transaction`、`concurrency`、`abstraction`、`design-patterns` 或 `ddd` 等上下文并重新解析；不得只凭文件名选择规则。
 5. 用户显式给出的需求目录优先；未给目录时运行 `current --repo-root <业务仓库>`，仅接受当前 Git 分支上的唯一未完成需求。0 个或多个候选时运行 `list --repo-root <业务仓库>` 展示候选并要求用户选择，禁止按日期猜测。
-6. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage implementation --feature-dir <需求目录>`。CLI 重新校验上游、创建实现产物，并把当前 Git 工作区自动保存为 `auxiliary/implementation-evidence.json` 基线。
-7. Runtime 按“存在即消费”处理可选质量门禁：Full 检查 `analysis/artifact-analysis.md`，Quick 检查 `checklists/requirements.md`；文件不存在表示用户跳过，存在 P0、输入指纹过期或报告无效时停止，只有 P1/P2 时记录风险后继续。不得删除报告来规避已经发现的问题。
-8. 读取自动生成的实现证据并核对目标文件定向 diff。Runtime 只保存文件级路径和内容指纹，用于区分基线后出现变化、既存未变、既存继续变化和已消失基线；这些分类都不是代码归属结论。新上下文中若没有可核对的 patch、提交或会话记录，就不能从 SHA 恢复同文件的原始 hunk，必须明确无法精确归属并请求用户确认。不要使用破坏性命令回滚。
+6. 在修改业务代码前，必须让用户明确选择开发载体：`指定分支` 或独立 `worktree`；不得替用户选择。用户还需确认开发分支名，选择 worktree 时同时确认目标路径。先运行 `git status --short` 和 `git worktree list --porcelain`，核对当前改动、分支与 worktree 占用关系。
+7. 已有开发分支只按用户指定使用，不自动 merge 或 rebase。需要新建开发分支时，必须先成功执行 `git fetch --prune origin master` 并验证 `origin/master`，再从最新 `origin/master` 创建；禁止从本地旧 `master` 创建，也不得回退到 `main` 或其他猜测基线。指定分支模式使用等价于 `git switch -c <开发分支> origin/master` 的操作；worktree 模式使用等价于 `git worktree add -b <开发分支> <目标路径> origin/master` 的操作。
+8. 切换分支会影响未提交内容、分支已被其他 worktree 占用、目标路径非空、远程更新失败，或目标 checkout 缺少该需求的 `.zstt` 权威产物和 `.zstt-kit` 时停止并说明解除条件。不得自动 stash、commit、复制需求产物、手改 `meta.json`、强制切换或删除 worktree。已有目标 worktree 时进入其路径继续，不重复创建。
+9. 进入用户确认的目标 checkout 后，重新核对仓库根目录、当前分支、HEAD、需求目录和 Runtime 可用性；后续 `prepare-stage`、代码修改、验证与完成命令必须都在该 checkout 内执行。需求状态仍绑定原分支时，向用户展示原分支和当前开发分支；只有本轮已确认开发载体时才运行 `rebind-branch --from-branch <原分支> --feature-dir <需求目录> --repo-root <目标仓库>`。原分支校验失败时停止，不得手改 `meta.json` 或靠显式路径绕过冲突。
+10. 运行 `python .zstt-kit/runtime/workflow_cli.py prepare-stage --stage implementation --feature-dir <需求目录>`。CLI 重新校验上游、创建实现产物，并把目标 checkout 的当前 Git 工作区自动保存为 `auxiliary/implementation-evidence.json` 基线。
+11. Runtime 按“存在即消费”处理可选质量门禁：Full 检查 `analysis/artifact-analysis.md`，Quick 检查 `checklists/requirements.md`；文件不存在表示用户跳过，存在 P0、输入指纹过期或报告无效时停止，只有 P1/P2 时记录风险后继续。不得删除报告来规避已经发现的问题。
+12. 读取自动生成的实现证据并核对目标文件定向 diff。Runtime 只保存文件级路径和内容指纹，用于区分基线后出现变化、既存未变、既存继续变化和已消失基线；这些分类都不是代码归属结论。新上下文中若没有可核对的 patch、提交或会话记录，就不能从 SHA 恢复同文件的原始 hunk，必须明确无法精确归属并请求用户确认。不要使用破坏性命令回滚。
 
 ## 实现顺序
 
@@ -67,6 +71,6 @@ full 更新 `04-implementation.md`；quick 更新 `01-implementation.md`。主�
 
 ## 禁止事项
 
-- 不自动执行代码评审、Git commit、push、合并或部署。
+- 不自动执行代码评审、Git commit、push、合并、删除开发分支、移除 worktree 或部署。
 - 不把未执行的测试写成已通过。
 - 不因实现困难而扩展需求或增加未经证明的兼容逻辑。
