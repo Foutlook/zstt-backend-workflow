@@ -208,6 +208,39 @@ class RepositoryResearchAdvancedCapabilityTest(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
+    def test_research_requires_scope_discriminator_evidence(self) -> None:
+        skill = read_skill("zstt-repo-research")
+        playbook = read_reference("zstt-repo-research", "advanced-playbook.md")
+        template = (TEMPLATES / "full" / "01-research.md").read_text(
+            encoding="utf-8"
+        )
+        for token in (
+            "业务范围判定门禁",
+            "目标正例",
+            "非目标反例",
+            "能否唯一判定",
+            "不可单独使用",
+            "分支/提交差异",
+        ):
+            self.assertIn(token, skill)
+        self.assertIn("业务范围判定与正反例", playbook)
+        self.assertIn("业务范围判定矩阵", template)
+
+    def test_research_defaults_to_fresh_master_or_release_baseline(self) -> None:
+        skill = read_skill("zstt-repo-research")
+        playbook = read_reference("zstt-repo-research", "advanced-playbook.md")
+        template = (TEMPLATES / "full" / "01-research.md").read_text(
+            encoding="utf-8"
+        )
+        for text in (skill, playbook, template):
+            self.assertIn("用户未指定分支", text)
+            self.assertIn("master", text)
+            self.assertIn("release/*", text)
+            self.assertIn("祖先/分叉关系", text)
+        self.assertIn("刷新可信远程引用", skill)
+        self.assertIn("相关行为不同时建立 P0", skill)
+        self.assertIn("未取得", skill)
+
     def test_repository_mcp_templates_package_only_an_empty_endpoint_key(self) -> None:
         for template_name in (".env.example", ".env.prod.example"):
             with self.subTest(template=template_name):
@@ -675,6 +708,36 @@ class ProductFeatureAnalysisAdvancedCapabilityTest(unittest.TestCase):
             "变更影响",
         ):
             self.assertIn(token, text)
+
+    def test_design_enforces_scope_gate(self) -> None:
+        skill = read_skill("zstt-technical-design")
+        playbook = read_reference("zstt-technical-design", "advanced-playbook.md")
+        template = (TEMPLATES / "full" / "02-design.md").read_text(
+            encoding="utf-8"
+        )
+        for text in (skill, playbook, template):
+            self.assertIn("Scope Gate", text)
+            self.assertIn("目标正例", text)
+            self.assertIn("非目标反例", text)
+            self.assertIn("能否唯一判定", text)
+        self.assertIn("不得自行缩小、扩大或替换需求范围", skill)
+        self.assertIn("不得合并、改名或省略", skill)
+        self.assertIn("不得合并、改名或省略", template)
+        self.assertIn("$zstt-repo-research", playbook)
+
+    def test_design_rejects_stale_unspecified_branch_baseline(self) -> None:
+        skill = read_skill("zstt-technical-design")
+        playbook = read_reference("zstt-technical-design", "advanced-playbook.md")
+        template = (TEMPLATES / "full" / "02-design.md").read_text(
+            encoding="utf-8"
+        )
+        for text in (skill, playbook, template):
+            self.assertIn("用户未指定分支", text)
+            self.assertIn("master", text)
+            self.assertIn("release/*", text)
+        self.assertIn("基线过期", skill)
+        self.assertIn("未取得", skill)
+        self.assertIn("$zstt-repo-research", skill)
 
     def test_product_feature_template_is_optional_and_non_authoritative(self) -> None:
         text = (

@@ -23,5 +23,15 @@
     "id": 5,
     "prompt": "$zstt-technical-design 调研有 C01/C02，方案准备让 C02 直接形成代码改动但没有 Dxx，并把一个待确认 D03 放入任务交接。",
     "expected": "拒绝让 Cxx 绕过 Dxx，要求每个输入有唯一去向；待确认 Dxx 计为 P0，不进入代码改动落点或任务交接。"
+  },
+  {
+    "id": 6,
+    "prompt": "$zstt-technical-design 需求只对秋季自适应流程调整帮助顺序。调研 C01 证明 usingType=TobPreview 被秋季和暑期共用，C02 证明课程 flow_type=2 才表示秋季自适应；当前候选方案却只用 usingType 做判定。",
+    "expected": "Scope Gate 失败，拒绝 usingType 单条件方案；要求记录目标正例和暑期反例，将 flow_type 的可信来源、传播与消费链路纳入 Dxx，在证据或实施分支能力缺失时保持草稿和 P0，不继续任务拆分。"
+  },
+  {
+    "id": 7,
+    "prompt": "$zstt-technical-design 调研产物用的是本地旧 feature 分支，用户没有指定分支；现在最新 master 和最新 release 都有新提交，但调研未做比较。",
+    "expected": "将调研基线视为过期，保持草稿和 P0；要求刷新远程引用并同时比较最新 master/main 与最新 release/* 的 tip、祖先/分叉关系和需求相关行为，回到 zstt-repo-research 补调研，不用当前 checkout 直接定稿。"
   }
 ]
