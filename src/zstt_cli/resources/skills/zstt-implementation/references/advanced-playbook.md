@@ -12,20 +12,24 @@
 
 | 模式 | 用户必须确认 | 执行边界 |
 |---|---|---|
-| 指定分支 | 开发分支名 | 已存在则在工作区干净且未被其他 worktree 占用时切换；不存在则从最新 `origin/master` 新建 |
-| 独立 worktree | 开发分支名、worktree 绝对路径 | 已有匹配 worktree 则进入该路径；否则从最新 `origin/master` 同时创建分支和 worktree |
+| 指定分支 | 开发分支名 | 已存在则在工作区干净且未被其他 worktree 占用时切换；不存在则从自动确定的最新远程代码基线新建 |
+| 独立 worktree | 开发分支名、worktree 绝对路径 | 已有匹配 worktree 则进入该路径；否则从自动确定的最新远程代码基线同时创建分支和 worktree |
 
 先读取 `git status --short`、`git branch --show-current`、`git rev-parse HEAD` 和 `git worktree list --porcelain`，确认工作区改动、当前提交、分支是否已经被其他 worktree 使用，以及目标路径是否安全。
 
 只要需要新建开发分支，都执行以下基线规则：
 
-1. 运行 `git fetch --prune origin master`；失败时停止，不能声称已取得最新代码。
-2. 验证 `origin/master` 存在并记录其提交 ID。远程没有 `master` 时让用户处理，不自动改用 `main`、本地 `master` 或默认分支。
-3. 指定分支模式从 `origin/master` 创建并切换，语义等价于 `git switch -c <开发分支> origin/master`。
-4. worktree 模式从 `origin/master` 创建，语义等价于 `git worktree add -b <开发分支> <目标路径> origin/master`。
-5. 创建后重新验证目标 checkout 的仓库根目录、分支和 HEAD；HEAD 必须等于创建时记录的 `origin/master` 提交。
+1. 运行 `git fetch --prune origin` 更新全部远程引用；失败时停止，不能使用本地缓存引用声称已取得最新代码。
+2. 验证 `origin/master`，并从 `refs/remotes/origin` 自动枚举符合仓库约定的 `release`、`release/*`、`release-*` 候选。优先使用仓库已有版本命名规则比较版本；版本相同时使用尖端提交时间。没有 release 候选时使用 master；存在多个候选却无法可靠排序时，展示分支、版本、提交 ID 和提交时间后停止，不要求用户预先指定 release，也不静默猜测。
+3. 记录最新 release 和 master 的精确提交 ID，执行双向 `git merge-base --is-ancestor`：
+   - release 是 master 的祖先：已完成回合并，选择 master；
+   - master 是 release 的祖先且提交不同：处于发布后回合并时间差，选择 release；
+   - 双方都不是对方祖先：分支已分叉，停止并展示各自独有提交，不自动 merge、rebase 或按提交时间二选一。
+4. 指定分支模式从所选基线提交创建并切换，语义等价于 `git switch -c <开发分支> <基线提交ID>`。
+5. worktree 模式从所选基线提交创建，语义等价于 `git worktree add -b <开发分支> <目标路径> <基线提交ID>`。
+6. 创建后重新验证目标 checkout 的仓库根目录、分支和 HEAD；HEAD 必须等于记录的基线提交 ID。基线报告至少记录最新 release、master、祖先关系、最终基线分支和提交 ID。
 
-已有开发分支不自动 merge、rebase 或重置到 `master`。分支已被其他 worktree 占用时进入已有 worktree，不强制 checkout；目标路径已存在且非空时停止。任何会影响未提交内容的切换都停止，不自动 stash、commit、复制文件、强制切换、删除分支、执行 `git worktree remove` 或 `git worktree prune`。
+已有开发分支不自动 merge、rebase 或重置到 master/release。分支已被其他 worktree 占用时进入已有 worktree，不强制 checkout；目标路径已存在且非空时停止。任何会影响未提交内容的切换都停止，不自动 stash、commit、复制文件、强制切换、删除分支、执行 `git worktree remove` 或 `git worktree prune`。
 
 目标 checkout 必须能够读取当前需求的 `.zstt` 权威产物和 `.zstt-kit`。缺失产物或只有源工作区的未提交需求文件时，说明阻塞和可选处理方式并等待用户决定，不得自动迁移产物。若 `meta.json` 仍绑定原分支，展示记录值和当前开发分支；只有用户已确认本轮指定分支/worktree 时，才运行 `rebind-branch --from-branch <记录的原分支> --feature-dir <需求目录> --repo-root <目标仓库>`。命令会校验原绑定与当前分支，失败时停止；不得手改 `meta.json` 或靠显式 `--feature-dir` 绕过绑定冲突。确认可用后，后续 Runtime 命令、代码修改和验证都固定在该 checkout 内执行。
 

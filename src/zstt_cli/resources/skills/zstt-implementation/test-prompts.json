@@ -21,8 +21,8 @@
   },
   {
     "id": 5,
-    "prompt": "$zstt-implementation 使用 worktree，新建 feature/order-export；当前远程 master 无法 fetch，但本地 master 和 main 都可用。",
-    "expected": "停止创建；新分支只能在成功 fetch 并验证后从最新 origin/master 创建，不得使用本地旧 master、main 或其他猜测基线。"
+    "prompt": "$zstt-implementation 使用 worktree，新建 feature/order-export；git fetch origin 失败，但本地缓存的 master 和 release 都可用。",
+    "expected": "停止创建；远程引用必须在本轮成功 fetch 后才能参与最新基线判断，不得使用本地缓存的 master、release 或其他猜测基线。"
   },
   {
     "id": 6,
@@ -33,5 +33,20 @@
     "id": 7,
     "prompt": "$zstt-implementation 用户已确认从 master 创建 feature/order-export worktree，目标 checkout 中需求完整，但 meta.json 仍绑定 master。",
     "expected": "展示原分支和当前开发分支，使用 rebind-branch 并以 master 作为 from-branch 做原值校验；成功后才准备实现阶段，校验不一致时停止，不手改 meta.json 或绕过冲突。"
+  },
+  {
+    "id": 8,
+    "prompt": "$zstt-implementation 新建开发分支。远程最新 release/2026.09 包含 master，且还有尚未回合并 master 的发布提交。",
+    "expected": "自动枚举 release 候选并通过双向 merge-base 证明 master 是最新 release 的祖先，选择 release/2026.09 的精确提交作为新分支基线，不要求用户指定 release。"
+  },
+  {
+    "id": 9,
+    "prompt": "$zstt-implementation 新建开发分支。最新 release/2026.09 已经是 origin/master 的祖先。",
+    "expected": "通过双向 merge-base 证明 release 已回合并 master，选择 origin/master 的精确提交作为新分支基线，并记录比较证据。"
+  },
+  {
+    "id": 10,
+    "prompt": "$zstt-implementation 新建开发分支。最新 release 和 master 各有对方不包含的提交。",
+    "expected": "识别为分叉并停止，展示双方独有提交；不得按分支名或提交时间自动选边，也不得擅自 merge 或 rebase。"
   }
 ]
