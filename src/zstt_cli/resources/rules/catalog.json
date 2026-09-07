@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rulesetVersion": "1.4.1",
+  "rulesetVersion": "1.4.2",
   "ruleTypes": {
     "constraint": "必须遵守的硬约束；违反时应停止、修正或形成阻塞。",
     "decision": "只有实际证据满足适用条件时才采用的工程决策。",
@@ -11,23 +11,27 @@
     "zstt-requirement-clarification": [
       "workflow.protocol",
       "workflow.capability-fallback",
-      "workflow.document-authority"
+      "workflow.document-authority",
+      "workflow.frontend-boundary"
     ],
     "zstt-repo-research": [
       "workflow.protocol",
       "workflow.evidence",
       "workflow.capability-fallback",
-      "workflow.document-authority"
+      "workflow.document-authority",
+      "workflow.frontend-boundary"
     ],
     "zstt-product-feature-analysis": [
       "workflow.evidence",
       "workflow.capability-fallback",
-      "workflow.document-authority"
+      "workflow.document-authority",
+      "workflow.frontend-boundary"
     ],
     "zstt-prd-code-gap-analysis": [
       "workflow.evidence",
       "workflow.capability-fallback",
-      "workflow.document-authority"
+      "workflow.document-authority",
+      "workflow.frontend-boundary"
     ],
     "zstt-technical-design": [
       "workflow.protocol",
@@ -36,12 +40,14 @@
       "workflow.document-authority",
       "java.core",
       "java.sql-design",
-      "java.verification"
+      "java.verification",
+      "workflow.frontend-boundary"
     ],
     "zstt-task-breakdown": [
       "workflow.protocol",
       "workflow.document-authority",
-      "java.verification"
+      "java.verification",
+      "workflow.frontend-boundary"
     ],
     "zstt-implementation": [
       "workflow.protocol",
@@ -49,7 +55,8 @@
       "workflow.document-authority",
       "java.core",
       "java.comments",
-      "java.verification"
+      "java.verification",
+      "workflow.frontend-boundary"
     ],
     "zstt-code-review": [
       "workflow.protocol",
@@ -58,14 +65,16 @@
       "workflow.document-authority",
       "java.core",
       "java.comments",
-      "java.verification"
+      "java.verification",
+      "workflow.frontend-boundary"
     ],
     "zstt-test-verify": [
       "workflow.protocol",
       "workflow.evidence",
       "workflow.capability-fallback",
       "workflow.document-authority",
-      "java.verification"
+      "java.verification",
+      "workflow.frontend-boundary"
     ],
     "zstt-code-simplification": [
       "workflow.capability-fallback",
@@ -88,20 +97,30 @@
       "workflow.document-authority",
       "java.core",
       "java.comments",
-      "java.verification"
+      "java.verification",
+      "workflow.frontend-boundary"
     ],
     "zstt-artifact-analysis": [
       "workflow.protocol",
       "workflow.evidence",
-      "workflow.document-authority"
+      "workflow.document-authority",
+      "workflow.frontend-boundary"
     ],
     "zstt-requirement-checklist": [
       "workflow.protocol",
       "workflow.evidence",
-      "workflow.document-authority"
+      "workflow.document-authority",
+      "workflow.frontend-boundary"
     ]
   },
   "rules": [
+    {
+      "id": "workflow.frontend-boundary",
+      "type": "decision",
+      "path": "workflow/frontend-boundary.md",
+      "description": "前后端职责取舍、只读远程前端辅助验证与非阻塞交接边界。",
+      "selectors": ["frontend-boundary"]
+    },
     {
       "id": "workflow.protocol",
       "type": "constraint",

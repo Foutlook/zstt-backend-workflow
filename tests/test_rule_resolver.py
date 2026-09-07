@@ -32,7 +32,7 @@ class RuleResolverTest(unittest.TestCase):
             set(catalog["ruleTypes"]),
         )
         self.assertEqual(14, len(catalog["profiles"]))
-        self.assertEqual(16, len(catalog["rules"]))
+        self.assertEqual(17, len(catalog["rules"]))
         self.assertNotIn("zstt-workflow-shared", catalog["profiles"])
         self.assertNotIn("zstt-java-backend-standard", catalog["profiles"])
 
@@ -48,6 +48,27 @@ class RuleResolverTest(unittest.TestCase):
         self.assertNotIn("java.data-access", rule_ids)
         self.assertNotIn("java.abstraction", rule_ids)
         self.assertNotIn("java.design-patterns", rule_ids)
+
+    def test_frontend_boundary_is_loaded_by_the_twelve_workflow_profiles(self) -> None:
+        catalog, _ = load_catalog()
+        # 职责与降级约束随阶段加载；独立重构和简化不扩大为前端核查。
+        for skill in catalog["profiles"]:
+            with self.subTest(skill=skill):
+                result = resolve_rules(skill)
+                rules = [
+                    rule for rule in result["rules"]
+                    if rule["id"] == "workflow.frontend-boundary"
+                ]
+                if skill in {"zstt-code-simplification", "zstt-module-refactor"}:
+                    self.assertEqual([], rules)
+                    continue
+                self.assertEqual(1, len(rules))
+                self.assertEqual([f"profile:{skill}"], rules[0]["reasons"])
+                self.assertEqual(
+                    RULES / "workflow" / "frontend-boundary.md",
+                    Path(rules[0]["path"]),
+                )
+                self.assertTrue(Path(rules[0]["path"]).is_file())
 
     def test_bug_fix_profile_loads_evidence_and_java_guardrails(self) -> None:
         result = resolve_rules("zstt-bug-fix")
@@ -72,6 +93,7 @@ class RuleResolverTest(unittest.TestCase):
                 "workflow.evidence",
                 "workflow.capability-fallback",
                 "workflow.document-authority",
+                "workflow.frontend-boundary",
             ],
             rule_ids,
         )
@@ -86,6 +108,7 @@ class RuleResolverTest(unittest.TestCase):
                 "workflow.evidence",
                 "workflow.capability-fallback",
                 "workflow.document-authority",
+                "workflow.frontend-boundary",
             ],
             rule_ids,
         )
@@ -104,6 +127,7 @@ class RuleResolverTest(unittest.TestCase):
                         "workflow.protocol",
                         "workflow.evidence",
                         "workflow.document-authority",
+                        "workflow.frontend-boundary",
                     ],
                     rule_ids,
                 )
